@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:rudertelemetrie_mobile_app/components/settings_section.dart';
+import 'package:rudertelemetrie_mobile_app/screens/live_data_screen.dart';
 
 class Home extends StatelessWidget {
   const Home({super.key});
 
-  void handleStartPress() {
-
-  }
-
   @override
-  Widget build(BuildContext _) => FScaffold(
+  Widget build(BuildContext context) => FScaffold(
     header: FHeader(
       title: const Text("Home"),
     ),
@@ -19,9 +16,12 @@ class Home extends StatelessWidget {
       children: [
         SettingsSection(),
         FButton(
-            onPress: handleStartPress,
-            child: const Text("Start")
-        )
+          onPress: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const LiveDataScreen()),
+          ),
+          child: const Text("Start"),
+        ),
       ],
     ),
   );
