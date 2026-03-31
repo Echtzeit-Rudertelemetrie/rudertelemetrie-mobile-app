@@ -1,9 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/simulation_settings_provider.dart';
+import 'package:rudertelemetrie_mobile_app/screens//home_screen.dart';
 
 void main() {
-  runApp(const Application());
+  runApp(
+    MultiProvider(
+      providers: [simulationSettingsProvider],
+      child: const Application(),
+    ),
+  );
 }
 
 class Application extends StatelessWidget {
@@ -28,36 +36,7 @@ class Application extends StatelessWidget {
         data: theme,
         child: FToaster(child: FTooltipGroup(child: child!)),
       ),
-      home: const FScaffold(
-        child: Example(),
-      ),
+      home: const FScaffold(child: Home()),
     );
   }
-}
-
-class Example extends StatefulWidget {
-  const Example({super.key});
-
-  @override
-  State<Example> createState() => _ExampleState();
-}
-
-class _ExampleState extends State<Example> {
-  int _count = 0;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: .min,
-      spacing: 10,
-      children: [
-        Text('Count: $_count'),
-        FButton(
-          onPress: () => setState(() => _count++),
-          suffix: const Icon(FIcons.chevronsUp),
-          child: const Text('Increase'),
-        ),
-      ],
-    ),
-  );
 }
