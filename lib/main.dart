@@ -19,7 +19,7 @@ class Application extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme =
+    final base =
         const <TargetPlatform>{
           .android,
           .iOS,
@@ -27,6 +27,34 @@ class Application extends StatelessWidget {
         }.contains(defaultTargetPlatform)
         ? FThemes.neutral.dark.touch
         : FThemes.neutral.dark.desktop;
+
+    const background = Color(0xFF0c0e1d);
+    final newColors = base.colors.copyWith(
+      primary: const Color(0xFFF45866),
+      primaryForeground: Colors.white,
+      background: background,
+    );
+
+    final theme = base.copyWith(
+      colors: newColors,
+      scaffoldStyle: base.scaffoldStyle.copyWith(backgroundColor: background),
+      buttonStyles: FButtonStyles.inherit(
+        colors: newColors,
+        typography: base.typography,
+        style: base.style,
+        touch: const <TargetPlatform>{.android, .iOS, .fuchsia}.contains(defaultTargetPlatform),
+      ),
+      tileGroupStyle: FTileGroupStyle.inherit(
+        colors: newColors.copyWith(card: background),
+        typography: base.typography,
+        style: base.style,
+      ),
+      sliderStyles: FSliderStyles.inherit(
+        colors: newColors.copyWith(secondary: Colors.white),
+        typography: base.typography,
+        style: base.style,
+      ),
+    );
 
     return MaterialApp(
       supportedLocales: FLocalizations.supportedLocales,

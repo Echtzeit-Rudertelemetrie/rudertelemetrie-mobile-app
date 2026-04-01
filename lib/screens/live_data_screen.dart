@@ -17,6 +17,7 @@ class LiveDataScreen extends StatefulWidget {
 
 class _LiveDataScreenState extends State<LiveDataScreen> {
   late final SignalGeneratorService _sineService;
+  late final SignalGeneratorService _sineService2;
   late final RandomNumberService _heartRateService;
   late final RandomNumberService _powerService;
 
@@ -29,37 +30,46 @@ class _LiveDataScreenState extends State<LiveDataScreen> {
     ]);
     final frequency = context.read<SimulationSettingsModel>().frequency;
     _sineService = SignalGeneratorService(frequency: frequency);
+    _sineService2 = SignalGeneratorService(frequency: frequency * 2);
     _heartRateService = RandomNumberService(min: 60, max: 180);
     _powerService = RandomNumberService(min: 100, max: 400);
+  }
+
+  void _exitScreen() {
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    Navigator.pop(context);
   }
 
   @override
   void dispose() {
     _sineService.dispose();
+    _sineService2.dispose();
     _heartRateService.dispose();
     _powerService.dispose();
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => FScaffold(
-    header: FHeader.nested(
-      title: const Text('Live Data'),
-      prefixes: [
-        FHeaderAction(
-          icon: const Icon(FIcons.arrowLeft),
-          onPress: () => Navigator.pop(context),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => PopScope(
+    onPopInvokedWithResult: (_, _) =>
+        SystemChrome.setPreferredOrientations(DeviceOrientation.values),
+    child: FScaffold(
+      header: FHeader.nested(
+        title: const Text('Live Data'),
+        prefixes: [
+          FHeaderAction(
+            icon: const Icon(FIcons.arrowLeft),
+            onPress: _exitScreen,
+          ),
+        ],
+      ),
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Expanded(
             flex: 3,
-            child: SineWaveChart(signal: _sineService.signal),
+            child: SineWaveChart(signals: [_sineService.signal, _sineService2.signal]),
           ),
           const SizedBox(width: 24),
           SizedBox(
@@ -85,5 +95,5 @@ class _LiveDataScreenState extends State<LiveDataScreen> {
         ],
       ),
     ),
-  );
+  ));
 }
