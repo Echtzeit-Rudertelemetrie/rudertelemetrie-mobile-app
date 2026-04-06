@@ -1,12 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
-import 'package:rudertelemetrie_mobile_app/components/add_widget_sheet.dart';
-import 'package:rudertelemetrie_mobile_app/components/dashboard_grid.dart';
-import 'package:rudertelemetrie_mobile_app/models/dashboard_model.dart';
 
-class DashboardScreen extends StatelessWidget {
+import 'add_widget_sheet.dart';
+import 'dashboard_grid.dart';
+import 'dashboard_model.dart';
+import 'example_streams.dart';
+
+/// Full-screen dashboard entry point.
+///
+/// Manages the [ExampleStreams] lifecycle — streams start when this screen
+/// is pushed and stop when it is popped, keeping the dashboard module
+/// self-contained.
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final _streams = ExampleStreams();
+
+  @override
+  void initState() {
+    super.initState();
+    _streams.start();
+  }
+
+  @override
+  void dispose() {
+    _streams.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

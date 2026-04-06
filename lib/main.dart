@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
-import 'package:rudertelemetrie_mobile_app/providers/dashboard_provider.dart';
+import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/simulation_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/screens//home_screen.dart';
 

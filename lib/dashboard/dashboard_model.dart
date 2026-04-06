@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_layout_engine.dart';
-import 'package:rudertelemetrie_mobile_app/dashboard/widget_config.dart';
+import 'dashboard_layout_engine.dart';
+import 'widget_config.dart';
 
 class DashboardModel extends ChangeNotifier {
   static const int _cols = 4;
@@ -8,11 +8,7 @@ class DashboardModel extends ChangeNotifier {
 
   final _engine = const DashboardLayoutEngine(cols: _cols, rows: _rows);
 
-  List<WidgetConfig> _layout = [
-    const WidgetConfig(id: 'w1', x: 0, y: 0, w: 2, h: 3, type: 'placeholder'),
-    const WidgetConfig(id: 'w2', x: 2, y: 0, w: 2, h: 2, type: 'placeholder'),
-    const WidgetConfig(id: 'w3', x: 2, y: 2, w: 2, h: 1, type: 'placeholder'),
-  ];
+  List<WidgetConfig> _layout = [];
 
   bool _editMode = false;
 
@@ -43,6 +39,24 @@ class DashboardModel extends ChangeNotifier {
 
   void removeWidget(String id) {
     _layout = _engine.removeWidget(_layout, id);
+    notifyListeners();
+  }
+
+  /// Replace a widget's [type] and/or [streamKey] in-place.
+  void updateWidget(String id, {required String type, required String? streamKey}) {
+    final idx = _layout.indexWhere((e) => e.id == id);
+    if (idx == -1) return;
+    final old = _layout[idx];
+    final updated = WidgetConfig(
+      id: old.id,
+      x: old.x,
+      y: old.y,
+      w: old.w,
+      h: old.h,
+      type: type,
+      streamKey: streamKey,
+    );
+    _layout = List.of(_layout)..[idx] = updated;
     notifyListeners();
   }
 }

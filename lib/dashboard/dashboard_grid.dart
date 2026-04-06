@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:rudertelemetrie_mobile_app/dashboard/widget_config.dart';
-import 'package:rudertelemetrie_mobile_app/models/dashboard_model.dart';
-import 'dashboard_widget_tile.dart';
 
-/// Renders the full-screen grid.
+import 'dashboard_model.dart';
+import 'dashboard_widget_tile.dart';
+import 'widget_config.dart';
+
+/// Fills the available space with the dashboard grid.
 ///
-/// Uses [LayoutBuilder] to derive pixel cell sizes from the available space,
-/// then positions each widget with [AnimatedPositioned] inside a [Stack].
+/// Uses [LayoutBuilder] to derive cell dimensions, then positions each
+/// widget with [AnimatedPositioned] inside a [Stack]. A ghost overlay
+/// tracks drag/resize previews.
 class DashboardGrid extends StatefulWidget {
   const DashboardGrid({super.key});
 
@@ -16,29 +18,25 @@ class DashboardGrid extends StatefulWidget {
 }
 
 class _DashboardGridState extends State<DashboardGrid> {
-  // Ghost config while a widget is being dragged.
   WidgetConfig? _ghost;
 
   @override
   Widget build(BuildContext context) {
     final model = context.watch<DashboardModel>();
-    final cols = model.cols;
-    final rows = model.rows;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cellW = constraints.maxWidth / cols;
-        final cellH = constraints.maxHeight / rows;
+        final cellW = constraints.maxWidth / model.cols;
+        final cellH = constraints.maxHeight / model.rows;
 
         return SizedBox.expand(
           child: Stack(
             children: [
-              // Widget tiles
               for (final cfg in model.layout)
                 AnimatedPositioned(
                   key: ValueKey(cfg.id),
                   duration: _ghost?.id == cfg.id
-                      ? Duration.zero // no animation while actively dragging
+                      ? Duration.zero
                       : const Duration(milliseconds: 150),
                   curve: Curves.easeOut,
                   left: cfg.x * cellW,
@@ -51,19 +49,16 @@ class _DashboardGridState extends State<DashboardGrid> {
                       config: cfg,
                       cellWidth: cellW,
                       cellHeight: cellH,
-                      onDragUpdate: (gx, gy) => setState(
-                        () => _ghost = cfg.copyWith(x: gx, y: gy),
-                      ),
+                      onDragUpdate: (gx, gy) =>
+                          setState(() => _ghost = cfg.copyWith(x: gx, y: gy)),
                       onDragEnd: () => setState(() => _ghost = null),
-                      onResizeUpdate: (gw, gh) => setState(
-                        () => _ghost = cfg.copyWith(w: gw, h: gh),
-                      ),
+                      onResizeUpdate: (gw, gh) =>
+                          setState(() => _ghost = cfg.copyWith(w: gw, h: gh)),
                       onResizeEnd: () => setState(() => _ghost = null),
                     ),
                   ),
                 ),
 
-              // Ghost placeholder — rendered on top so it's visible when shrinking too
               if (_ghost != null)
                 Positioned(
                   left: _ghost!.x * cellW,
