@@ -9,7 +9,6 @@ class DashboardModel extends ChangeNotifier {
   final _engine = const DashboardLayoutEngine(cols: _cols, rows: _rows);
 
   List<WidgetConfig> _layout = [];
-
   bool _editMode = false;
 
   int get cols => _cols;
@@ -42,21 +41,14 @@ class DashboardModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Replace a widget's [type] and/or [streamKey] in-place.
-  void updateWidget(String id, {required String type, required String? streamKey}) {
-    final idx = _layout.indexWhere((e) => e.id == id);
+  /// Replace an existing widget's config in-place (identified by [newConfig.id]).
+  ///
+  /// Use this to update app-defined [WidgetConfig.data] without touching the
+  /// widget's grid position.
+  void updateWidget(WidgetConfig newConfig) {
+    final idx = _layout.indexWhere((e) => e.id == newConfig.id);
     if (idx == -1) return;
-    final old = _layout[idx];
-    final updated = WidgetConfig(
-      id: old.id,
-      x: old.x,
-      y: old.y,
-      w: old.w,
-      h: old.h,
-      type: type,
-      streamKey: streamKey,
-    );
-    _layout = List.of(_layout)..[idx] = updated;
+    _layout = List.of(_layout)..[idx] = newConfig;
     notifyListeners();
   }
 }

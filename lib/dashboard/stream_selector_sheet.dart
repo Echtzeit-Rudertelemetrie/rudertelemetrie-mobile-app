@@ -5,8 +5,8 @@ import 'dashboard_model.dart';
 import 'stream_registry.dart';
 import 'widget_config.dart';
 
-/// Bottom sheet that lets the user change the stream and display type of a
-/// dashboard widget.
+/// Bottom sheet that lets the user change the stream and display type stored
+/// in [WidgetConfig.data].
 class StreamSelectorSheet extends StatefulWidget {
   final WidgetConfig config;
 
@@ -23,8 +23,8 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
   @override
   void initState() {
     super.initState();
-    _type = widget.config.type.isEmpty ? 'value' : widget.config.type;
-    _streamKey = widget.config.streamKey;
+    _type = widget.config.data['type'] as String? ?? 'value';
+    _streamKey = widget.config.data['streamKey'] as String?;
   }
 
   @override
@@ -38,22 +38,13 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title
-            const Text(
-              'Configure Widget',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Configure Widget',
+                style: TextStyle(
+                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
 
-            // Display type toggle
-            const Text(
-              'Display type',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
-            ),
+            const Text('Display type',
+                style: TextStyle(color: Colors.white54, fontSize: 12)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -74,44 +65,33 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
             ),
             const SizedBox(height: 16),
 
-            // Stream list
-            const Text(
-              'Data source',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
-            ),
+            const Text('Data source',
+                style: TextStyle(color: Colors.white54, fontSize: 12)),
             const SizedBox(height: 4),
 
             if (streams.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'No streams available.',
-                  style: TextStyle(color: Colors.white38),
-                ),
+                child: Text('No streams available.',
+                    style: TextStyle(color: Colors.white38)),
               )
             else
-              ...streams.map(
-                (info) => _StreamOption(
-                  info: info,
-                  selected: _streamKey == info.key,
-                  onTap: () => setState(() => _streamKey = info.key),
-                ),
-              ),
+              ...streams.map((info) => _StreamOption(
+                    info: info,
+                    selected: _streamKey == info.key,
+                    onTap: () => setState(() => _streamKey = info.key),
+                  )),
 
             const SizedBox(height: 12),
-
-            // Apply button
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFF45866),
-                ),
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF45866)),
                 onPressed: () {
                   context.read<DashboardModel>().updateWidget(
-                    widget.config.id,
-                    type: _type,
-                    streamKey: _streamKey,
+                    widget.config.copyWith(
+                      data: {'type': _type, 'streamKey': _streamKey},
+                    ),
                   );
                   Navigator.pop(context);
                 },
@@ -130,11 +110,7 @@ class _StreamOption extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _StreamOption({
-    required this.info,
-    required this.selected,
-    required this.onTap,
-  });
+  const _StreamOption({required this.info, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -155,11 +131,7 @@ class _StreamOption extends StatelessWidget {
             ),
             child: selected
                 ? const Center(
-                    child: CircleAvatar(
-                      radius: 5,
-                      backgroundColor: Color(0xFFF45866),
-                    ),
-                  )
+                    child: CircleAvatar(radius: 5, backgroundColor: Color(0xFFF45866)))
                 : null,
           ),
           const SizedBox(width: 12),
@@ -167,15 +139,11 @@ class _StreamOption extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  info.label,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
+                Text(info.label,
+                    style: const TextStyle(color: Colors.white, fontSize: 14)),
                 if (info.unit.isNotEmpty)
-                  Text(
-                    info.unit,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
+                  Text(info.unit,
+                      style: const TextStyle(color: Colors.white54, fontSize: 12)),
               ],
             ),
           ),
@@ -191,38 +159,31 @@ class _TypeButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _TypeButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
+  const _TypeButton(
+      {required this.label,
+      required this.icon,
+      required this.selected,
+      required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF45866) : Colors.white10,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: selected ? Colors.white : Colors.white54),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : Colors.white54,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFFF45866) : Colors.white10,
+        borderRadius: BorderRadius.circular(8),
       ),
-    );
-  }
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: selected ? Colors.white : Colors.white54),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  color: selected ? Colors.white : Colors.white54, fontSize: 13)),
+        ],
+      ),
+    ),
+  );
 }

@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'dashboard_model.dart';
-import 'stream_selector_sheet.dart';
-import 'tile_content.dart';
 import 'widget_config.dart';
 
 /// A single positioned tile on the dashboard grid.
 ///
-/// In edit mode shows drag/resize/delete handles and makes the content
-/// area tappable to open the stream selector.
+/// The [child] widget is provided by the caller (via [DashboardGrid]'s
+/// `widgetBuilder`) — the framework has no knowledge of what it contains.
+///
+/// In edit mode the framework adds drag / resize / delete handles on top of
+/// the child.
 class DashboardWidgetTile extends StatefulWidget {
   final WidgetConfig config;
+
+  /// Pre-built content widget. Build this with your own `widgetBuilder`.
+  final Widget child;
+
   final double cellWidth;
   final double cellHeight;
 
@@ -23,6 +28,7 @@ class DashboardWidgetTile extends StatefulWidget {
   const DashboardWidgetTile({
     super.key,
     required this.config,
+    required this.child,
     required this.cellWidth,
     required this.cellHeight,
     this.onDragUpdate,
@@ -49,7 +55,7 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Content
+        // Content — provided entirely by the caller
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
@@ -61,11 +67,7 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: TileContent(
-                config: cfg,
-                editMode: editMode,
-                onTap: editMode ? () => _showStreamSelector(context, cfg) : null,
-              ),
+              child: widget.child,
             ),
           ),
         ),
@@ -119,25 +121,20 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     _dragAccum += d.delta;
     final model = context.read<DashboardModel>();
     final cfg = widget.config;
-    final newX = (cfg.x + _dragAccum.dx / widget.cellWidth)
-        .round()
-        .clamp(0, model.cols - cfg.w);
-    final newY = (cfg.y + _dragAccum.dy / widget.cellHeight)
-        .round()
-        .clamp(0, model.rows - cfg.h);
-    widget.onDragUpdate?.call(newX, newY);
+    widget.onDragUpdate?.call(
+      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(0, model.cols - cfg.w),
+      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(0, model.rows - cfg.h),
+    );
   }
 
   void _onDragEnd(DragEndDetails _) {
     final model = context.read<DashboardModel>();
     final cfg = widget.config;
-    final newX = (cfg.x + _dragAccum.dx / widget.cellWidth)
-        .round()
-        .clamp(0, model.cols - cfg.w);
-    final newY = (cfg.y + _dragAccum.dy / widget.cellHeight)
-        .round()
-        .clamp(0, model.rows - cfg.h);
-    model.moveWidget(cfg.id, newX, newY);
+    model.moveWidget(
+      cfg.id,
+      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(0, model.cols - cfg.w),
+      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(0, model.rows - cfg.h),
+    );
     _dragAccum = Offset.zero;
     widget.onDragEnd?.call();
   }
@@ -154,9 +151,10 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
   void _onResizeUpdate(DragUpdateDetails d) {
     _resizeWAccum += d.delta.dx;
     _resizeHAccum += d.delta.dy;
-    final gw = (widget.config.w + (_resizeWAccum / widget.cellWidth).round()).clamp(1, 99);
-    final gh = (widget.config.h + (_resizeHAccum / widget.cellHeight).round()).clamp(1, 99);
-    widget.onResizeUpdate?.call(gw, gh);
+    widget.onResizeUpdate?.call(
+      (widget.config.w + (_resizeWAccum / widget.cellWidth).round()).clamp(1, 99),
+      (widget.config.h + (_resizeHAccum / widget.cellHeight).round()).clamp(1, 99),
+    );
   }
 
   void _onResizeEnd(DragEndDetails _) {
@@ -173,26 +171,10 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     _resizeHAccum = 0;
     widget.onResizeEnd?.call();
   }
-
-  // ---------------------------------------------------------------------------
-  // Stream selector
-  // ---------------------------------------------------------------------------
-
-  void _showStreamSelector(BuildContext context, WidgetConfig cfg) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF0c0e1d),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => ChangeNotifierProvider.value(
-        value: context.read<DashboardModel>(),
-        child: StreamSelectorSheet(config: cfg),
-      ),
-    );
-  }
 }
 
+// ---------------------------------------------------------------------------
+// Internal handle widgets
 // ---------------------------------------------------------------------------
 
 class _Handle extends StatelessWidget {
@@ -226,12 +208,14 @@ class _ResizeHandle extends StatelessWidget {
 class _TrianglePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(path, Paint()..color = const Color(0xFFF45866));
+    canvas.drawPath(
+      Path()
+        ..moveTo(size.width, 0)
+        ..lineTo(size.width, size.height)
+        ..lineTo(0, size.height)
+        ..close(),
+      Paint()..color = const Color(0xFFF45866),
+    );
   }
 
   @override

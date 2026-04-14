@@ -7,13 +7,15 @@ import 'package:flutter/scheduler.dart';
 import 'stream_registry.dart';
 import 'widget_config.dart';
 
-/// The content area of a dashboard tile.
+/// Renders a live data tile whose stream and display style are read from
+/// [config.data]:
 ///
-/// Subscribes to the stream identified by [config.streamKey] and renders
-/// either a scrolling line chart (`type == 'chart'`) or a live numeric
-/// readout (`type == 'value'`).
+/// ```dart
+/// config.data['type']      // 'chart' | 'value'  (default: 'value')
+/// config.data['streamKey'] // key into StreamRegistry
+/// ```
 ///
-/// In edit mode, tapping the content opens [onTap] (stream selector).
+/// In edit mode, tapping the tile calls [onTap] (e.g. to open a configure sheet).
 class TileContent extends StatefulWidget {
   final WidgetConfig config;
   final bool editMode;
@@ -43,29 +45,28 @@ class _TileContentState extends State<TileContent>
   final _stopwatch = Stopwatch()..start();
   double? _latest;
 
+  String? get _streamKey => widget.config.data['streamKey'] as String?;
+  String get _type => widget.config.data['type'] as String? ?? 'value';
+
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker((_) {
-      if (mounted) setState(() {});
-    })..start();
+    _ticker = createTicker((_) { if (mounted) setState(() {}); })..start();
     _resubscribe();
   }
 
   @override
   void didUpdateWidget(TileContent old) {
     super.didUpdateWidget(old);
-    if (old.config.streamKey != widget.config.streamKey) {
-      _resubscribe();
-    }
+    final oldKey = old.config.data['streamKey'] as String?;
+    if (oldKey != _streamKey) _resubscribe();
   }
 
   void _resubscribe() {
     _sub?.cancel();
     _spots.clear();
     _latest = null;
-    final key = widget.config.streamKey;
-    _info = key != null ? StreamRegistry.get(key) : null;
+    _info = _streamKey != null ? StreamRegistry.get(_streamKey!) : null;
     if (_info == null) return;
     _sub = _info!.stream.listen((v) {
       _latest = v;
@@ -101,9 +102,7 @@ class _TileContentState extends State<TileContent>
 
     return GestureDetector(
       onTap: widget.editMode ? widget.onTap : null,
-      child: widget.config.type == 'chart'
-          ? _buildChart(info)
-          : _buildValue(info),
+      child: _type == 'chart' ? _buildChart(info) : _buildValue(info),
     );
   }
 
@@ -138,16 +137,10 @@ class _TileContentState extends State<TileContent>
             padding: const EdgeInsets.only(left: 4, bottom: 2),
             child: Row(
               children: [
-                Text(
-                  info.label,
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
-                ),
+                Text(info.label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
                 if (info.unit.isNotEmpty) ...[
                   const SizedBox(width: 4),
-                  Text(
-                    info.unit,
-                    style: const TextStyle(color: Colors.white38, fontSize: 10),
-                  ),
+                  Text(info.unit, style: const TextStyle(color: Colors.white38, fontSize: 10)),
                 ],
               ],
             ),
@@ -174,10 +167,8 @@ class _TileContentState extends State<TileContent>
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (_) => FlLine(
-                    color: Colors.white.withAlpha(20),
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (_) =>
+                      FlLine(color: Colors.white.withAlpha(20), strokeWidth: 1),
                 ),
                 borderData: FlBorderData(
                   show: true,
@@ -198,7 +189,7 @@ class _TileContentState extends State<TileContent>
 
   Widget _buildValue(StreamInfo info) {
     final value = _latest;
-    final displayValue = value == null
+    final display = value == null
         ? '—'
         : value.abs() >= 100
             ? value.toStringAsFixed(0)
@@ -209,39 +200,26 @@ class _TileContentState extends State<TileContent>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            info.label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-          ),
+          Text(info.label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, fontSize: 12)),
           const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(
-              displayValue,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: Text(display,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
           ),
           if (info.unit.isNotEmpty)
-            Text(
-              info.unit,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
+            Text(info.unit, style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ],
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-
 class _NoStreamPlaceholder extends StatelessWidget {
   final bool editMode;
-
   const _NoStreamPlaceholder({required this.editMode});
 
   @override
@@ -252,10 +230,8 @@ class _NoStreamPlaceholder extends StatelessWidget {
         const Icon(Icons.add_chart, color: Colors.white24, size: 28),
         if (editMode) ...[
           const SizedBox(height: 6),
-          const Text(
-            'Tap to configure',
-            style: TextStyle(color: Colors.white38, fontSize: 11),
-          ),
+          const Text('Tap to configure',
+              style: TextStyle(color: Colors.white38, fontSize: 11)),
         ],
       ],
     ),

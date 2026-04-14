@@ -7,8 +7,8 @@ import 'widget_config.dart';
 
 /// Bottom sheet for adding a new widget to the dashboard.
 ///
-/// Shows all registered streams. For each stream the user can add a chart
-/// tile or a value tile.
+/// Shows all registered streams; for each one the user can add a chart tile
+/// or a value tile.  App-specific data is stored in [WidgetConfig.data].
 class AddWidgetSheet extends StatelessWidget {
   const AddWidgetSheet({super.key});
 
@@ -23,28 +23,18 @@ class AddWidgetSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Add Widget',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Add Widget',
+                style: TextStyle(
+                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            const Text(
-              'Choose a data source and display type.',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
-            ),
+            const Text('Choose a data source and display type.',
+                style: TextStyle(color: Colors.white54, fontSize: 12)),
             const SizedBox(height: 16),
-
             if (streams.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'No streams available.',
-                  style: TextStyle(color: Colors.white38),
-                ),
+                child: Text('No streams available.',
+                    style: TextStyle(color: Colors.white38)),
               )
             else
               ...streams.map((info) => _StreamRow(info: info)),
@@ -57,7 +47,6 @@ class AddWidgetSheet extends StatelessWidget {
 
 class _StreamRow extends StatelessWidget {
   final StreamInfo info;
-
   const _StreamRow({required this.info});
 
   @override
@@ -70,15 +59,11 @@ class _StreamRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  info.label,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
+                Text(info.label,
+                    style: const TextStyle(color: Colors.white, fontSize: 14)),
                 if (info.unit.isNotEmpty)
-                  Text(
-                    info.unit,
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                  ),
+                  Text(info.unit,
+                      style: const TextStyle(color: Colors.white54, fontSize: 11)),
               ],
             ),
           ),
@@ -101,7 +86,14 @@ class _StreamRow extends StatelessWidget {
   void _add(BuildContext context, String type, int w, int h, String streamKey) {
     final id = 'w_${DateTime.now().millisecondsSinceEpoch}';
     context.read<DashboardModel>().addWidget(
-      WidgetConfig(id: id, x: 0, y: 0, w: w, h: h, type: type, streamKey: streamKey),
+      WidgetConfig(
+        id: id,
+        x: 0,
+        y: 0,
+        w: w,
+        h: h,
+        data: {'type': type, 'streamKey': streamKey},
+      ),
     );
     Navigator.pop(context);
   }
@@ -112,11 +104,7 @@ class _AddButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _AddButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+  const _AddButton({required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -132,7 +120,8 @@ class _AddButton extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: const Color(0xFFF45866)),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Color(0xFFF45866), fontSize: 12)),
+          Text(label,
+              style: const TextStyle(color: Color(0xFFF45866), fontSize: 12)),
         ],
       ),
     ),

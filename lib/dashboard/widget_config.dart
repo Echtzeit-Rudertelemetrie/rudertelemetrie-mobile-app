@@ -1,13 +1,17 @@
+/// Position and size of a widget on the dashboard grid, plus an app-defined
+/// [data] map for any extra metadata the app needs (widget type, stream key, …).
+///
+/// The framework only reads [id], [x], [y], [w], [h].  Everything in [data]
+/// is opaque to the framework — put whatever you like there.
 class WidgetConfig {
   final String id;
   final int x;
   final int y;
   final int w;
   final int h;
-  final String type;
 
-  /// Key into [StreamRegistry] — null means no stream assigned yet.
-  final String? streamKey;
+  /// App-defined metadata. The dashboard framework never inspects this.
+  final Map<String, dynamic> data;
 
   const WidgetConfig({
     required this.id,
@@ -15,8 +19,7 @@ class WidgetConfig {
     required this.y,
     required this.w,
     required this.h,
-    required this.type,
-    this.streamKey,
+    this.data = const {},
   });
 
   WidgetConfig copyWith({
@@ -24,8 +27,7 @@ class WidgetConfig {
     int? y,
     int? w,
     int? h,
-    String? type,
-    String? streamKey,
+    Map<String, dynamic>? data,
   }) {
     return WidgetConfig(
       id: id,
@@ -33,8 +35,7 @@ class WidgetConfig {
       y: y ?? this.y,
       w: w ?? this.w,
       h: h ?? this.h,
-      type: type ?? this.type,
-      streamKey: streamKey ?? this.streamKey,
+      data: data ?? this.data,
     );
   }
 
@@ -44,8 +45,7 @@ class WidgetConfig {
     'y': y,
     'w': w,
     'h': h,
-    'type': type,
-    'streamKey': streamKey,
+    'data': data,
   };
 
   factory WidgetConfig.fromJson(Map<String, dynamic> json) => WidgetConfig(
@@ -54,8 +54,7 @@ class WidgetConfig {
     y: json['y'] as int,
     w: json['w'] as int,
     h: json['h'] as int,
-    type: json['type'] as String,
-    streamKey: json['streamKey'] as String?,
+    data: (json['data'] as Map<String, dynamic>?) ?? {},
   );
 
   @override
@@ -65,14 +64,11 @@ class WidgetConfig {
       other.x == x &&
       other.y == y &&
       other.w == w &&
-      other.h == h &&
-      other.type == type &&
-      other.streamKey == streamKey;
+      other.h == h;
 
   @override
-  int get hashCode => Object.hash(id, x, y, w, h, type, streamKey);
+  int get hashCode => Object.hash(id, x, y, w, h);
 
   @override
-  String toString() =>
-      'WidgetConfig($id, x:$x y:$y w:$w h:$h type:$type stream:$streamKey)';
+  String toString() => 'WidgetConfig($id, x:$x y:$y w:$w h:$h)';
 }

@@ -5,13 +5,27 @@ import 'dashboard_model.dart';
 import 'dashboard_widget_tile.dart';
 import 'widget_config.dart';
 
-/// Fills the available space with the dashboard grid.
+/// Full-screen dashboard grid.
 ///
-/// Uses [LayoutBuilder] to derive cell dimensions, then positions each
-/// widget with [AnimatedPositioned] inside a [Stack]. A ghost overlay
-/// tracks drag/resize previews.
+/// Drop this into any screen and provide a [widgetBuilder] that returns the
+/// content widget for each tile.  The framework handles drag, resize, collision,
+/// and edit-mode handles — it never inspects what your builder returns.
+///
+/// ```dart
+/// DashboardGrid(
+///   widgetBuilder: (context, config) => MyTileWidget(config: config),
+/// )
+/// ```
+///
+/// To add/remove/move widgets, access [DashboardModel] from the Provider tree:
+/// ```dart
+/// context.read<DashboardModel>().addWidget(WidgetConfig(...));
+/// ```
 class DashboardGrid extends StatefulWidget {
-  const DashboardGrid({super.key});
+  /// Called for each tile to build its content. May return any widget.
+  final Widget Function(BuildContext context, WidgetConfig config) widgetBuilder;
+
+  const DashboardGrid({super.key, required this.widgetBuilder});
 
   @override
   State<DashboardGrid> createState() => _DashboardGridState();
@@ -49,6 +63,7 @@ class _DashboardGridState extends State<DashboardGrid> {
                       config: cfg,
                       cellWidth: cellW,
                       cellHeight: cellH,
+                      child: widget.widgetBuilder(context, cfg),
                       onDragUpdate: (gx, gy) =>
                           setState(() => _ghost = cfg.copyWith(x: gx, y: gy)),
                       onDragEnd: () => setState(() => _ghost = null),

@@ -6,7 +6,7 @@ void main() {
   const engine = DashboardLayoutEngine(cols: 4, rows: 6);
 
   WidgetConfig w(String id, int x, int y, int w, int h) =>
-      WidgetConfig(id: id, x: x, y: y, w: w, h: h, type: 'test');
+      WidgetConfig(id: id, x: x, y: y, w: w, h: h);
 
   // ---------------------------------------------------------------------------
   // collides

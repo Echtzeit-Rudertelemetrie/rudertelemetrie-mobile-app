@@ -6,12 +6,10 @@ import 'add_widget_sheet.dart';
 import 'dashboard_grid.dart';
 import 'dashboard_model.dart';
 import 'example_streams.dart';
+import 'stream_selector_sheet.dart';
+import 'tile_content.dart';
+import 'widget_config.dart';
 
-/// Full-screen dashboard entry point.
-///
-/// Manages the [ExampleStreams] lifecycle — streams start when this screen
-/// is pushed and stop when it is popped, keeping the dashboard module
-/// self-contained.
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -52,7 +50,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       childPad: false,
       child: Stack(
         children: [
-          const DashboardGrid(),
+          DashboardGrid(
+            widgetBuilder: (context, config) => _buildTile(context, config),
+          ),
           if (editMode)
             Positioned(
               right: 16,
@@ -60,21 +60,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: FloatingActionButton(
                 backgroundColor: const Color(0xFFF45866),
                 foregroundColor: Colors.white,
-                onPressed: () => showModalBottomSheet(
-                  context: context,
-                  backgroundColor: const Color(0xFF0c0e1d),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                  ),
-                  builder: (_) => ChangeNotifierProvider.value(
-                    value: model,
-                    child: const AddWidgetSheet(),
-                  ),
-                ),
+                onPressed: () => _showAddSheet(context, model),
                 child: const Icon(Icons.add),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// Widget builder passed to [DashboardGrid].
+  ///
+  /// In edit mode the content area is tappable to open the configure sheet;
+  /// outside edit mode it just renders [TileContent].
+  Widget _buildTile(BuildContext context, WidgetConfig config) {
+    final editMode = context.watch<DashboardModel>().editMode;
+    return TileContent(
+      config: config,
+      editMode: editMode,
+      onTap: () => _showStreamSelector(context, config),
+    );
+  }
+
+  void _showStreamSelector(BuildContext context, WidgetConfig config) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0c0e1d),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => ChangeNotifierProvider.value(
+        value: context.read<DashboardModel>(),
+        child: StreamSelectorSheet(config: config),
+      ),
+    );
+  }
+
+  void _showAddSheet(BuildContext context, DashboardModel model) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0c0e1d),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => ChangeNotifierProvider.value(
+        value: model,
+        child: const AddWidgetSheet(),
       ),
     );
   }
