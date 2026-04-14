@@ -3,11 +3,12 @@ import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 
 import 'add_widget_sheet.dart';
+import 'chart_tile.dart';
 import 'dashboard_grid.dart';
 import 'dashboard_model.dart';
 import 'example_streams.dart';
 import 'stream_selector_sheet.dart';
-import 'tile_content.dart';
+import 'value_tile.dart';
 import 'widget_config.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -69,16 +70,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Widget builder passed to [DashboardGrid].
-  ///
-  /// In edit mode the content area is tappable to open the configure sheet;
-  /// outside edit mode it just renders [TileContent].
   Widget _buildTile(BuildContext context, WidgetConfig config) {
     final editMode = context.watch<DashboardModel>().editMode;
-    return TileContent(
-      config: config,
-      editMode: editMode,
+    final streamKey = config.data['streamKey'] as String?;
+    final type = config.data['type'] as String?;
+
+    final content = switch (type) {
+      'chart' when streamKey != null => ChartTile(streamKey: streamKey),
+      'value' when streamKey != null => ValueTile(streamKey: streamKey),
+      _ => const _NoStreamPlaceholder(),
+    };
+
+    if (!editMode) return content;
+    return GestureDetector(
       onTap: () => _showStreamSelector(context, config),
+      child: content,
     );
   }
 
@@ -109,4 +115,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+}
+
+class _NoStreamPlaceholder extends StatelessWidget {
+  const _NoStreamPlaceholder();
+
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Icon(Icons.add_chart, color: Colors.white24, size: 28),
+  );
 }

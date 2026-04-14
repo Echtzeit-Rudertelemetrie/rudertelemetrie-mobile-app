@@ -5,35 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'stream_registry.dart';
-import 'widget_config.dart';
 
-/// Renders a live data tile whose stream and display style are read from
-/// [config.data]:
-///
-/// ```dart
-/// config.data['type']      // 'chart' | 'value'  (default: 'value')
-/// config.data['streamKey'] // key into StreamRegistry
-/// ```
-///
-/// In edit mode, tapping the tile calls [onTap] (e.g. to open a configure sheet).
-class TileContent extends StatefulWidget {
-  final WidgetConfig config;
-  final bool editMode;
-  final VoidCallback? onTap;
+/// Live line-chart for a registered stream.
+class ChartTile extends StatefulWidget {
+  final String streamKey;
 
-  const TileContent({
-    super.key,
-    required this.config,
-    required this.editMode,
-    this.onTap,
-  });
+  const ChartTile({super.key, required this.streamKey});
 
   @override
-  State<TileContent> createState() => _TileContentState();
+  State<ChartTile> createState() => _ChartTileState();
 }
 
-class _TileContentState extends State<TileContent>
-    with SingleTickerProviderStateMixin {
+class _ChartTileState extends State<ChartTile> with SingleTickerProviderStateMixin {
   static const double _windowSeconds = 8.0;
   static const int _maxPoints = 300;
 
@@ -43,10 +26,6 @@ class _TileContentState extends State<TileContent>
 
   final _spots = <FlSpot>[];
   final _stopwatch = Stopwatch()..start();
-  double? _latest;
-
-  String? get _streamKey => widget.config.data['streamKey'] as String?;
-  String get _type => widget.config.data['type'] as String? ?? 'value';
 
   @override
   void initState() {
@@ -56,29 +35,24 @@ class _TileContentState extends State<TileContent>
   }
 
   @override
-  void didUpdateWidget(TileContent old) {
+  void didUpdateWidget(ChartTile old) {
     super.didUpdateWidget(old);
-    final oldKey = old.config.data['streamKey'] as String?;
-    if (oldKey != _streamKey) _resubscribe();
+    if (old.streamKey != widget.streamKey) _resubscribe();
   }
 
   void _resubscribe() {
     _sub?.cancel();
     _spots.clear();
-    _latest = null;
-    _info = _streamKey != null ? StreamRegistry.get(_streamKey!) : null;
+    _info = StreamRegistry.get(widget.streamKey);
     if (_info == null) return;
     _sub = _info!.stream.listen((v) {
-      _latest = v;
       final t = _stopwatch.elapsed.inMicroseconds / 1e6;
       _spots.add(FlSpot(t, v));
       final cutoff = t - _windowSeconds;
       while (_spots.isNotEmpty && _spots.first.x < cutoff) {
         _spots.removeAt(0);
       }
-      if (_spots.length > _maxPoints) {
-        _spots.removeRange(0, _spots.length - _maxPoints);
-      }
+      if (_spots.length > _maxPoints) _spots.removeRange(0, _spots.length - _maxPoints);
     });
   }
 
@@ -92,25 +66,8 @@ class _TileContentState extends State<TileContent>
   @override
   Widget build(BuildContext context) {
     final info = _info;
+    if (info == null) return const SizedBox.shrink();
 
-    if (info == null) {
-      return GestureDetector(
-        onTap: widget.editMode ? widget.onTap : null,
-        child: _NoStreamPlaceholder(editMode: widget.editMode),
-      );
-    }
-
-    return GestureDetector(
-      onTap: widget.editMode ? widget.onTap : null,
-      child: _type == 'chart' ? _buildChart(info) : _buildValue(info),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Chart
-  // ---------------------------------------------------------------------------
-
-  Widget _buildChart(StreamInfo info) {
     if (_spots.isEmpty) {
       return const Center(
         child: SizedBox(
@@ -182,58 +139,4 @@ class _TileContentState extends State<TileContent>
       ),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Value
-  // ---------------------------------------------------------------------------
-
-  Widget _buildValue(StreamInfo info) {
-    final value = _latest;
-    final display = value == null
-        ? '—'
-        : value.abs() >= 100
-            ? value.toStringAsFixed(0)
-            : value.toStringAsFixed(1);
-
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(info.label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(display,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
-          ),
-          if (info.unit.isNotEmpty)
-            Text(info.unit, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-}
-
-class _NoStreamPlaceholder extends StatelessWidget {
-  final bool editMode;
-  const _NoStreamPlaceholder({required this.editMode});
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.add_chart, color: Colors.white24, size: 28),
-        if (editMode) ...[
-          const SizedBox(height: 6),
-          const Text('Tap to configure',
-              style: TextStyle(color: Colors.white38, fontSize: 11)),
-        ],
-      ],
-    ),
-  );
 }
