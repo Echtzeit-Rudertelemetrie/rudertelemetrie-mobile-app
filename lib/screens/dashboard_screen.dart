@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 
-import 'add_widget_sheet.dart';
-import 'chart_tile.dart';
-import 'dashboard_grid.dart';
-import 'dashboard_model.dart';
-import 'example_streams.dart';
-import 'stream_selector_sheet.dart';
-import 'value_tile.dart';
-import 'widget_config.dart';
+import '../dashboard/add_widget_sheet.dart';
+import '../components/dashboart_tiles/chart_tile.dart';
+import '../dashboard/dashboard_grid.dart';
+import '../dashboard/dashboard_model.dart';
+import '../dashboard/example_streams.dart';
+import '../dashboard/stream_selector_sheet.dart';
+import '../components/dashboart_tiles/value_tile.dart';
+import '../dashboard/widget_config.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});

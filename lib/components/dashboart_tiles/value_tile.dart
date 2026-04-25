@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'stream_registry.dart';
+import '../../dashboard/stream_registry.dart';
 
 /// Live numeric readout for a registered stream.
 class ValueTile extends StatefulWidget {

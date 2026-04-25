@@ -4,7 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'stream_registry.dart';
+import '../../dashboard/stream_registry.dart';
 
 /// Live line-chart for a registered stream.
 class ChartTile extends StatefulWidget {
