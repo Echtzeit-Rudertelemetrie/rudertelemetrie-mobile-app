@@ -3,87 +3,73 @@ import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_transformer.dart';
 
-import '../../dashboard/stream_registry.dart';
-
-/// Live line-chart for a registered stream.
 class ChartTile extends StatefulWidget {
-  final String streamKey;
+  final DataSource dataSource;
+  final DataTransformer dataTransformer;
 
-  const ChartTile({super.key, required this.streamKey});
+  const ChartTile({
+    super.key,
+    required this.dataSource,
+    required this.dataTransformer,
+  });
 
   @override
   State<ChartTile> createState() => _ChartTileState();
 }
 
-class _ChartTileState extends State<ChartTile> with SingleTickerProviderStateMixin {
-  static const double _windowSeconds = 8.0;
-  static const int _maxPoints = 300;
+class _ChartTileState extends State<ChartTile>
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker;
+  late final StreamSubscription<List<FlSpot>> _sub;
 
-  late Ticker _ticker;
-  StreamSubscription<double>? _sub;
-  StreamInfo? _info;
-
-  final _spots = <FlSpot>[];
-  final _stopwatch = Stopwatch()..start();
+  var _spots = <FlSpot>[];
+  var _dirty = false;
 
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker((_) { if (mounted) setState(() {}); })..start();
-    _resubscribe();
-  }
 
-  @override
-  void didUpdateWidget(ChartTile old) {
-    super.didUpdateWidget(old);
-    if (old.streamKey != widget.streamKey) _resubscribe();
-  }
+    _sub = widget.dataSource.data
+        .transform(widget.dataTransformer.transformer)
+        .listen((spots) {
+          _spots = spots;
+          _dirty = true;
+        });
 
-  void _resubscribe() {
-    _sub?.cancel();
-    _spots.clear();
-    _info = StreamRegistry.get(widget.streamKey);
-    if (_info == null) return;
-    _sub = _info!.stream.listen((v) {
-      final t = _stopwatch.elapsed.inMicroseconds / 1e6;
-      _spots.add(FlSpot(t, v));
-      final cutoff = t - _windowSeconds;
-      while (_spots.isNotEmpty && _spots.first.x < cutoff) {
-        _spots.removeAt(0);
+    _ticker = createTicker((_) {
+      if (_dirty) {
+        _dirty = false;
+        setState(() {});
       }
-      if (_spots.length > _maxPoints) _spots.removeRange(0, _spots.length - _maxPoints);
     });
+
+    _ticker.start();
   }
 
   @override
   void dispose() {
+    _sub.cancel();
     _ticker.dispose();
-    _sub?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final info = _info;
-    if (info == null) return const SizedBox.shrink();
-
     if (_spots.isEmpty) {
       return const Center(
         child: SizedBox(
           width: 20,
           height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF45866)),
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFFF45866),
+          ),
         ),
       );
     }
-
-    final t = _stopwatch.elapsed.inMicroseconds / 1e6;
-    final xMax = t < _windowSeconds ? _windowSeconds : t;
-    final xMin = xMax - _windowSeconds;
-
-    final yMin = info.minY ?? _spots.map((s) => s.y).reduce((a, b) => a < b ? a : b) - 1;
-    final yMax = info.maxY ?? _spots.map((s) => s.y).reduce((a, b) => a > b ? a : b) + 1;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
@@ -94,21 +80,25 @@ class _ChartTileState extends State<ChartTile> with SingleTickerProviderStateMix
             padding: const EdgeInsets.only(left: 4, bottom: 2),
             child: Row(
               children: [
-                Text(info.label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
-                if (info.unit.isNotEmpty) ...[
-                  const SizedBox(width: 4),
-                  Text(info.unit, style: const TextStyle(color: Colors.white38, fontSize: 10)),
-                ],
+                Text(
+                  widget.dataSource.name,
+                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  widget.dataTransformer.yUnit.toString(),
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                ),
               ],
             ),
           ),
           Expanded(
             child: LineChart(
               LineChartData(
-                minX: xMin,
-                maxX: xMax,
-                minY: yMin,
-                maxY: yMax,
+                minX: _spots.first.x,
+                maxX: _spots.last.x,
+                minY: 0,
+                maxY: 100,
                 clipData: const FlClipData.all(),
                 lineBarsData: [
                   LineChartBarData(

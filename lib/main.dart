@@ -3,13 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/data_transformer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/simulation_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/screens//home_screen.dart';
 
 void main() {
   runApp(
     MultiProvider(
-      providers: [simulationSettingsProvider, dashboardProvider],
+      providers: [
+        simulationSettingsProvider,
+        dashboardProvider,
+        dataSourceProvider,
+        dataTransformerProvider,
+      ],
       child: const Application(),
     ),
   );
@@ -43,7 +50,11 @@ class Application extends StatelessWidget {
         colors: newColors,
         typography: base.typography,
         style: base.style,
-        touch: const <TargetPlatform>{.android, .iOS, .fuchsia}.contains(defaultTargetPlatform),
+        touch: const <TargetPlatform>{
+          .android,
+          .iOS,
+          .fuchsia,
+        }.contains(defaultTargetPlatform),
       ),
       tileGroupStyle: FTileGroupStyle.inherit(
         colors: newColors.copyWith(card: background),

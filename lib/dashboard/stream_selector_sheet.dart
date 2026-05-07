@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 
 import 'dashboard_model.dart';
-import 'stream_registry.dart';
 import 'widget_config.dart';
 
-/// Bottom sheet that lets the user change the stream and display type stored
-/// in [WidgetConfig.data].
 class StreamSelectorSheet extends StatefulWidget {
   final WidgetConfig config;
 
@@ -29,7 +28,7 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final streams = StreamRegistry.all;
+    final dataSources = context.read<DataSourceProviderModel>().registry.all;
 
     return SafeArea(
       child: Padding(
@@ -69,17 +68,17 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
                 style: TextStyle(color: Colors.white54, fontSize: 12)),
             const SizedBox(height: 4),
 
-            if (streams.isEmpty)
+            if (dataSources.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text('No streams available.',
                     style: TextStyle(color: Colors.white38)),
               )
             else
-              ...streams.map((info) => _StreamOption(
-                    info: info,
-                    selected: _streamKey == info.key,
-                    onTap: () => setState(() => _streamKey = info.key),
+              ...dataSources.map((dataSource) => _DSOption(
+                    dataSource: dataSource,
+                    selected: _streamKey == dataSource.name,
+                    onTap: () => setState(() => _streamKey = dataSource.name),
                   )),
 
             const SizedBox(height: 12),
@@ -105,12 +104,12 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
   }
 }
 
-class _StreamOption extends StatelessWidget {
-  final StreamInfo info;
+class _DSOption extends StatelessWidget {
+  final DataSource dataSource;
   final bool selected;
   final VoidCallback onTap;
 
-  const _StreamOption({required this.info, required this.selected, required this.onTap});
+  const _DSOption({required this.dataSource, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -139,11 +138,10 @@ class _StreamOption extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(info.label,
+                Text(dataSource.name,
                     style: const TextStyle(color: Colors.white, fontSize: 14)),
-                if (info.unit.isNotEmpty)
-                  Text(info.unit,
-                      style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                Text(dataSource.unit.toString(),
+                    style: const TextStyle(color: Colors.white54, fontSize: 12)),
               ],
             ),
           ),

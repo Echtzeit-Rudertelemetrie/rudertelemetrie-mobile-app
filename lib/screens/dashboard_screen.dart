@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/data_transformer_provider.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_transformer.dart';
 
 import '../dashboard/add_widget_sheet.dart';
 import '../components/dashboart_tiles/chart_tile.dart';
 import '../dashboard/dashboard_grid.dart';
 import '../dashboard/dashboard_model.dart';
-import '../dashboard/example_streams.dart';
 import '../dashboard/stream_selector_sheet.dart';
 import '../components/dashboart_tiles/value_tile.dart';
 import '../dashboard/widget_config.dart';
@@ -19,20 +22,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final _streams = ExampleStreams();
-
-  @override
-  void initState() {
-    super.initState();
-    _streams.start();
-  }
-
-  @override
-  void dispose() {
-    _streams.stop();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final model = context.watch<DashboardModel>();
@@ -72,12 +61,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildTile(BuildContext context, WidgetConfig config) {
     final editMode = context.watch<DashboardModel>().editMode;
-    final streamKey = config.data['streamKey'] as String?;
+    final dataSourceKey = config.data['dataSourceKey'] as String?;
+    final dataTransformerKey = config.data['dataTransformerKey'] as String?;
     final type = config.data['type'] as String?;
 
+    DataSource? dataSource;
+    DataTransformer? dataTransformer;
+
+    if (dataSourceKey != null) {
+      dataSource = context.read<DataSourceProviderModel>().registry.get(
+        dataSourceKey,
+      );
+    }
+
+    if (dataTransformerKey != null) {
+      dataTransformer = context.read<DataTransformerProviderModel>().get(
+        dataTransformerKey,
+      );
+    }
+
     final content = switch (type) {
-      'chart' when streamKey != null => ChartTile(streamKey: streamKey),
-      'value' when streamKey != null => ValueTile(streamKey: streamKey),
+      'chart' when dataSource != null && dataTransformer != null => ChartTile(
+        dataSource: dataSource,
+        dataTransformer: dataTransformer,
+      ),
+      'value' when dataSource != null && dataTransformer != null => ValueTile(
+        dataSource: dataSource,
+        dataTransformer: dataTransformer,
+      ),
       _ => const _NoStreamPlaceholder(),
     };
 

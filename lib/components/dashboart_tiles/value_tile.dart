@@ -1,63 +1,60 @@
 import 'dart:async';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-
-import '../../dashboard/stream_registry.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_transformer.dart';
 
 /// Live numeric readout for a registered stream.
 class ValueTile extends StatefulWidget {
-  final String streamKey;
+  final DataSource dataSource;
+  final DataTransformer dataTransformer;
 
-  const ValueTile({super.key, required this.streamKey});
+  const ValueTile({
+    super.key,
+    required this.dataSource,
+    required this.dataTransformer,
+  });
 
   @override
   State<ValueTile> createState() => _ValueTileState();
 }
 
 class _ValueTileState extends State<ValueTile> {
-  StreamSubscription<double>? _sub;
-  StreamInfo? _info;
-  double? _latest;
+  static const _updateInterval = Duration(milliseconds: 500);
+
+  late final StreamSubscription<List<FlSpot>> _sub;
+  DateTime _lastUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+
+  var _latest = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _resubscribe();
-  }
 
-  @override
-  void didUpdateWidget(ValueTile old) {
-    super.didUpdateWidget(old);
-    if (old.streamKey != widget.streamKey) _resubscribe();
-  }
-
-  void _resubscribe() {
-    _sub?.cancel();
-    _latest = null;
-    _info = StreamRegistry.get(widget.streamKey);
-    if (_info == null) return;
-    _sub = _info!.stream.listen((v) {
-      if (mounted) setState(() => _latest = v);
-    });
+    _sub = widget.dataSource.data
+        .transform(widget.dataTransformer.transformer)
+        .listen((spots) {
+          final now = DateTime.now();
+          if (now.difference(_lastUpdate) < _updateInterval) return;
+          _lastUpdate = now;
+          setState(() => _latest = spots.first.y);
+        });
   }
 
   @override
   void dispose() {
-    _sub?.cancel();
+    _sub.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final info = _info;
-    if (info == null) return const SizedBox.shrink();
-
     final value = _latest;
-    final display = value == null
-        ? '—'
-        : value.abs() >= 100
-            ? value.toStringAsFixed(0)
-            : value.toStringAsFixed(1);
+    final display =
+          value.abs() >= 100
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1);
 
     return Padding(
       padding: const EdgeInsets.all(8),
@@ -66,15 +63,24 @@ class _ValueTileState extends State<ValueTile> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(info.label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            Text(
+              widget.dataSource.name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
             const SizedBox(height: 4),
-            Text(display,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)),
-            if (info.unit.isNotEmpty)
-              Text(info.unit, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            Text(
+              display,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 40,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              widget.dataSource.unit.toString(),
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
           ],
         ),
       ),

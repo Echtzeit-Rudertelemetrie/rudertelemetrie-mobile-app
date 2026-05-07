@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 
 import 'dashboard_model.dart';
-import 'stream_registry.dart';
 import 'widget_config.dart';
 
 /// Bottom sheet for adding a new widget to the dashboard.
@@ -14,7 +15,7 @@ class AddWidgetSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final streams = StreamRegistry.all;
+    final dataSources = context.read<DataSourceProviderModel>().registry.all;
 
     return SafeArea(
       child: Padding(
@@ -30,14 +31,14 @@ class AddWidgetSheet extends StatelessWidget {
             const Text('Choose a data source and display type.',
                 style: TextStyle(color: Colors.white54, fontSize: 12)),
             const SizedBox(height: 16),
-            if (streams.isEmpty)
+            if (dataSources.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text('No streams available.',
                     style: TextStyle(color: Colors.white38)),
               )
             else
-              ...streams.map((info) => _StreamRow(info: info)),
+              ...dataSources.map((dataSource) => _DSRow(dataSource: dataSource)),
           ],
         ),
       ),
@@ -45,9 +46,9 @@ class AddWidgetSheet extends StatelessWidget {
   }
 }
 
-class _StreamRow extends StatelessWidget {
-  final StreamInfo info;
-  const _StreamRow({required this.info});
+class _DSRow extends StatelessWidget {
+  final DataSource dataSource;
+  const _DSRow({required this.dataSource});
 
   @override
   Widget build(BuildContext context) {
@@ -59,31 +60,30 @@ class _StreamRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(info.label,
+                Text(dataSource.name,
                     style: const TextStyle(color: Colors.white, fontSize: 14)),
-                if (info.unit.isNotEmpty)
-                  Text(info.unit,
-                      style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                Text(dataSource.unit.toString(),
+                    style: const TextStyle(color: Colors.white54, fontSize: 11)),
               ],
             ),
           ),
           _AddButton(
             icon: Icons.show_chart,
             label: 'Chart',
-            onTap: () => _add(context, 'chart', 2, 3, info.key),
+            onTap: () => _add(context, 'chart', 2, 3, dataSource),
           ),
           const SizedBox(width: 8),
           _AddButton(
             icon: Icons.pin,
             label: 'Value',
-            onTap: () => _add(context, 'value', 2, 2, info.key),
+            onTap: () => _add(context, 'value', 2, 2, dataSource),
           ),
         ],
       ),
     );
   }
 
-  void _add(BuildContext context, String type, int w, int h, String streamKey) {
+  void _add(BuildContext context, String type, int w, int h, DataSource dataSource) {
     final id = 'w_${DateTime.now().millisecondsSinceEpoch}';
     context.read<DashboardModel>().addWidget(
       WidgetConfig(
@@ -92,7 +92,7 @@ class _StreamRow extends StatelessWidget {
         y: 0,
         w: w,
         h: h,
-        data: {'type': type, 'streamKey': streamKey},
+        data: {'type': type, 'dataSourceKey': dataSource.name, 'dataTransformerKey': 'tmp'},
       ),
     );
     Navigator.pop(context);
