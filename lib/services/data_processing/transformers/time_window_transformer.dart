@@ -22,22 +22,26 @@ class TimeWindowTransformer extends DataTransformer {
   StreamTransformer<Measurement, List<FlSpot>> get transformer =>
       StreamTransformer.fromBind((stream) {
         final buffer = Queue<Measurement>();
+        DateTime? origin;
         return stream.map((point) {
+          origin ??= point.timestamp;
           buffer.addLast(point);
           final cutoff = point.timestamp.subtract(duration);
           while (buffer.isNotEmpty && buffer.first.timestamp.isBefore(cutoff)) {
             buffer.removeFirst();
           }
           return buffer
-              .map(
-                (p) => FlSpot(
-                  p.timestamp.millisecondsSinceEpoch.toDouble(),
-                  p.value,
-                ),
-              )
+              .map((p) => FlSpot(_toXUnit(p.timestamp.difference(origin!).inMilliseconds.toDouble()), p.value))
               .toList(growable: false);
         });
       });
+
+  double _toXUnit(double ms) => switch (xUnit) {
+    Unit.ms => ms,
+    Unit.s => ms / 1000.0,
+    Unit.min => ms / 60000.0,
+    _ => ms,
+  };
 
   TimeWindowTransformer({required this.yUnit, required this.duration});
 }

@@ -22,25 +22,29 @@ class SinceThresholdTransformer extends DataTransformer {
       StreamTransformer.fromBind((stream) async* {
         final buffer = <Measurement>[];
         var collecting = false;
+        DateTime? origin;
         await for (final point in stream) {
           if (!collecting && point.value >= threshold) {
             collecting = true;
             buffer.clear();
+            origin = point.timestamp;
           }
           if (collecting) {
             buffer.add(point);
             if (point.value < threshold) collecting = false;
             yield buffer
-                .map(
-                  (p) => FlSpot(
-                    p.timestamp.millisecondsSinceEpoch.toDouble(),
-                    p.value,
-                  ),
-                )
+                .map((p) => FlSpot(_toXUnit(p.timestamp.difference(origin!).inMilliseconds.toDouble()), p.value))
                 .toList(growable: false);
           }
         }
       });
+
+  double _toXUnit(double ms) => switch (xUnit) {
+    Unit.ms => ms,
+    Unit.s => ms / 1000.0,
+    Unit.min => ms / 60000.0,
+    _ => ms,
+  };
 
   SinceThresholdTransformer({required this.yUnit, required this.threshold});
 }

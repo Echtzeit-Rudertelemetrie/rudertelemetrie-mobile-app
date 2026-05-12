@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_transformer.dart';
 
@@ -79,6 +81,35 @@ class _ChartTileState extends State<ChartTile>
         });
   }
 
+  double get _xInterval {
+    if (_spots.length < 2) return 1;
+    final range = _spots.last.x - _spots.first.x;
+    return _niceInterval(range / 5);
+  }
+
+  double _niceInterval(double raw) {
+    if (raw <= 0) return 1;
+    final exp = (log(raw) / ln10).floor();
+    final magnitude = pow(10, exp).toDouble();
+    final fraction = raw / magnitude;
+    if (fraction <= 1) return magnitude;
+    if (fraction <= 2) return 2 * magnitude;
+    if (fraction <= 5) return 5 * magnitude;
+    return 10 * magnitude;
+  }
+
+  String _xLabel(double value) {
+    final display = value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
+    return '$display${widget.dataTransformer.xUnit.name}';
+  }
+
+  double _durationToXUnit(Duration d) => switch (widget.dataTransformer.xUnit) {
+    Unit.ms => d.inMilliseconds.toDouble(),
+    Unit.s => d.inMilliseconds / 1000.0,
+    Unit.min => d.inMilliseconds / 60000.0,
+    _ => d.inMilliseconds.toDouble(),
+  };
+
   @override
   Widget build(BuildContext context) {
     if (_spots.isEmpty) {
@@ -109,7 +140,7 @@ class _ChartTileState extends State<ChartTile>
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  widget.dataTransformer.yUnit.toString(),
+                  widget.dataTransformer.yUnit.name,
                   style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
               ],
@@ -119,7 +150,7 @@ class _ChartTileState extends State<ChartTile>
             child: LineChart(
               LineChartData(
                 minX: widget.fixedXRange != null
-                    ? _spots.last.x - widget.fixedXRange!.inMilliseconds
+                    ? _spots.last.x - _durationToXUnit(widget.fixedXRange!)
                     : _spots.first.x,
                 maxX: _spots.last.x,
                 minY: 0,
@@ -135,7 +166,60 @@ class _ChartTileState extends State<ChartTile>
                     belowBarData: BarAreaData(show: false),
                   ),
                 ],
-                titlesData: const FlTitlesData(show: false),
+                titlesData: FlTitlesData(
+                  show: true,
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 25,
+                      getTitlesWidget: (value, meta) {
+                        if (value == meta.min || value == meta.max) {
+                          return const SizedBox.shrink();
+                        }
+                        return SideTitleWidget(
+                          meta: meta,
+                          child: Text(
+                            '${value.toInt()}${widget.dataTransformer.yUnit.name}',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 8,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 18,
+                      interval: _xInterval,
+                      getTitlesWidget: (value, meta) {
+                        if (value == meta.min || value == meta.max) {
+                          return const SizedBox.shrink();
+                        }
+                        return SideTitleWidget(
+                          meta: meta,
+                          space: 2,
+                          child: Text(
+                            _xLabel(value),
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 8,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
