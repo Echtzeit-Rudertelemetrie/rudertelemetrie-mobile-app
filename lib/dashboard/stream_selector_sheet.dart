@@ -23,7 +23,7 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
   void initState() {
     super.initState();
     _type = widget.config.data['type'] as String? ?? 'value';
-    _streamKey = widget.config.data['streamKey'] as String?;
+    _streamKey = widget.config.data['dataSourceKey'] as String?;
   }
 
   @override
@@ -89,7 +89,11 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
                 onPressed: () {
                   context.read<DashboardModel>().updateWidget(
                     widget.config.copyWith(
-                      data: {'type': _type, 'streamKey': _streamKey},
+                      data: {
+                    'type': _type,
+                    'dataSourceKey': _streamKey,
+                    'dataTransformerKey': widget.config.data['dataTransformerKey'],
+                  },
                     ),
                   );
                   Navigator.pop(context);

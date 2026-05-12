@@ -23,7 +23,7 @@ class ChartTile extends StatefulWidget {
 class _ChartTileState extends State<ChartTile>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
-  late final StreamSubscription<List<FlSpot>> _sub;
+  StreamSubscription<List<FlSpot>>? _sub;
 
   var _spots = <FlSpot>[];
   var _dirty = false;
@@ -32,12 +32,7 @@ class _ChartTileState extends State<ChartTile>
   void initState() {
     super.initState();
 
-    _sub = widget.dataSource.data
-        .transform(widget.dataTransformer.transformer)
-        .listen((spots) {
-          _spots = spots;
-          _dirty = true;
-        });
+    resubscribe();
 
     _ticker = createTicker((_) {
       if (_dirty) {
@@ -50,10 +45,32 @@ class _ChartTileState extends State<ChartTile>
   }
 
   @override
+  void didUpdateWidget(ChartTile old) {
+    super.didUpdateWidget(old);
+    if (old.dataSource != widget.dataSource ||
+        old.dataTransformer != widget.dataTransformer) {
+      resubscribe();
+    }
+  }
+
+  @override
   void dispose() {
-    _sub.cancel();
+    _sub?.cancel();
     _ticker.dispose();
     super.dispose();
+  }
+
+  void resubscribe() {
+    _sub?.cancel();
+
+    _spots = [];
+
+    _sub = widget.dataSource.data
+        .transform(widget.dataTransformer.transformer)
+        .listen((spots) {
+          _spots = spots;
+          _dirty = true;
+        });
   }
 
   @override

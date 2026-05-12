@@ -23,7 +23,7 @@ class ValueTile extends StatefulWidget {
 class _ValueTileState extends State<ValueTile> {
   static const _updateInterval = Duration(milliseconds: 500);
 
-  late final StreamSubscription<List<FlSpot>> _sub;
+  StreamSubscription<List<FlSpot>>? _sub;
   DateTime _lastUpdate = DateTime.fromMillisecondsSinceEpoch(0);
 
   var _latest = 0.0;
@@ -32,6 +32,26 @@ class _ValueTileState extends State<ValueTile> {
   void initState() {
     super.initState();
 
+    resubscribe();
+  }
+
+  @override
+  void didUpdateWidget(ValueTile old) {
+    super.didUpdateWidget(old);
+    if (old.dataSource != widget.dataSource ||
+        old.dataTransformer != widget.dataTransformer) {
+      resubscribe();
+    }
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  void resubscribe() {
+    _sub?.cancel();
     _sub = widget.dataSource.data
         .transform(widget.dataTransformer.transformer)
         .listen((spots) {
@@ -43,16 +63,9 @@ class _ValueTileState extends State<ValueTile> {
   }
 
   @override
-  void dispose() {
-    _sub.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final value = _latest;
-    final display =
-          value.abs() >= 100
+    final display = value.abs() >= 100
         ? value.toStringAsFixed(0)
         : value.toStringAsFixed(1);
 
