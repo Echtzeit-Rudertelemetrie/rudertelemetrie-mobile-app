@@ -58,7 +58,7 @@ class _ValueTileState extends State<ValueTile> {
           final now = DateTime.now();
           if (now.difference(_lastUpdate) < _updateInterval) return;
           _lastUpdate = now;
-          setState(() => _latest = spots.first.y);
+          setState(() => _latest = spots.last.y);
         });
   }
 
