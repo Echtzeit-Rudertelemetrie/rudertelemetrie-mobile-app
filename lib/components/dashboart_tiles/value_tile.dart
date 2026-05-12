@@ -1,20 +1,14 @@
 import 'dart:async';
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/data_transformer.dart';
+import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
+import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
-/// Live numeric readout for a registered stream.
+/// Live numeric readout showing the latest y-value from a [BoundVisualizer].
 class ValueTile extends StatefulWidget {
-  final DataSource dataSource;
-  final DataTransformer dataTransformer;
+  final BoundVisualizer visualizer;
 
-  const ValueTile({
-    super.key,
-    required this.dataSource,
-    required this.dataTransformer,
-  });
+  const ValueTile({super.key, required this.visualizer});
 
   @override
   State<ValueTile> createState() => _ValueTileState();
@@ -23,7 +17,7 @@ class ValueTile extends StatefulWidget {
 class _ValueTileState extends State<ValueTile> {
   static const _updateInterval = Duration(milliseconds: 500);
 
-  StreamSubscription<List<FlSpot>>? _sub;
+  StreamSubscription<List<XYPoint>>? _sub;
   DateTime _lastUpdate = DateTime.fromMillisecondsSinceEpoch(0);
 
   var _latest = 0.0;
@@ -31,17 +25,13 @@ class _ValueTileState extends State<ValueTile> {
   @override
   void initState() {
     super.initState();
-
-    resubscribe();
+    _resubscribe();
   }
 
   @override
   void didUpdateWidget(ValueTile old) {
     super.didUpdateWidget(old);
-    if (old.dataSource != widget.dataSource ||
-        old.dataTransformer != widget.dataTransformer) {
-      resubscribe();
-    }
+    if (old.visualizer != widget.visualizer) _resubscribe();
   }
 
   @override
@@ -50,16 +40,14 @@ class _ValueTileState extends State<ValueTile> {
     super.dispose();
   }
 
-  void resubscribe() {
+  void _resubscribe() {
     _sub?.cancel();
-    _sub = widget.dataSource.data
-        .transform(widget.dataTransformer.transformer)
-        .listen((spots) {
-          final now = DateTime.now();
-          if (now.difference(_lastUpdate) < _updateInterval) return;
-          _lastUpdate = now;
-          setState(() => _latest = spots.last.y);
-        });
+    _sub = widget.visualizer.output.listen((points) {
+      final now = DateTime.now();
+      if (now.difference(_lastUpdate) < _updateInterval) return;
+      _lastUpdate = now;
+      setState(() => _latest = points.last.y);
+    });
   }
 
   @override
@@ -77,7 +65,7 @@ class _ValueTileState extends State<ValueTile> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              widget.dataSource.name,
+              widget.visualizer.name,
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white54, fontSize: 12),
             ),
@@ -91,7 +79,7 @@ class _ValueTileState extends State<ValueTile> {
               ),
             ),
             Text(
-              widget.dataSource.unit.toString(),
+              widget.visualizer.units.y.name,
               style: const TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ],

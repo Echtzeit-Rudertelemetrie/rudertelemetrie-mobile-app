@@ -4,25 +4,13 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/data_transformer.dart';
+import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
+import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 class ChartTile extends StatefulWidget {
-  final DataSource dataSource;
-  final DataTransformer dataTransformer;
+  final BoundVisualizer visualizer;
 
-  /// When set, the x-axis always spans exactly this duration ending at the
-  /// latest data point (scrolling window). When null, the x-axis grows to fit
-  /// all available data.
-  final Duration? fixedXRange;
-
-  const ChartTile({
-    super.key,
-    required this.dataSource,
-    required this.dataTransformer,
-    this.fixedXRange,
-  });
+  const ChartTile({super.key, required this.visualizer});
 
   @override
   State<ChartTile> createState() => _ChartTileState();
@@ -31,34 +19,28 @@ class ChartTile extends StatefulWidget {
 class _ChartTileState extends State<ChartTile>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
-  StreamSubscription<List<FlSpot>>? _sub;
+  StreamSubscription<List<XYPoint>>? _sub;
 
-  var _spots = <FlSpot>[];
+  var _points = <XYPoint>[];
   var _dirty = false;
 
   @override
   void initState() {
     super.initState();
-
-    resubscribe();
-
+    _resubscribe();
     _ticker = createTicker((_) {
       if (_dirty) {
         _dirty = false;
         setState(() {});
       }
     });
-
     _ticker.start();
   }
 
   @override
   void didUpdateWidget(ChartTile old) {
     super.didUpdateWidget(old);
-    if (old.dataSource != widget.dataSource ||
-        old.dataTransformer != widget.dataTransformer) {
-      resubscribe();
-    }
+    if (old.visualizer != widget.visualizer) _resubscribe();
   }
 
   @override
@@ -68,22 +50,18 @@ class _ChartTileState extends State<ChartTile>
     super.dispose();
   }
 
-  void resubscribe() {
+  void _resubscribe() {
     _sub?.cancel();
-
-    _spots = [];
-
-    _sub = widget.dataSource.data
-        .transform(widget.dataTransformer.transformer)
-        .listen((spots) {
-          _spots = spots;
-          _dirty = true;
-        });
+    _points = [];
+    _sub = widget.visualizer.output.listen((points) {
+      _points = points;
+      _dirty = true;
+    });
   }
 
   double get _xInterval {
-    if (_spots.length < 2) return 1;
-    final range = _spots.last.x - _spots.first.x;
+    if (_points.length < 2) return 1;
+    final range = _points.last.x - _points.first.x;
     return _niceInterval(range / 5);
   }
 
@@ -99,20 +77,15 @@ class _ChartTileState extends State<ChartTile>
   }
 
   String _xLabel(double value) {
-    final display = value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
-    return '$display${widget.dataTransformer.xUnit.name}';
+    final display = value % 1 == 0
+        ? value.toInt().toString()
+        : value.toStringAsFixed(1);
+    return '$display${widget.visualizer.units.x.name}';
   }
-
-  double _durationToXUnit(Duration d) => switch (widget.dataTransformer.xUnit) {
-    Unit.ms => d.inMilliseconds.toDouble(),
-    Unit.s => d.inMilliseconds / 1000.0,
-    Unit.min => d.inMilliseconds / 60000.0,
-    _ => d.inMilliseconds.toDouble(),
-  };
 
   @override
   Widget build(BuildContext context) {
-    if (_spots.isEmpty) {
+    if (_points.isEmpty) {
       return const Center(
         child: SizedBox(
           width: 20,
@@ -125,6 +98,8 @@ class _ChartTileState extends State<ChartTile>
       );
     }
 
+    final spots = _points.map((p) => FlSpot(p.x, p.y)).toList();
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
       child: Column(
@@ -135,12 +110,12 @@ class _ChartTileState extends State<ChartTile>
             child: Row(
               children: [
                 Text(
-                  widget.dataSource.name,
+                  widget.visualizer.name,
                   style: const TextStyle(color: Colors.white54, fontSize: 10),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  widget.dataTransformer.yUnit.name,
+                  widget.visualizer.units.y.name,
                   style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
               ],
@@ -149,16 +124,14 @@ class _ChartTileState extends State<ChartTile>
           Expanded(
             child: LineChart(
               LineChartData(
-                minX: widget.fixedXRange != null
-                    ? _spots.last.x - _durationToXUnit(widget.fixedXRange!)
-                    : _spots.first.x,
-                maxX: _spots.last.x,
+                minX: spots.first.x,
+                maxX: spots.last.x,
                 minY: 0,
                 maxY: 100,
                 clipData: const FlClipData.all(),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: _spots,
+                    spots: spots,
                     isCurved: false,
                     color: const Color(0xFFF45866),
                     barWidth: 1.5,
@@ -186,7 +159,7 @@ class _ChartTileState extends State<ChartTile>
                         return SideTitleWidget(
                           meta: meta,
                           child: Text(
-                            '${value.toInt()}${widget.dataTransformer.yUnit.name}',
+                            '${value.toInt()}${widget.visualizer.units.y.name}',
                             style: const TextStyle(
                               color: Colors.white38,
                               fontSize: 8,

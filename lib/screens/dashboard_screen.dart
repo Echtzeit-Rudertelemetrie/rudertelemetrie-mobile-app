@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
-import 'package:rudertelemetrie_mobile_app/providers/data_transformer_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/data_transformer.dart';
+import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 import '../dashboard/add_widget_sheet.dart';
 import '../components/dashboart_tiles/chart_tile.dart';
@@ -22,6 +22,18 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  /// Cache of bound visualizers keyed by config id + visualizer/source selection.
+  /// Prevents rebinding (and resubscription) on every DashboardModel rebuild.
+  final Map<String, BoundVisualizer> _boundCache = {};
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Clear stale cache entries whenever the dashboard model notifies.
+    // Safe — entries are rebuilt lazily on the next build pass.
+    _boundCache.clear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final model = context.watch<DashboardModel>();
@@ -61,34 +73,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildTile(BuildContext context, WidgetConfig config) {
     final editMode = context.watch<DashboardModel>().editMode;
-    final dataSourceKey = config.data['dataSourceKey'] as String?;
-    final dataTransformerKey = config.data['dataTransformerKey'] as String?;
+    final visualizerKey = config.data['visualizerKey'] as String?;
+    final sourceKeys =
+        (config.data['sourceKeys'] as List<dynamic>?)?.cast<String>() ?? [];
     final type = config.data['type'] as String?;
 
-    DataSource? dataSource;
-    DataTransformer? dataTransformer;
+    final cacheKey =
+        '${config.id}_${visualizerKey}_${sourceKeys.join(',')}';
+    final bound = _boundCache[cacheKey] ??
+        () {
+          final b = _bind(context, visualizerKey, sourceKeys);
+          if (b != null) _boundCache[cacheKey] = b;
+          return b;
+        }();
 
-    if (dataSourceKey != null) {
-      dataSource = context.read<DataSourceProviderModel>().registry.get(
-        dataSourceKey,
-      );
-    }
-
-    if (dataTransformerKey != null) {
-      dataTransformer = context.read<DataTransformerProviderModel>().get(
-        dataTransformerKey,
-      );
-    }
-
-    final content = switch (type) {
-      'chart' when dataSource != null && dataTransformer != null => ChartTile(
-        dataSource: dataSource,
-        dataTransformer: dataTransformer,
-      ),
-      'value' when dataSource != null && dataTransformer != null => ValueTile(
-        dataSource: dataSource,
-        dataTransformer: dataTransformer,
-      ),
+    final content = switch ((type, bound)) {
+      ('chart', final BoundVisualizer b) => ChartTile(visualizer: b),
+      ('value', final BoundVisualizer b) => ValueTile(visualizer: b),
       _ => const _NoStreamPlaceholder(),
     };
 
@@ -97,6 +98,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: () => _showStreamSelector(context, config),
       child: content,
     );
+  }
+
+  BoundVisualizer? _bind(
+    BuildContext context,
+    String? visualizerKey,
+    List<String> sourceKeys,
+  ) {
+    if (visualizerKey == null) return null;
+
+    final visualizer =
+        context.read<VisualizerProviderModel>().registry.get(visualizerKey);
+    if (visualizer == null) return null;
+
+    final sourceRegistry = context.read<DataSourceProviderModel>().registry;
+    final sources = sourceKeys
+        .map((k) => sourceRegistry.get(k))
+        .whereType<DataSource>()
+        .toList();
+
+    return switch (visualizer) {
+      Visualizer1 v when sources.isNotEmpty => v.bind(sources[0]),
+      Visualizer2 v when sources.length >= 2 => v.bind(sources[0], sources[1]),
+      _ => null,
+    };
   }
 
   void _showStreamSelector(BuildContext context, WidgetConfig config) {
