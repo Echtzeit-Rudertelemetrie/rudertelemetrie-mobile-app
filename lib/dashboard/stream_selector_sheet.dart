@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/data_transformer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_transformer.dart';
 
 import 'dashboard_model.dart';
 import 'widget_config.dart';
@@ -18,17 +20,27 @@ class StreamSelectorSheet extends StatefulWidget {
 class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
   late String _type;
   late String? _streamKey;
+  late String? _transformerKey;
 
   @override
   void initState() {
     super.initState();
     _type = widget.config.data['type'] as String? ?? 'value';
     _streamKey = widget.config.data['dataSourceKey'] as String?;
+    _transformerKey = widget.config.data['dataTransformerKey'] as String?;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final transformers = context.read<DataTransformerProviderModel>().all;
+    _transformerKey ??= transformers.isNotEmpty ? transformers.first.name : null;
   }
 
   @override
   Widget build(BuildContext context) {
     final dataSources = context.read<DataSourceProviderModel>().registry.all;
+    final transformers = context.read<DataTransformerProviderModel>().all;
 
     return SafeArea(
       child: Padding(
@@ -81,6 +93,17 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
                     onTap: () => setState(() => _streamKey = dataSource.name),
                   )),
 
+            const SizedBox(height: 16),
+
+            const Text('Transformer',
+                style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 4),
+            ...transformers.map((t) => _TransformerOption(
+                  transformer: t,
+                  selected: _transformerKey == t.name,
+                  onTap: () => setState(() => _transformerKey = t.name),
+                )),
+
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -90,10 +113,10 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
                   context.read<DashboardModel>().updateWidget(
                     widget.config.copyWith(
                       data: {
-                    'type': _type,
-                    'dataSourceKey': _streamKey,
-                    'dataTransformerKey': widget.config.data['dataTransformerKey'],
-                  },
+                        'type': _type,
+                        'dataSourceKey': _streamKey,
+                        'dataTransformerKey': _transformerKey,
+                      },
                     ),
                   );
                   Navigator.pop(context);
@@ -106,6 +129,45 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
       ),
     );
   }
+}
+
+class _TransformerOption extends StatelessWidget {
+  final DataTransformer transformer;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TransformerOption(
+      {required this.transformer, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? const Color(0xFFF45866) : Colors.white38,
+                width: 2,
+              ),
+            ),
+            child: selected
+                ? const Center(
+                    child: CircleAvatar(radius: 5, backgroundColor: Color(0xFFF45866)))
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Text(transformer.name,
+              style: const TextStyle(color: Colors.white, fontSize: 14)),
+        ],
+      ),
+    ),
+  );
 }
 
 class _DSOption extends StatelessWidget {

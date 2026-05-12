@@ -10,10 +10,16 @@ class ChartTile extends StatefulWidget {
   final DataSource dataSource;
   final DataTransformer dataTransformer;
 
+  /// When set, the x-axis always spans exactly this duration ending at the
+  /// latest data point (scrolling window). When null, the x-axis grows to fit
+  /// all available data.
+  final Duration? fixedXRange;
+
   const ChartTile({
     super.key,
     required this.dataSource,
     required this.dataTransformer,
+    this.fixedXRange,
   });
 
   @override
@@ -112,7 +118,9 @@ class _ChartTileState extends State<ChartTile>
           Expanded(
             child: LineChart(
               LineChartData(
-                minX: _spots.first.x,
+                minX: widget.fixedXRange != null
+                    ? _spots.last.x - widget.fixedXRange!.inMilliseconds
+                    : _spots.first.x,
                 maxX: _spots.last.x,
                 minY: 0,
                 maxY: 100,
