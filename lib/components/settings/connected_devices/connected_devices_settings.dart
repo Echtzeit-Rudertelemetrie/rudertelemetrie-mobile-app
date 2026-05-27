@@ -38,6 +38,8 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
       _state = BluetoothState.unsupported;
     }
 
+    FlutterBluePlus.setLogLevel(LogLevel.warning);
+
     _adapterStateSubscription ??= FlutterBluePlus.adapterState.listen((BluetoothAdapterState state) {
         if (state == BluetoothAdapterState.on) {
           _state = BluetoothState.active;
