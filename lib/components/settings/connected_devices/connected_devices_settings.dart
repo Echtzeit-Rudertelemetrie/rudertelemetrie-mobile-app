@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:rudertelemetrie_mobile_app/services/ble/packet_loss_analyzer.dart';
 
 enum BluetoothState {
   unknown,
@@ -52,16 +55,11 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
 
         await r.device.connectionState.where((val) => val == BluetoothConnectionState.connected).first;
 
-        List<BluetoothService> services = await r.device.discoverServices();
-        for (var service in services) {
-          var characteristics = service.characteristics;
-          for(BluetoothCharacteristic c in characteristics) {
-            if (c.properties.read) {
-              List<int> value = await c.read();
-              print(value);
-            }
-          }
+        if (!kIsWeb && Platform.isAndroid) {
+          await r.device.requestMtu(512);
         }
+
+        await _runPacketLossTest(r.device);
       }
     },
     onError: (e) => print(e));
@@ -69,6 +67,41 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
     FlutterBluePlus.cancelWhenScanComplete(_scanResultsSubscription!);
 
     await FlutterBluePlus.startScan(withNames: ["RowingBoat-BLE"]);
+  }
+
+  Future<void> _runPacketLossTest(BluetoothDevice device) async {
+    final services = await device.discoverServices();
+    BluetoothCharacteristic? notify;
+
+    for (final service in services) {
+      for (final c in service.characteristics) {
+        if (c.properties.notify) {
+          notify = c;
+          break;
+        }
+      }
+      if (notify != null) break;
+    }
+
+    if (notify == null) {
+      print('[PacketLoss] No notify characteristic found');
+      return;
+    }
+
+    print('[PacketLoss] Listening for 10s on ${notify.uuid}...');
+
+    final analyzer = PacketLossAnalyzer();
+    await notify.setNotifyValue(true);
+
+    final stopwatch = Stopwatch()..start();
+    final subscription = notify.onValueReceived.listen(analyzer.onPacket);
+    device.cancelWhenDisconnected(subscription);
+
+    await Future.delayed(const Duration(seconds: 10));
+
+    stopwatch.stop();
+    await subscription.cancel();
+    analyzer.printReport(stopwatch.elapsed);
   }
 
   @override void dispose() {
