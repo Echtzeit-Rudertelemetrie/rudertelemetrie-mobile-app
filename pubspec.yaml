@@ -37,6 +37,7 @@ dependencies:
   forui: ^0.20.3
   provider: ^6.1.5+1
   fl_chart: ^0.70.2
+  flutter_blue_plus: ^2.3.2
 
 dev_dependencies:
   flutter_test:
