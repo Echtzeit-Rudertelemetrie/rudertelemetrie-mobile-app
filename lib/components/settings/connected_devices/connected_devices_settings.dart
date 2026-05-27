@@ -43,10 +43,25 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
         }
       });
 
-    _scanResultsSubscription ??= FlutterBluePlus.onScanResults.listen((results) {
+    _scanResultsSubscription ??= FlutterBluePlus.onScanResults.listen((results) async {
       if (results.isNotEmpty) {
         ScanResult r = results.last;
         print('${r.device.remoteId}: "${r.advertisementData.advName}" found!');
+
+        r.device.connect(autoConnect: true, mtu: null, license: License.free);
+
+        await r.device.connectionState.where((val) => val == BluetoothConnectionState.connected).first;
+
+        List<BluetoothService> services = await r.device.discoverServices();
+        for (var service in services) {
+          var characteristics = service.characteristics;
+          for(BluetoothCharacteristic c in characteristics) {
+            if (c.properties.read) {
+              List<int> value = await c.read();
+              print(value);
+            }
+          }
+        }
       }
     },
     onError: (e) => print(e));
