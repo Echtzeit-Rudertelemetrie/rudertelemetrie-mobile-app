@@ -68,7 +68,7 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
 
     FlutterBluePlus.cancelWhenScanComplete(_scanResultsSubscription!);
 
-    await FlutterBluePlus.startScan();
+    await FlutterBluePlus.startScan(withNames: ["RowingBoat-BLE"]);
   }
 
   @override void dispose() {
