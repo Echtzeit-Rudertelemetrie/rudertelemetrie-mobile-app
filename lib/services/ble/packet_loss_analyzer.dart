@@ -8,15 +8,30 @@ class PacketLossAnalyzer {
   int _duplicates = 0;
   final List<int> _gapSizes = [];
 
+  DateTime? _firstReceiveTime;
+  int? _firstEspTimestamp;
+  final List<double> _delays = [];
+
   void onPacket(List<int> raw) {
-    if (raw.length < 84) {
-      print('[PacketLoss] Unexpected packet size: ${raw.length} bytes (expected 84)');
+    if (raw.length < 88) {
+      print('[PacketLoss] Unexpected packet size: ${raw.length} bytes (expected 88)');
       return;
     }
 
+    final now = DateTime.now();
     final bytes = Uint8List.fromList(raw);
-    final seq = ByteData.sublistView(bytes).getUint32(0, Endian.little);
+    final data = ByteData.sublistView(bytes);
+    final seq = data.getUint32(0, Endian.little);
+    final espTimestamp = data.getUint32(4, Endian.little);
+
     _received++;
+
+    _firstReceiveTime ??= now;
+    _firstEspTimestamp ??= espTimestamp;
+
+    final espElapsed = espTimestamp - _firstEspTimestamp!;
+    final phoneElapsed = now.difference(_firstReceiveTime!).inMilliseconds;
+    _delays.add((phoneElapsed - espElapsed).toDouble());
 
     if (_lastSeq == null) {
       _lastSeq = seq;
@@ -60,7 +75,31 @@ class PacketLossAnalyzer {
       print('  Gap sizes:    min=${_gapSizes.first}, max=${_gapSizes.last}, '
           'median=${_gapSizes[_gapSizes.length ~/ 2]}');
     }
+    print('');
+    _printDelayReport();
     print('═══════════════════════════════');
     print('');
+  }
+
+  void _printDelayReport() {
+    if (_delays.isEmpty) return;
+
+    _delays.sort();
+    final min = _delays.first;
+    final max = _delays.last;
+    final median = _delays[_delays.length ~/ 2];
+    final mean = _delays.reduce((a, b) => a + b) / _delays.length;
+    final p95 = _delays[(_delays.length * 0.95).floor()];
+    final p99 = _delays[(_delays.length * 0.99).floor()];
+    final jitter = max - min;
+
+    print('── Delay Analysis (relative) ──');
+    print('  Min:          ${min.toStringAsFixed(1)} ms');
+    print('  Max:          ${max.toStringAsFixed(1)} ms');
+    print('  Mean:         ${mean.toStringAsFixed(1)} ms');
+    print('  Median:       ${median.toStringAsFixed(1)} ms');
+    print('  P95:          ${p95.toStringAsFixed(1)} ms');
+    print('  P99:          ${p99.toStringAsFixed(1)} ms');
+    print('  Jitter:       ${jitter.toStringAsFixed(1)} ms');
   }
 }
