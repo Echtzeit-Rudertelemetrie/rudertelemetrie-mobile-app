@@ -11,44 +11,50 @@ class BluetoothStreamHandler {
 
   final Map<String, ForceDataSource> _forceDataSources = {};
 
-  BluetoothStreamHandler({ required this.dataSourceRegistry });
+  BluetoothStreamHandler({required this.dataSourceRegistry});
 
   void onPacket(List<int> raw) {
-    final packet = decodeBluetoothPacket(raw);
-
+    final packet = BluetoothPacket.decode(raw);
     if (packet == null) return;
 
-    for (var data in packet.data) {
-      _emitValues(packet.sequenceNumber, data);
+    final idCounters = <int, int>{};
+
+    for (final reading in packet.readings) {
+      final readingIndex = idCounters[reading.sensorId] ?? 0;
+      idCounters[reading.sensorId] = readingIndex + 1;
+
+      switch (reading) {
+        case OarlockReading():
+          _emitOarlockValue(packet.sequenceNumber, reading, readingIndex);
+        case BoatReading():
+          break;
+      }
     }
   }
 
-  void _emitValues(int packetSequenceNumber, BluetoothPacketData packetData) {
-    final BluetoothPacketData(:force, :angle, :id) = packetData;
+  void _emitOarlockValue(
+    int packetSequenceNumber,
+    OarlockReading reading,
+    int readingIndex,
+  ) {
+    final dataSource = _ensureForceDataSourceExists(reading.sensorId);
 
-    final dataSource = _ensureForceDataSourceExists(id);
-
-    final value = convertForceSensorData(force);
+    final value = convertForceSensorData(reading.force);
     final timestamp = convertSequenceNumbersToTimestamp(
-        dataSource.startTime,
-        packetSequenceNumber,
-        packetData.sequenceNumber
+      dataSource.startTime,
+      packetSequenceNumber,
+      readingIndex,
     );
 
-    final measurementForce = Measurement(value: value, timestamp: timestamp);
-
-    dataSource.add(measurementForce);
+    dataSource.add(Measurement(value: value, timestamp: timestamp));
   }
 
   ForceDataSource _ensureForceDataSourceExists(int id) {
     final existing = _forceDataSources[id.toString()];
-
     if (existing != null) return existing;
 
     final dataSource = ForceDataSource(id: id.toString());
-
     dataSourceRegistry.register(dataSource);
-
     return dataSource;
   }
 

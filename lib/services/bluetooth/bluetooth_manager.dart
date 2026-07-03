@@ -1,12 +1,18 @@
 import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:rudertelemetrie_mobile_app/services/bluetooth/bluetooth_stream_handler.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 
-enum BluetoothState { unknown, unsupported, disabled, active, connected, failed }
+enum BluetoothState {
+  unknown,
+  unsupported,
+  disabled,
+  active,
+  connected,
+  failed,
+}
 
 class ConnectedDevice {
   final String id;
@@ -16,19 +22,28 @@ class ConnectedDevice {
 }
 
 class BluetoothManager {
-  final StreamController<BluetoothState> _stateStreamController = StreamController();
+  final StreamController<BluetoothState> _stateStreamController =
+      StreamController.broadcast();
 
   final List<ConnectedDevice> _connectedDevices = [];
-  final StreamController<List<ConnectedDevice>> _connectedDevicesStreamController = StreamController();
+  final StreamController<List<ConnectedDevice>>
+  _connectedDevicesStreamController = StreamController.broadcast();
+
+  BluetoothState _state = BluetoothState.unknown;
 
   DataSourceRegistry? _dataSourceRegistry;
 
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   StreamSubscription<List<ScanResult>>? _scanResultsSubscription;
 
+  BluetoothState get state => _state;
+
   Stream<BluetoothState> get onStateChange => _stateStreamController.stream;
 
-  Stream<List<ConnectedDevice>> get onConnectedDevicesChange => _connectedDevicesStreamController.stream;
+  List<ConnectedDevice> get connectedDevices => _connectedDevices;
+
+  Stream<List<ConnectedDevice>> get onConnectedDevicesChange =>
+      _connectedDevicesStreamController.stream;
 
   Future<void> initialize(DataSourceRegistry dataSourceRegistry) async {
     _dataSourceRegistry = dataSourceRegistry;
@@ -53,7 +68,11 @@ class BluetoothManager {
 
   StreamSubscription<BluetoothAdapterState> _subscribeToAdapterState() {
     return FlutterBluePlus.adapterState.listen((BluetoothAdapterState state) {
-      _updateState(state == BluetoothAdapterState.on ? BluetoothState.active : BluetoothState.disabled);
+      _updateState(
+        state == BluetoothAdapterState.on
+            ? BluetoothState.active
+            : BluetoothState.disabled,
+      );
     });
   }
 
@@ -65,17 +84,24 @@ class BluetoothManager {
 
       r.device.connect(autoConnect: true, mtu: null, license: License.free);
 
-      await r.device.connectionState.where((val) => val == BluetoothConnectionState.connected).first;
+      await r.device.connectionState
+          .where((val) => val == BluetoothConnectionState.connected)
+          .first;
 
       _updateState(BluetoothState.connected);
 
-      final device = ConnectedDevice(id: r.device.remoteId.str, name: r.device.advName);
+      final device = ConnectedDevice(
+        id: r.device.remoteId.str,
+        name: r.device.advName,
+      );
 
-      _connectedDevices.add(device);
+      _addConnectedDevice(device);
 
       if (!kIsWeb && Platform.isAndroid) {
         await r.device.requestMtu(512);
       }
+
+      createDataSource(r.device);
     });
   }
 
@@ -101,6 +127,7 @@ class BluetoothManager {
 
     final connectionSubscription = device.connectionState.listen((state) {
       if (state == BluetoothConnectionState.disconnected) {
+        _removeConnectedDeviceWithId(device.remoteId.str);
         handler.dispose();
       }
     });
@@ -109,7 +136,9 @@ class BluetoothManager {
     device.cancelWhenDisconnected(connectionSubscription);
   }
 
-  Future<BluetoothCharacteristic?> findNotifyCharacteristic(BluetoothDevice device) async {
+  Future<BluetoothCharacteristic?> findNotifyCharacteristic(
+    BluetoothDevice device,
+  ) async {
     final services = await device.discoverServices();
     BluetoothCharacteristic? notify;
 
@@ -127,10 +156,21 @@ class BluetoothManager {
   }
 
   Future<void> _startScan() async {
-    await FlutterBluePlus.startScan(withNames: ["RowingBoat-BLE"]);
+    await FlutterBluePlus.startScan(withNames: ["RowingBoat"]);
   }
 
   void _updateState(BluetoothState state) {
+    _state = state;
     _stateStreamController.sink.add(state);
+  }
+
+  void _addConnectedDevice(ConnectedDevice device) {
+    _connectedDevices.add(device);
+    _connectedDevicesStreamController.sink.add(_connectedDevices);
+  }
+
+  void _removeConnectedDeviceWithId(String id) {
+    _connectedDevices.removeWhere((device) => device.id == id);
+    _connectedDevicesStreamController.sink.add(_connectedDevices);
   }
 }
