@@ -1,107 +1,138 @@
-import 'dart:math';
 import 'dart:typed_data';
 
-class BitReader {
-  final Uint8List _bytes;
-  int _bitOffset = 0;
+/// Wire format sent by `rowing_boat` (firmware `MeasurementPack`, 84 bytes,
+/// packed, little-endian):
+///
+///   [0..4)   idAndSeq : uint32   -> id = top 4 bits, sequence = low 28 bits
+///   [4..44)  force region        -> 20 x uint16
+///   [44..84) angle region        -> 20 x uint16
+///
+/// The id selects what the two regions mean:
+///   id 0      -> boat telemetry: force region = GpsData, angle region = ImuData
+///   id 1..15  -> oarlock #id:    force region = forces, angle region = angles
+sealed class BluetoothPacket {
+  static const packetSize = 84;
 
-  BitReader(List<int> bytes) : _bytes = Uint8List.fromList(bytes);
-
-  int get remainingBits => (_bytes.length * 8) - _bitOffset;
-
-  int read(int bitCount) {
-    int value = 0;
-    int bitsRead = 0;
-
-    while (bitsRead < bitCount) {
-      final byteIndex = _bitOffset ~/ 8;
-      final bitIndex = _bitOffset % 8;
-      final bitsAvailable = 8 - bitIndex;
-      final bitsToRead = min(bitCount - bitsRead, bitsAvailable);
-
-      final mask = (1 << bitsToRead) - 1;
-      value |= ((_bytes[byteIndex] >> bitIndex) & mask) << bitsRead;
-
-      _bitOffset += bitsToRead;
-      bitsRead += bitsToRead;
-    }
-
-    return value;
-  }
-
-  void skip(int bitCount) {
-    _bitOffset += bitCount;
-  }
-}
-
-sealed class SensorReading {
-  static const bitSize = 40;
+  static const _forceRegionOffset = 4;
+  static const _angleRegionOffset = 44;
+  static const _samplesPerRegion = 20;
 
   final int sensorId;
-
-  SensorReading({required this.sensorId});
-
-  static SensorReading decode(BitReader reader) {
-    final sensorId = reader.read(4);
-    reader.skip(4);
-
-    return switch (sensorId) {
-      0 => BoatReading._decode(reader, sensorId: sensorId),
-      _ => OarlockReading._decode(reader, sensorId: sensorId),
-    };
-  }
-}
-
-class OarlockReading extends SensorReading {
-  final int force;
-  final int angle;
-
-  OarlockReading._({
-    required super.sensorId,
-    required this.force,
-    required this.angle,
-  });
-
-  static OarlockReading _decode(BitReader reader, {required int sensorId}) {
-    final force = reader.read(16);
-    final angle = reader.read(16);
-
-    return OarlockReading._(sensorId: sensorId, force: force, angle: angle);
-  }
-}
-
-class BoatReading extends SensorReading {
-  final int payload;
-
-  BoatReading._({required super.sensorId, required this.payload});
-
-  static BoatReading _decode(BitReader reader, {required int sensorId}) {
-    return BoatReading._(sensorId: sensorId, payload: reader.read(32));
-  }
-}
-
-class BluetoothPacket {
-  static const _headerBits = 32;
-  static const _readingsPerPacket = 20;
-  static const packetSize =
-      (_headerBits + _readingsPerPacket * SensorReading.bitSize) ~/ 8;
-
   final int sequenceNumber;
-  final List<SensorReading> readings;
 
-  BluetoothPacket._({required this.sequenceNumber, required this.readings});
+  BluetoothPacket({required this.sensorId, required this.sequenceNumber});
 
   static BluetoothPacket? decode(List<int> raw) {
     if (raw.length < packetSize) return null;
 
-    final reader = BitReader(raw);
+    final data = ByteData.sublistView(Uint8List.fromList(raw));
+    final idAndSeq = data.getUint32(0, Endian.little);
+    final sensorId = (idAndSeq >> 28) & 0xF;
+    final sequenceNumber = idAndSeq & 0x0FFFFFFF;
 
-    return BluetoothPacket._(
-      sequenceNumber: reader.read(32),
-      readings: [
-        for (var i = 0; i < _readingsPerPacket; i++)
-          SensorReading.decode(reader),
-      ],
+    return sensorId == 0
+        ? BoatPacket._decode(data, sequenceNumber)
+        : OarlockPacket._decode(data, sensorId, sequenceNumber);
+  }
+}
+
+class OarlockPacket extends BluetoothPacket {
+  final List<int> forces;
+  final List<int> angles;
+
+  OarlockPacket._({
+    required super.sensorId,
+    required super.sequenceNumber,
+    required this.forces,
+    required this.angles,
+  });
+
+  static OarlockPacket _decode(ByteData data, int sensorId, int sequenceNumber) {
+    return OarlockPacket._(
+      sensorId: sensorId,
+      sequenceNumber: sequenceNumber,
+      forces: _readRegion(data, BluetoothPacket._forceRegionOffset),
+      angles: _readRegion(data, BluetoothPacket._angleRegionOffset),
+    );
+  }
+
+  static List<int> _readRegion(ByteData data, int offset) => [
+        for (var i = 0; i < BluetoothPacket._samplesPerRegion; i++)
+          data.getUint16(offset + i * 2, Endian.little),
+      ];
+}
+
+class BoatPacket extends BluetoothPacket {
+  final GpsSample gps;
+  final ImuSample imu;
+
+  BoatPacket._({
+    required super.sensorId,
+    required super.sequenceNumber,
+    required this.gps,
+    required this.imu,
+  });
+
+  static BoatPacket _decode(ByteData data, int sequenceNumber) {
+    return BoatPacket._(
+      sensorId: 0,
+      sequenceNumber: sequenceNumber,
+      gps: GpsSample._decode(data, BluetoothPacket._forceRegionOffset),
+      imu: ImuSample._decode(data, BluetoothPacket._angleRegionOffset),
+    );
+  }
+}
+
+/// Firmware `GpsData` (14 bytes, packed) laid into the boat packet's force region.
+class GpsSample {
+  final double latitude;
+  final double longitude;
+  final int speedMps;
+  final int courseDeg;
+  final int satellites;
+  final bool valid;
+
+  GpsSample._({
+    required this.latitude,
+    required this.longitude,
+    required this.speedMps,
+    required this.courseDeg,
+    required this.satellites,
+    required this.valid,
+  });
+
+  static GpsSample _decode(ByteData data, int offset) {
+    return GpsSample._(
+      latitude: data.getInt32(offset, Endian.little) / 1e6,
+      longitude: data.getInt32(offset + 4, Endian.little) / 1e6,
+      speedMps: data.getInt16(offset + 8, Endian.little),
+      courseDeg: data.getInt16(offset + 10, Endian.little),
+      satellites: data.getUint8(offset + 12),
+      valid: data.getUint8(offset + 13) != 0,
+    );
+  }
+}
+
+/// Firmware `ImuData` (16 bytes, packed) laid into the boat packet's angle region.
+class ImuSample {
+  final double accX;
+  final double accY;
+  final double accZ;
+  final int timestampMs;
+
+  ImuSample._({
+    required this.accX,
+    required this.accY,
+    required this.accZ,
+    required this.timestampMs,
+  });
+
+  static ImuSample _decode(ByteData data, int offset) {
+    return ImuSample._(
+      accX: data.getFloat32(offset, Endian.little),
+      accY: data.getFloat32(offset + 4, Endian.little),
+      accZ: data.getFloat32(offset + 8, Endian.little),
+      timestampMs: data.getUint32(offset + 12, Endian.little),
     );
   }
 }
