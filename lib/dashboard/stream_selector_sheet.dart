@@ -6,6 +6,7 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 import 'dashboard_model.dart';
+import 'sheet_scaffold.dart';
 import 'widget_config.dart';
 
 class StreamSelectorSheet extends StatefulWidget {
@@ -67,112 +68,95 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
   @override
   Widget build(BuildContext context) {
     final visualizers = context.read<VisualizerProviderModel>().registry.all;
-    final dataSources = context.read<DataSourceProviderModel>().registry.all;
+    final dataSources = context.watch<DataSourceProviderModel>().registry.all;
     final sourceCount = _selectedVisualizer?.sourceCount ?? 0;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Configure Widget',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            const Text(
-              'Display type',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _TypeButton(
-                  label: 'Chart',
-                  icon: Icons.show_chart,
-                  selected: _type == 'chart',
-                  onTap: () => setState(() => _type = 'chart'),
-                ),
-                const SizedBox(width: 8),
-                _TypeButton(
-                  label: 'Value',
-                  icon: Icons.pin,
-                  selected: _type == 'value',
-                  onTap: () => setState(() => _type = 'value'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            const Text(
-              'Visualizer',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            ...visualizers.map((v) => _VisualizerOption(
-                  visualizer: v,
-                  selected: _visualizerKey == v.name,
-                  onTap: () => _selectVisualizer(v),
-                )),
-            const SizedBox(height: 16),
-
-            for (int i = 0; i < sourceCount; i++) ...[
-              Text(
-                sourceCount == 1 ? 'Data source' : 'Data source ${i + 1}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              const SizedBox(height: 4),
-              if (dataSources.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'No streams available.',
-                    style: TextStyle(color: Colors.white38),
+    return SheetScaffold(
+      title: 'Configure Widget',
+      footer: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFF45866),
+          ),
+          onPressed: () {
+            context.read<DashboardModel>().updateWidget(
+              widget.config.copyWith(
+                data: {
+                  'type': _type,
+                  'visualizerKey': _visualizerKey,
+                  'sourceKeys': List<String>.from(
+                    _sourceKeys.whereType<String>(),
                   ),
-                )
-              else
-                ...dataSources.map((ds) => _SourceOption(
-                      dataSource: ds,
-                      selected: i < _sourceKeys.length &&
-                          _sourceKeys[i] == ds.name,
-                      onTap: () => setState(() => _sourceKeys[i] = ds.name),
-                    )),
-              const SizedBox(height: 12),
-            ],
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFF45866),
-                ),
-                onPressed: () {
-                  context.read<DashboardModel>().updateWidget(
-                    widget.config.copyWith(
-                      data: {
-                        'type': _type,
-                        'visualizerKey': _visualizerKey,
-                        'sourceKeys': List<String>.from(
-                          _sourceKeys.whereType<String>(),
-                        ),
-                      },
-                    ),
-                  );
-                  Navigator.pop(context);
                 },
-                child: const Text('Apply'),
               ),
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Apply'),
+        ),
+      ),
+      children: [
+        const Text(
+          'Display type',
+          style: TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _TypeButton(
+              label: 'Chart',
+              icon: Icons.show_chart,
+              selected: _type == 'chart',
+              onTap: () => setState(() => _type = 'chart'),
+            ),
+            const SizedBox(width: 8),
+            _TypeButton(
+              label: 'Value',
+              icon: Icons.pin,
+              selected: _type == 'value',
+              onTap: () => setState(() => _type = 'value'),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 16),
+
+        const Text(
+          'Visualizer',
+          style: TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+        const SizedBox(height: 4),
+        ...visualizers.map((v) => _VisualizerOption(
+              visualizer: v,
+              selected: _visualizerKey == v.name,
+              onTap: () => _selectVisualizer(v),
+            )),
+        const SizedBox(height: 16),
+
+        for (int i = 0; i < sourceCount; i++) ...[
+          Text(
+            sourceCount == 1 ? 'Data source' : 'Data source ${i + 1}',
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          if (dataSources.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No streams available.',
+                style: TextStyle(color: Colors.white38),
+              ),
+            )
+          else
+            ...dataSources.map((ds) => _SourceOption(
+                  dataSource: ds,
+                  selected:
+                      i < _sourceKeys.length && _sourceKeys[i] == ds.name,
+                  onTap: () => setState(() => _sourceKeys[i] = ds.name),
+                )),
+          const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 }

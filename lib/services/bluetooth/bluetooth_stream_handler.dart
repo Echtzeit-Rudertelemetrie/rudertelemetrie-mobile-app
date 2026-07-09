@@ -3,21 +3,30 @@ import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
+import 'package:rudertelemetrie_mobile_app/utils/bluetooth/packet_reassembler.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/timestamp_conversion_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/angle_conversion_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/force_conversion_util.dart';
 
 class BluetoothStreamHandler {
   final DataSourceRegistry dataSourceRegistry;
+  final String deviceId;
 
   final Map<String, PushDataSource> _dataSources = {};
 
   int? _boatDeviceClockOrigin;
 
-  BluetoothStreamHandler({required this.dataSourceRegistry});
+  late final PacketReassembler _reassembler = PacketReassembler(_decodeFrame);
 
-  void onPacket(List<int> raw) {
-    final packet = BluetoothPacket.decode(raw);
+  BluetoothStreamHandler({
+    required this.dataSourceRegistry,
+    required this.deviceId,
+  });
+
+  void onData(List<int> fragment) => _reassembler.addFragment(fragment);
+
+  void _decodeFrame(List<int> frame) {
+    final packet = BluetoothPacket.decode(frame);
 
     switch (packet) {
       case null:
@@ -78,10 +87,19 @@ class BluetoothStreamHandler {
 
   PushDataSource _source(String name, Unit unit) {
     return _dataSources.putIfAbsent(name, () {
-      final source = PushDataSource(name: name, unit: unit);
+      final source = PushDataSource(name: _qualify(name), unit: unit);
       dataSourceRegistry.register(source);
       return source;
     });
+  }
+
+  String _qualify(String name) => '$name ($_deviceTag)';
+
+  String get _deviceTag {
+    final compact = deviceId.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    return compact.length <= 4
+        ? compact
+        : compact.substring(compact.length - 4);
   }
 
   void dispose() {

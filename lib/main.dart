@@ -24,12 +24,23 @@ void main() {
   );
 }
 
-class Application extends StatelessWidget {
+class Application extends StatefulWidget {
   const Application({super.key});
 
   @override
+  State<Application> createState() => _ApplicationState();
+}
+
+class _ApplicationState extends State<Application> {
+  @override
+  void initState() {
+    super.initState();
+    initializeBluetooth(context);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final (theme,) = startup(context);
+    final theme = getTheme();
 
     return MaterialApp(
       supportedLocales: FLocalizations.supportedLocales,

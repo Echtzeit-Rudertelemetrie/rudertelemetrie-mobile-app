@@ -38,6 +38,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final model = context.watch<DashboardModel>();
     final editMode = model.editMode;
+    // Rebind tiles when data sources appear/disappear (e.g. a device connects).
+    context.watch<DataSourceProviderModel>();
 
     return FScaffold(
       header: FHeader(
@@ -127,10 +129,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _showStreamSelector(BuildContext context, WidgetConfig config) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0c0e1d),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => ChangeNotifierProvider.value(
         value: context.read<DashboardModel>(),
         child: StreamSelectorSheet(config: config),
@@ -141,10 +141,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _showAddSheet(BuildContext context, DashboardModel model) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0c0e1d),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => ChangeNotifierProvider.value(
         value: model,
         child: const AddWidgetSheet(),

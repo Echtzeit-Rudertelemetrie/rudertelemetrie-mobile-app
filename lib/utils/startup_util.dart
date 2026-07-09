@@ -5,14 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 
-(FThemeData,) startup(BuildContext context) {
-  final theme = getTheme();
-
-  initializeBluetooth(context);
-
-  return (theme,);
-}
-
 FThemeData getTheme() {
   final base =
   const <TargetPlatform>{

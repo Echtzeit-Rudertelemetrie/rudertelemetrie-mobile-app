@@ -9,7 +9,14 @@ class DataSourceProviderModel extends ChangeNotifier {
   DataSourceRegistry get registry => _registry;
 
   DataSourceProviderModel() {
+    _registry.addListener(notifyListeners);
     _registry.register(SampleDataSource());
+  }
+
+  @override
+  void dispose() {
+    _registry.removeListener(notifyListeners);
+    super.dispose();
   }
 }
 
