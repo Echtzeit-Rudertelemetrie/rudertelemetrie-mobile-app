@@ -6,6 +6,7 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 import 'dashboard_model.dart';
+import 'param_field.dart';
 import 'sheet_scaffold.dart';
 import 'widget_config.dart';
 
@@ -22,6 +23,7 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
   late String _type;
   late String? _visualizerKey;
   late List<String?> _sourceKeys;
+  late Map<String, double> _params;
 
   @override
   void initState() {
@@ -31,12 +33,31 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
     final stored =
         (widget.config.data['sourceKeys'] as List<dynamic>?)?.cast<String>();
     _sourceKeys = stored != null ? List<String?>.from(stored) : [];
+    _params = _readStoredParams(widget.config.data['params']);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncSourceKeysToVisualizer();
+    _syncParamsToVisualizer();
+  }
+
+  Map<String, double> _readStoredParams(dynamic raw) {
+    if (raw is! Map) return {};
+    final params = <String, double>{};
+    raw.forEach((key, value) {
+      if (value is num) params[key.toString()] = value.toDouble();
+    });
+    return params;
+  }
+
+  void _syncParamsToVisualizer() {
+    final v = _selectedVisualizer;
+    if (v == null) return;
+    for (final p in v.params) {
+      _params.putIfAbsent(p.key, () => p.defaultValue);
+    }
   }
 
   void _syncSourceKeysToVisualizer() {
@@ -62,6 +83,7 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
     setState(() {
       _visualizerKey = v.name;
       _sourceKeys = List.filled(v.sourceCount, null);
+      _params = {for (final p in v.params) p.key: p.defaultValue};
     });
   }
 
@@ -96,6 +118,7 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
                   'sourceKeys': List<String>.from(
                     _sourceKeys.whereType<String>(),
                   ),
+                  'params': Map<String, double>.from(_params),
                 },
               ),
             );
@@ -140,6 +163,21 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
               onTap: () => _selectVisualizer(v),
             )),
         const SizedBox(height: 16),
+
+        if (_selectedVisualizer?.params.isNotEmpty ?? false) ...[
+          const Text(
+            'Settings',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          ..._selectedVisualizer!.params.map((p) => ParamField(
+                key: ValueKey('param_${p.key}'),
+                param: p,
+                value: _params[p.key] ?? p.defaultValue,
+                onChanged: (v) => _params[p.key] = v,
+              )),
+          const SizedBox(height: 16),
+        ],
 
         for (int i = 0; i < sourceCount; i++) ...[
           Text(

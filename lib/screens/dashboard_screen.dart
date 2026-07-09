@@ -79,12 +79,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final sourceKeys =
         (config.data['sourceKeys'] as List<dynamic>?)?.cast<String>() ?? [];
     final type = config.data['type'] as String?;
+    final params = _readParams(config.data['params']);
 
     final cacheKey =
-        '${config.id}_${visualizerKey}_${sourceKeys.join(',')}';
+        '${config.id}_${visualizerKey}_${sourceKeys.join(',')}_${_paramsSignature(params)}';
     final bound = _boundCache[cacheKey] ??
         () {
-          final b = _bind(context, visualizerKey, sourceKeys);
+          final b = _bind(context, visualizerKey, sourceKeys, params);
           if (b != null) _boundCache[cacheKey] = b;
           return b;
         }();
@@ -106,6 +107,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     BuildContext context,
     String? visualizerKey,
     List<String> sourceKeys,
+    Map<String, double> params,
   ) {
     if (visualizerKey == null) return null;
 
@@ -120,10 +122,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .toList();
 
     return switch (visualizer) {
-      Visualizer1 v when sources.isNotEmpty => v.bind(sources[0]),
-      Visualizer2 v when sources.length >= 2 => v.bind(sources[0], sources[1]),
+      Visualizer1 v when sources.isNotEmpty =>
+        v.bind(sources[0], params: params),
+      Visualizer2 v when sources.length >= 2 =>
+        v.bind(sources[0], sources[1], params: params),
       _ => null,
     };
+  }
+
+  Map<String, double> _readParams(dynamic raw) {
+    if (raw is! Map) return const {};
+    final params = <String, double>{};
+    raw.forEach((key, value) {
+      if (value is num) params[key.toString()] = value.toDouble();
+    });
+    return params;
+  }
+
+  String _paramsSignature(Map<String, double> params) {
+    final keys = params.keys.toList()..sort();
+    return keys.map((k) => '$k=${params[k]}').join(',');
   }
 
   void _showStreamSelector(BuildContext context, WidgetConfig config) {

@@ -6,6 +6,7 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 import 'dashboard_model.dart';
+import 'param_field.dart';
 import 'sheet_scaffold.dart';
 import 'widget_config.dart';
 
@@ -19,6 +20,7 @@ class AddWidgetSheet extends StatefulWidget {
 class _AddWidgetSheetState extends State<AddWidgetSheet> {
   String? _visualizerKey;
   List<String?> _sourceKeys = [];
+  Map<String, double> _params = {};
 
   @override
   void didChangeDependencies() {
@@ -27,6 +29,7 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     if (_visualizerKey == null && visualizers.isNotEmpty) {
       _visualizerKey = visualizers.first.name;
       _sourceKeys = List.filled(visualizers.first.sourceCount, null);
+      _params = _defaultParams(visualizers.first);
     }
   }
 
@@ -38,10 +41,15 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
   bool get _canAdd =>
       _visualizerKey != null && _sourceKeys.every((k) => k != null);
 
+  Map<String, double> _defaultParams(AnyVisualizer v) => {
+    for (final p in v.params) p.key: p.defaultValue,
+  };
+
   void _selectVisualizer(AnyVisualizer v) {
     setState(() {
       _visualizerKey = v.name;
       _sourceKeys = List.filled(v.sourceCount, null);
+      _params = _defaultParams(v);
     });
   }
 
@@ -66,6 +74,7 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
           'type': type,
           'visualizerKey': _visualizerKey,
           'sourceKeys': List<String>.from(_sourceKeys.whereType<String>()),
+          'params': Map<String, double>.from(_params),
         },
       ),
     );
@@ -113,6 +122,21 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
               onTap: () => _selectVisualizer(v),
             )),
         const SizedBox(height: 16),
+
+        if (_selectedVisualizer?.params.isNotEmpty ?? false) ...[
+          const Text(
+            'Settings',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          ..._selectedVisualizer!.params.map((p) => ParamField(
+                key: ValueKey('param_${p.key}'),
+                param: p,
+                value: _params[p.key] ?? p.defaultValue,
+                onChanged: (v) => _params[p.key] = v,
+              )),
+          const SizedBox(height: 16),
+        ],
 
         for (int i = 0; i < sourceCount; i++) ...[
           Text(

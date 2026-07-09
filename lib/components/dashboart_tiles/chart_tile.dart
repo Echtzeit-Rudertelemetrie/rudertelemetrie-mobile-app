@@ -76,11 +76,37 @@ class _ChartTileState extends State<ChartTile>
     return 10 * magnitude;
   }
 
-  String _xLabel(double value) {
-    final display = value % 1 == 0
-        ? value.toInt().toString()
-        : value.toStringAsFixed(1);
-    return '$display${widget.visualizer.units.x.name}';
+  String _xLabel(double value) => '${_formatNumber(value)}${widget.visualizer.units.x.name}';
+
+  String _yLabel(double value) => '${_formatNumber(value)}${widget.visualizer.units.y.name}';
+
+  String _formatNumber(double value) =>
+      value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
+
+  /// Y-axis bounds fitted to the current data: the top rounds up to a nice
+  /// value above the highest point, and the bottom follows negative data
+  /// (otherwise it stays at zero).
+  ({double min, double max, double interval}) get _yAxis {
+    var dataMin = _points.first.y;
+    var dataMax = _points.first.y;
+    for (final p in _points) {
+      dataMin = min(dataMin, p.y);
+      dataMax = max(dataMax, p.y);
+    }
+
+    final lower = dataMin < 0 ? dataMin : 0.0;
+    final interval = _niceInterval((dataMax - lower) / 4);
+
+    var maxY = (dataMax / interval).ceilToDouble() * interval;
+    if (maxY <= dataMax) maxY += interval;
+
+    var minY = 0.0;
+    if (lower < 0) {
+      minY = (lower / interval).floorToDouble() * interval;
+      if (minY >= lower) minY -= interval;
+    }
+
+    return (min: minY, max: maxY, interval: interval);
   }
 
   @override
@@ -99,6 +125,7 @@ class _ChartTileState extends State<ChartTile>
     }
 
     final spots = _points.map((p) => FlSpot(p.x, p.y)).toList();
+    final yAxis = _yAxis;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
@@ -126,8 +153,8 @@ class _ChartTileState extends State<ChartTile>
               LineChartData(
                 minX: spots.first.x,
                 maxX: spots.last.x,
-                minY: 0,
-                maxY: 100,
+                minY: yAxis.min,
+                maxY: yAxis.max,
                 clipData: const FlClipData.all(),
                 lineBarsData: [
                   LineChartBarData(
@@ -151,7 +178,7 @@ class _ChartTileState extends State<ChartTile>
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 30,
-                      interval: 25,
+                      interval: yAxis.interval,
                       getTitlesWidget: (value, meta) {
                         if (value == meta.min || value == meta.max) {
                           return const SizedBox.shrink();
@@ -159,7 +186,7 @@ class _ChartTileState extends State<ChartTile>
                         return SideTitleWidget(
                           meta: meta,
                           child: Text(
-                            '${value.toInt()}${widget.visualizer.units.y.name}',
+                            _yLabel(value),
                             style: const TextStyle(
                               color: Colors.white38,
                               fontSize: 8,
@@ -196,6 +223,7 @@ class _ChartTileState extends State<ChartTile>
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
+                  horizontalInterval: yAxis.interval,
                   getDrawingHorizontalLine: (_) =>
                       FlLine(color: Colors.white.withAlpha(20), strokeWidth: 1),
                 ),

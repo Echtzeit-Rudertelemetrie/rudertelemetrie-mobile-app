@@ -5,6 +5,7 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/collectors/sin
 import 'package:rudertelemetrie_mobile_app/services/visualization/collectors/time_window_collector.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/combinators/time_elapsed_combinator.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
+import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer_param.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer_registry.dart';
 
 class VisualizerProviderModel extends ChangeNotifier {
@@ -14,12 +15,30 @@ class VisualizerProviderModel extends ChangeNotifier {
     registry.register(Visualizer1(
       name: 'Time Window',
       combinator: TimeElapsedCombinator(Unit.s),
-      collector: TimeWindowCollector(const Duration(seconds: 20)),
+      params: const [
+        VisualizerParam(
+          key: 'windowSeconds',
+          label: 'Time window',
+          defaultValue: 20,
+          min: 1,
+          unitLabel: 's',
+        ),
+      ],
+      buildCollector: (p) => TimeWindowCollector(
+        Duration(milliseconds: (p['windowSeconds']! * 1000).round()),
+      ),
     ));
     registry.register(Visualizer1(
       name: 'Since Threshold',
       combinator: TimeElapsedCombinator(Unit.s),
-      collector: SinceThresholdCollector(50.0),
+      params: const [
+        VisualizerParam(
+          key: 'threshold',
+          label: 'Threshold',
+          defaultValue: 50,
+        ),
+      ],
+      buildCollector: (p) => SinceThresholdCollector(p['threshold']!),
     ));
   }
 }
