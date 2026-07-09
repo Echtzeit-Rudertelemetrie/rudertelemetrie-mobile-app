@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/sample_data_source.dart';
 
 class DataSourceProviderModel extends ChangeNotifier {
   final DataSourceRegistry _registry = DataSourceRegistry();
@@ -10,7 +9,6 @@ class DataSourceProviderModel extends ChangeNotifier {
 
   DataSourceProviderModel() {
     _registry.addListener(notifyListeners);
-    _registry.register(SampleDataSource());
   }
 
   @override

@@ -17,9 +17,12 @@ class PushDataSource extends DataSource {
   final Unit unit;
 
   @override
+  final String? group;
+
+  @override
   late final DateTime startTime;
 
-  PushDataSource({required this.name, required this.unit}) {
+  PushDataSource({required this.name, required this.unit, this.group}) {
     startTime = DateTime.now();
   }
 

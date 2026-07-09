@@ -45,6 +45,14 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     });
   }
 
+  Map<String, List<DataSource>> _groupSources(List<DataSource> sources) {
+    final grouped = <String, List<DataSource>>{};
+    for (final ds in sources) {
+      (grouped[ds.group ?? 'Other'] ??= []).add(ds);
+    }
+    return grouped;
+  }
+
   void _add(BuildContext context, String type, int w, int h) {
     final id = 'w_${DateTime.now().millisecondsSinceEpoch}';
     context.read<DashboardModel>().addWidget(
@@ -121,10 +129,17 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
               ),
             )
           else
-            ...dataSources.map((ds) => _SourceOption(
-                  dataSource: ds,
-                  selected: _sourceKeys[i] == ds.name,
-                  onTap: () => setState(() => _sourceKeys[i] = ds.name),
+            ..._groupSources(dataSources).entries.map((group) => _SourceGroup(
+                  key: ValueKey('src${i}_${group.key}'),
+                  title: group.key,
+                  children: group.value
+                      .map((ds) => _SourceOption(
+                            dataSource: ds,
+                            selected: _sourceKeys[i] == ds.name,
+                            onTap: () =>
+                                setState(() => _sourceKeys[i] = ds.name),
+                          ))
+                      .toList(),
                 )),
           const SizedBox(height: 12),
         ],
@@ -169,6 +184,68 @@ class _VisualizerOption extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+class _SourceGroup extends StatefulWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _SourceGroup({
+    super.key,
+    required this.title,
+    required this.children,
+  });
+
+  @override
+  State<_SourceGroup> createState() => _SourceGroupState();
+}
+
+class _SourceGroupState extends State<_SourceGroup> {
+  bool _expanded = true;
+
+  void _toggle() => setState(() => _expanded = !_expanded);
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _toggle,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_down
+                    : Icons.keyboard_arrow_right,
+                size: 18,
+                color: Colors.white54,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                widget.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (_expanded)
+        Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: widget.children,
+          ),
+        ),
+    ],
   );
 }
 

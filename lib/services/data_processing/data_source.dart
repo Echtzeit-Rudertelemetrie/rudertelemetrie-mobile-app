@@ -7,5 +7,9 @@ abstract class DataSource {
   DateTime get startTime;
   Stream<Measurement> get data;
 
+  /// Label of the owning oarlock/boat this source belongs to, or null when the
+  /// source is not tied to a connected device.
+  String? get group => null;
+
   void dispose();
 }

@@ -39,8 +39,9 @@ class BluetoothStreamHandler {
   }
 
   void _handleOarlock(OarlockPacket packet) {
-    final force = _source('Force ${packet.sensorId}', Unit.N);
-    final angle = _source('Angle ${packet.sensorId}', Unit.deg);
+    final group = 'Oarlock ${packet.sensorId} ($_deviceTag)';
+    final force = _source('Force ${packet.sensorId}', Unit.N, group: group);
+    final angle = _source('Angle ${packet.sensorId}', Unit.deg, group: group);
 
     for (var i = 0; i < packet.forces.length; i++) {
       final timestamp = _timestampFor(force, packet.sequenceNumber, i);
@@ -57,18 +58,19 @@ class BluetoothStreamHandler {
   }
 
   void _handleBoat(BoatPacket packet) {
-    final speed = _source('Speed', Unit.mps);
+    final group = 'Boat ($_deviceTag)';
+    final speed = _source('Speed', Unit.mps, group: group);
     final timestamp = _boatTimestamp(speed, packet.imu.timestampMs);
 
     speed.add(Measurement(
       value: packet.gps.speedMps.toDouble(),
       timestamp: timestamp,
     ));
-    _source('Acceleration X', Unit.mps2)
+    _source('Acceleration X', Unit.mps2, group: group)
         .add(Measurement(value: packet.imu.accX, timestamp: timestamp));
-    _source('Acceleration Y', Unit.mps2)
+    _source('Acceleration Y', Unit.mps2, group: group)
         .add(Measurement(value: packet.imu.accY, timestamp: timestamp));
-    _source('Acceleration Z', Unit.mps2)
+    _source('Acceleration Z', Unit.mps2, group: group)
         .add(Measurement(value: packet.imu.accZ, timestamp: timestamp));
   }
 
@@ -85,9 +87,10 @@ class BluetoothStreamHandler {
     );
   }
 
-  PushDataSource _source(String name, Unit unit) {
+  PushDataSource _source(String name, Unit unit, {String? group}) {
     return _dataSources.putIfAbsent(name, () {
-      final source = PushDataSource(name: _qualify(name), unit: unit);
+      final source =
+          PushDataSource(name: _qualify(name), unit: unit, group: group);
       dataSourceRegistry.register(source);
       return source;
     });
