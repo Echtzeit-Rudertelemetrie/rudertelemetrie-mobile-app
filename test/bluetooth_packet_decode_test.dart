@@ -3,13 +3,13 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
 
-/// Byte-exact fixtures mirroring the firmware `MeasurementPack` (84 bytes,
+/// Byte-exact fixtures mirroring the firmware `MeasurementPack` (132 bytes,
 /// packed, little-endian) as emitted by `rowing_boat`.
 class _PackBuilder {
   final ByteData _data = ByteData(BluetoothPacket.packetSize);
 
   _PackBuilder(int id, int sequence) {
-    _data.setUint32(0, ((id & 0xF) << 28) | (sequence & 0x0FFFFFFF),
+    _data.setUint32(0, ((id & 0x7) << 29) | (sequence & 0x1FFFFFFF),
         Endian.little);
   }
 
@@ -43,10 +43,10 @@ class _PackBuilder {
 
 void main() {
   test('returns null for undersized buffers', () {
-    expect(BluetoothPacket.decode(List.filled(83, 0)), isNull);
+    expect(BluetoothPacket.decode(List.filled(131, 0)), isNull);
   });
 
-  test('splits id (top 4 bits) and 28-bit sequence from the header', () {
+  test('splits id (top 3 bits) and 29-bit sequence from the header', () {
     final raw = _PackBuilder(3, 0x0ABCDEF).build();
     final packet = BluetoothPacket.decode(raw)!;
 
@@ -54,11 +54,11 @@ void main() {
     expect(packet.sequenceNumber, 0x0ABCDEF);
   });
 
-  test('decodes an oarlock packet (id 1..15) into force and angle samples', () {
+  test('decodes an oarlock packet (id 1..7) into force and angle samples', () {
     final builder = _PackBuilder(2, 7);
-    for (var i = 0; i < 20; i++) {
+    for (var i = 0; i < 32; i++) {
       builder.u16(4 + i * 2, 100 + i); // force region
-      builder.u16(44 + i * 2, 500 + i); // angle region
+      builder.u16(68 + i * 2, 500 + i); // angle region
     }
 
     final packet = BluetoothPacket.decode(builder.build());
@@ -66,12 +66,12 @@ void main() {
     expect(packet, isA<OarlockPacket>());
     final oarlock = packet as OarlockPacket;
     expect(oarlock.sensorId, 2);
-    expect(oarlock.forces.length, 20);
-    expect(oarlock.angles.length, 20);
+    expect(oarlock.forces.length, 32);
+    expect(oarlock.angles.length, 32);
     expect(oarlock.forces.first, 100);
-    expect(oarlock.forces.last, 119);
+    expect(oarlock.forces.last, 131);
     expect(oarlock.angles.first, 500);
-    expect(oarlock.angles.last, 519);
+    expect(oarlock.angles.last, 531);
   });
 
   test('decodes a boat packet (id 0) into GPS and IMU samples', () {
@@ -83,12 +83,12 @@ void main() {
         .i16(14, 270) // course_deg
         .u8(16, 8) // satellites
         .u8(17, 1) // valid
-        // ImuData in the angle region (offset 44)
-        .f32(44, 0.5) // acc_x
-        .f32(48, -1.25) // acc_y
-        .f32(52, 9.81) // acc_z
+        // ImuData in the angle region (offset 68)
+        .f32(68, 0.5) // acc_x
+        .f32(72, -1.25) // acc_y
+        .f32(76, 9.81) // acc_z
         .build();
-    // timestamp_ms at offset 56 left as 0.
+    // timestamp_ms at offset 80 left as 0.
 
     final packet = BluetoothPacket.decode(raw);
 

@@ -3,9 +3,9 @@ import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_deco
 /// Reassembles fixed-size [BluetoothPacket.packetSize] frames from BLE
 /// notification fragments.
 ///
-/// When the negotiated ATT MTU is small the firmware splits each 84-byte packet
-/// across several notifications (e.g. 20+20+20+20+4); a large MTU delivers all
-/// 84 bytes in one. A fragment shorter than the largest one seen marks a packet
+/// When the negotiated ATT MTU is small the firmware splits each 132-byte packet
+/// across several notifications; a large MTU (>=135) delivers all 132 bytes in
+/// one. A fragment shorter than the largest one seen marks a packet
 /// boundary, letting the reassembler self-align when it starts mid-packet or
 /// drops a fragment: a buffer that is not exactly one frame at a boundary is
 /// discarded rather than decoded.

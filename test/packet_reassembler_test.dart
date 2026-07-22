@@ -3,7 +3,7 @@ import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_deco
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/packet_reassembler.dart';
 
 void main() {
-  const frameSize = BluetoothPacket.packetSize; // 84
+  const frameSize = BluetoothPacket.packetSize; // 132
 
   List<int> frame(int fill) => List<int>.filled(frameSize, fill);
 
@@ -49,7 +49,7 @@ void main() {
     final frames = <List<int>>[];
     final r = PacketReassembler(frames.add);
 
-    // First packet loses its 3rd fragment: 20 + 20 + 20 + 4 = 64 (short).
+    // First packet loses its 3rd fragment, so it never reaches 132 (short).
     final broken = fragmentsOf(frame(9), 20)..removeAt(2);
     for (final f in broken) {
       r.addFragment(f);
