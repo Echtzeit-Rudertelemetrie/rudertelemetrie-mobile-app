@@ -59,10 +59,18 @@ class _ChartTileState extends State<ChartTile>
     });
   }
 
-  double get _xInterval {
-    if (_points.length < 2) return 1;
-    final range = _points.last.x - _points.first.x;
-    return _niceInterval(range / 5);
+  /// X-axis bounds fitted to the actual data range. Unlike the Y axis this does
+  /// not anchor to zero: value-vs-value trajectories have a non-monotonic X, so
+  /// bounds come straight from the min/max of the points.
+  ({double min, double max, double interval}) get _xAxis {
+    var dataMin = _points.first.x;
+    var dataMax = _points.first.x;
+    for (final p in _points) {
+      dataMin = min(dataMin, p.x);
+      dataMax = max(dataMax, p.x);
+    }
+    final interval = _niceInterval((dataMax - dataMin) / 5);
+    return (min: dataMin, max: dataMax, interval: interval);
   }
 
   double _niceInterval(double raw) {
@@ -126,6 +134,7 @@ class _ChartTileState extends State<ChartTile>
 
     final spots = _points.map((p) => FlSpot(p.x, p.y)).toList();
     final yAxis = _yAxis;
+    final xAxis = _xAxis;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
@@ -142,7 +151,7 @@ class _ChartTileState extends State<ChartTile>
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  widget.visualizer.units.y.name,
+                  '${widget.visualizer.units.y.name} / ${widget.visualizer.units.x.name}',
                   style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
               ],
@@ -151,8 +160,8 @@ class _ChartTileState extends State<ChartTile>
           Expanded(
             child: LineChart(
               LineChartData(
-                minX: spots.first.x,
-                maxX: spots.last.x,
+                minX: xAxis.min,
+                maxX: xAxis.max,
                 minY: yAxis.min,
                 maxY: yAxis.max,
                 clipData: const FlClipData.all(),
@@ -200,7 +209,7 @@ class _ChartTileState extends State<ChartTile>
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 18,
-                      interval: _xInterval,
+                      interval: xAxis.interval,
                       getTitlesWidget: (value, meta) {
                         if (value == meta.min || value == meta.max) {
                           return const SizedBox.shrink();
