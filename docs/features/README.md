@@ -85,35 +85,29 @@ whole cluster of essential values. See the dependency graph in
 6. **Phase 5 — nice-to-have visuals:** boat schematic Tier 2, **map view (cached offline
    region)**, boat/crew setup with graphics.
 
-### Product decisions (from the PO)
+### Key product decisions
 
 - **Recording:** auto-start on detected rowing **and** manual start/stop/reset override.
 - **Sessions:** persisted with CSV/JSON **export** and a history screen (not live-only).
 - **Stroke thresholds:** **both** absolute and auto-scaled (`k·F_peak`), user-selectable.
 - **Map:** **cached offline region** (pre-download tiles), with track-only as the fallback.
 
-## Cross-cutting facts (resolved against the `rowing_boat` firmware)
+## Hardware & firmware constants
 
-The questions that biased multiple features have been answered from the firmware and the
-PO. Details in the linked docs:
+Fixed properties of the current setup, used as context throughout the specs:
 
-1. **Angle — ✅ ±180° full range, self-calibrated in firmware.** The app decodes the raw
-   `uint16` to a signed ±180° angle (`angle_deg = code/65535·360 − 180`); the ICM-20948
-   orientation EKF **zeroes and calibrates itself in firmware**, so the app consumes the
-   signed angle directly and performs **no angle calibration**. (Its `−90…90°` code comment
-   is stale and should be fixed.) (stroke-detection §1.1)
-2. **GPS speed — ✅ integer-truncated m/s → derive from position.** `Gps.cpp` casts
-   `speed.mps()` into `int16`, so speed arrives in whole-m/s (3.6 km/h) steps. The app uses
-   **position-derived speed** (`Δs/Δt` over ×1e6 lat/lon fixes) as primary; the firmware
-   `Speed` stream is a coarse fallback. (kinematics §1)
-3. **Force sensor axis — ✅ perpendicular.** Load cell reads the scull pressing on the pin;
-   0–1000 N full scale. Standard `F·cos θ` projection applies. (force-power §1)
-4. **Per-oarlock sample rate — ✅ 100 Hz.** ForceReader/AngleReader at 10 ms; sets the
-   angle LPF/`ω` step. (stroke-detection §1.2)
-5. **IMU — ✅ units m/s², axes fixed in firmware.** `ImuData` is m/s² with `acc_z` up,
-   `acc_x` longitudinal, `acc_y` lateral. The boat IMU currently streams simulated values
-   (`SimData::imu`), so the level widget shows simulated attitude for now. (kinematics §6,
-   level widget)
+- **Angle:** signed **±180°** (`angle_deg = code/65535·360 − 180`), from the per-oarlock
+  ICM-20948 orientation EKF, which **zeroes and calibrates itself in firmware** — the app
+  consumes `θ` directly and does no angle calibration. (stroke-detection §1.1)
+- **Force:** perpendicular to the shaft (load cell on the pin), **0–1000 N** full scale;
+  standard `F·cos θ` projection applies. (force-power §1)
+- **Sample rate:** **100 Hz** per oarlock (ForceReader/AngleReader at 10 ms); sets the
+  angle LPF and `ω` step. (stroke-detection §1.2)
+- **GPS:** position is `lat/lon × 1e6` degrees (~0.11 m); firmware speed is integer m/s, so
+  the app derives speed from position (`Δs/Δt`). (kinematics §1)
+- **IMU:** `acc_x/y/z` in **m/s²**, axes `acc_z` up / `acc_x` longitudinal / `acc_y`
+  lateral. The boat IMU currently streams **simulated** values, so the level widget shows
+  simulated attitude until a real hub IMU streams data. (kinematics §6)
 
 ## Notes on the existing pipeline (why most values need no new widgets)
 

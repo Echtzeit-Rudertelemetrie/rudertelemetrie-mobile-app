@@ -27,13 +27,10 @@ collected since a force threshold crossing. This spec upgrades it.
 
 - Replace the threshold trigger with a `StrokeGatedCollector` driven by the stroke-event
   stream (drive interval = [catch, finish]). Keep `SmoothedXyCollector` for the XY case.
-- Average curve = resample each drive onto a normalised phase axis [0,1] and mean the last
-  N strokes (define resampling in-spec if pursued).
+- Average curve = resample each drive onto a **normalised angle axis** (catch→finish sweep
+  mapped to [0,1]) and mean the last N drives. Angle-normalisation (not time) keeps strokes
+  physically comparable regardless of rate.
 
 ## Edge cases
 - No stroke engine yet → keep the current threshold behaviour as a fallback.
 - Very short/aborted drives → skip from the overlay average.
-
-## Open questions
-1. Normalise the x-axis by angle sweep or by time when averaging strokes? Angle-normalised
-   is more physically comparable.

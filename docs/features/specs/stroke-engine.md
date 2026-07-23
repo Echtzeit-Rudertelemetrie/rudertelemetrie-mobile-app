@@ -20,6 +20,10 @@ Consumes the fused per-oarlock `(θ, ω, F)` stream (+ boat `a_x`, `v`) and runs
 hysteresis state machine from stroke-detection §5, per oarlock, then aggregates to crew
 level (§3) using `BoatConfig` (which oarlock is bow / which aggregation mode).
 
+Fusion happens **inside the engine**: it owns a resampler that aligns all inputs onto one
+100 Hz clock (all sensors sample at 100 Hz), computes `ω` from the smoothed angle
+(stroke-detection §1.2), and feeds the state machine — callers never align streams.
+
 Emits two things:
 
 1. **`Stream<StrokeEvent>`** — `{type: catch|finish|reversal|anrollen, oarlock, tCrew, spread}`.
@@ -69,18 +73,21 @@ drives the recording session's auto-start/stop.
 - The angle is self-calibrated in firmware, so angle-based events (Umkehr, catch/finish
   angles) need no app-side calibration gate.
 
+## Field tuning (needs real water data)
+
+The defaults in stroke-detection §6 are starting points; tune against recorded sessions:
+
+- `k_on`/`k_off` (auto threshold mode) and the warm-up seeding.
+- `a_on` (Anrollen surge threshold).
+- Umkehr is defined as the per-oarlock angle turning point (primary); cross-check it
+  against the boat-speed minimum on real data. Boat speed is coarse (kinematics §1), so the
+  angle turning point remains primary regardless.
+
+Ship the values as engine settings so they can be tuned without a rebuild.
+
 ## Test notes
 
 - Synthetic `(θ, F)` generator producing N clean cycles at a set rate → assert
   `Stroke Count = N`, `SPM ≈ set rate`, `ratio ≈ set ratio`.
 - Inject a sub-`τ_min` force blip mid-recovery → must **not** create a cycle.
 - Two desynchronised oarlocks → `Crew Sync` equals the injected offset.
-
-## Open questions
-
-1. ~~Absolute vs. auto-scaled thresholds.~~ **Decided: both, user-selectable** (detection
-   §2.1); tune `k_on`/`k_off` on real data.
-2. Validate Umkehr = angle-turning-point vs. speed-minimum on real data (detection Q3) —
-   note boat speed is coarse, so the angle turning point stays primary.
-3. Where does fusion happen — resample all inputs onto one clock in the engine, or align
-   opportunistically? Assume the engine owns a resampler (all inputs are 100 Hz).

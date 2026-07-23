@@ -24,9 +24,9 @@ Pace is undefined at `v = 0`; blank it (or show `—:—`) below a small speed f
 (e.g. `v < 0.3 m/s`).
 
 > **GPS speed is integer-truncated in firmware — derive `v` from position instead.**
-> Confirmed against `rowing_boat`: `Gps.cpp` casts `TinyGPSPlus.speed.mps()` (a float,
-> m/s) into an `int16_t`, so the boat only ever transmits **whole m/s** (1 m/s = 3.6 km/h
-> steps — far too coarse for pace). Therefore:
+> `Gps.cpp` casts `TinyGPSPlus.speed.mps()` (a float, m/s) into an `int16_t`, so the boat
+> only ever transmits **whole m/s** (1 m/s = 3.6 km/h steps — far too coarse for pace).
+> Therefore:
 >
 > - **Primary speed source = GPS position** (`v = Δs/Δt` from the haversine step, §2.2),
 >   which uses the full lat/lon resolution (×1e6 degrees ≈ 0.11 m).

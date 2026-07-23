@@ -29,7 +29,7 @@ Each is a `DerivedDataSource` (architecture §2.1) built from that oarlock's `Fo
 | `Power N` | W | `F_G · l_in · |ω|` (§2) |
 | `Propulsion Power N` | W | `F_B · cosθ · v_boat` (§3) |
 | `Blade Slip N` | m/s | `l_out·|ω| − v_boat·cosθ` (§4) |
-| `Blade Efficiency N` | % | `v_boat·cosθ / (l_out·|ω|)`, clamped [0,1] (§4) |
+| `Blade Efficiency N` | % | `v_boat·cosθ / (l_out·|ω|)`, clamped [0,1] then ×100 (§4) |
 
 `ω` = smoothed derivative of angle (detection §1.2); a shared angle→ω transform feeds
 `Power`, `Blade Slip`, `Blade Efficiency`.
@@ -53,9 +53,10 @@ Session peaks of these come **free** from `SessionPeakSource`
 ## Config dependencies (hard gate)
 
 Force/power sources must not register (or must show "needs rig setup") until
-`BoatConfig` provides, per oar: `l_in`, `L` (→ `l_out`). The angle needs no setup — it
-arrives self-calibrated from firmware (force-power-model §1, boat-rig-config Part A).
-See [`boat-rig-config.md`](boat-rig-config.md).
+`BoatConfig` provides, per oar: `l_in`, `L` (→ `l_out`). Rig constants are stored **per
+physical oarlock device** (the two-oarlock setup is fixed), so they follow the oar across
+reconnects. The angle needs no setup — it arrives self-calibrated from firmware
+(force-power-model §1, boat-rig-config Part A). See [`boat-rig-config.md`](boat-rig-config.md).
 
 ## UI
 
@@ -79,7 +80,3 @@ See [`boat-rig-config.md`](boat-rig-config.md).
   `F_D=700, l_in=0.88, L=2.88, ω=2.5, v=4.5, θ=10°` ⇒ `F_G≈486`, `F_B≈214`,
   `P_oar≈1070 W`, `η≈88.6 %`, `P_prop≈948 W`. Assert within tolerance.
 - Consistency invariant: `P_prop ≈ η_blade · P_oar` sample-by-sample.
-
-## Open questions
-
-1. Rig constants (`l_in`, `L`) are stored per oarlock device (the two-oarlock setup is fixed).

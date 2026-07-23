@@ -26,13 +26,12 @@ Skulls eingeblendet bekommt." A top-down boat with each oar drawn at its live an
 - Subscribe directly to each `Angle N` source (bypass visualizer pipeline, like
   `ValueTile`); use `θ` as delivered (self-calibrated in firmware).
 - Draw pins at seat positions; oar line from pin at angle `θ` (0 = perpendicular to hull).
+  Oar count/side comes from the `BoatConfig` boat class (sweep = one oar per seat on the
+  assigned side; scull = two).
+- **Interpolate `θ` smoothly** between samples for fluid motion (tween toward the latest
+  value each frame) rather than snapping per sample.
 - Optional: colour the oar by instantaneous force (in-water vs. feathered), and shade the
   drive arc.
 
 ## Edge cases
 - Missing `BoatConfig` layout → fall back to Tier 1 gauges laid out generically.
-
-## Open questions
-1. Animate smoothly (interpolate between samples) vs. redraw per sample — smooth for a
-   nicer feel; watch battery.
-2. Sweep vs. scull rigs change oar count/side rendering — drive from `BoatConfig` class.

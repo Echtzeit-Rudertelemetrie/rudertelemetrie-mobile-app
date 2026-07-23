@@ -107,5 +107,5 @@ Leaf widgets depend on them but are individually small.
 ## 4. Conventions for the specs
 
 Each spec states: importance & complexity (from the README matrix), dependencies, data
-model / pipeline changes (reusing §2 blocks), UI surface, config/params, edge cases,
-test notes, open questions. Specs must not restate math — they link to `math/`.
+model / pipeline changes (reusing §2 blocks), UI surface, config/params, edge cases, and
+test notes. Specs must not restate math — they link to `math/`.

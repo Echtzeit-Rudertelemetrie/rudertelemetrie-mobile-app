@@ -23,8 +23,9 @@ force, distance/stroke, ratio, …). Shows a rolling window of the last K stroke
 ## UI
 
 - Add "Bar" as a third add-widget button next to Chart/Value in `add_widget_sheet.dart`.
-- Param: `strokeWindow K` (default ~20). Optional: colour bar by deviation from the
-  session average / a target band.
+- Param: `strokeWindow K` (default 20, configurable) — a **rolling** window of the last K
+  strokes (whole-session horizontal scroll is out of scope). Optional: colour bar by
+  deviation from the session average / a target band.
 - X labels: stroke number; optionally the newest bar highlighted.
 
 ## Edge cases
@@ -32,6 +33,3 @@ force, distance/stroke, ratio, …). Shows a rolling window of the last K stroke
 - Before any stroke completes → empty chart with "waiting for strokes".
 - Non-per-stroke source selected → disallow (only per-stroke sources valid for this tile),
   or fall back to sampling at each stroke boundary.
-
-## Open questions
-1. Fixed window K vs. whole-session with horizontal scroll? Assume rolling K for v1.

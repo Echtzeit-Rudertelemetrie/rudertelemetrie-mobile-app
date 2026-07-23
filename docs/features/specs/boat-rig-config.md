@@ -11,8 +11,9 @@ Split into two independently shippable parts.
 
 ## Part A — Rig inputs (Essential, do first)
 
-Minimal `BoatConfig` (ChangeNotifier, persisted like the dashboard layout) holding, **per
-oarlock**:
+Minimal `BoatConfig` (ChangeNotifier, persisted like the dashboard layout) holding one
+entry **per physical oarlock device** (keyed by device id, so config survives reconnects;
+one `l_in`/`L` per instrumented oarlock, sculling or sweep):
 
 | Field | Unit | Used by |
 |-------|------|---------|
@@ -31,8 +32,8 @@ bow) and any zero/drift correction is the firmware's job.
 > Minor app cleanup (not a config concern): fix the stale `−90…+90°` comment in
 > `angle_conversion_util.dart` — the ±180° decode itself is correct.
 
-**Other firmware-resolved constants** (no app config needed): the per-oarlock **sample rate
-is 100 Hz** (ForceReader/AngleReader), and **GPS speed** is integer-truncated m/s so the app
+**Other fixed firmware constants** (no app config needed): the per-oarlock **sample rate is
+100 Hz** (ForceReader/AngleReader), and **GPS speed** is integer-truncated m/s so the app
 derives speed from position instead (kinematics §1) — no speed-scaling constant to configure.
 
 ### UI (Part A)
@@ -60,11 +61,5 @@ current hardware this can stay a simple list; the graphic is the last thing to a
 
 ## Edge cases
 - Fewer connected devices than seats → leave seats unassigned; metrics degrade gracefully.
-- Oarlock reassigned to another seat → rig constants follow the oar or the seat? Decide
-  and document (see force-power open-question 2).
-
-## Open questions
-1. Persist per **physical device id** so config survives reconnects (recommended) vs. per
-   session.
-2. Is the sculling case (two oars per rower) in scope for lever inputs — one `l_in/L` per
-   oar or per rower? Assume per oarlock device.
+- Oarlock reassigned to another seat → rig constants **follow the physical oarlock device**
+  (they are stored per device id), not the seat.

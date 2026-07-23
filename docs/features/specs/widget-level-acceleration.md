@@ -36,8 +36,5 @@ surge/check.
   warning instead of a wrong level.
 - The boat IMU currently emits simulated values (`SimData::imu`), so the widget visualises
   simulated attitude for now — flag it as "sim" so it isn't mistaken for real attitude.
-
-## Open questions
-1. IMU units are m/s² and axes are fixed in firmware; the boat IMU currently streams
-   simulated values.
-2. Do we also want a gyro? Only accel is in the boat packet.
+- Only accelerometer data is in the boat packet (no gyro), so the level is gravity-vector
+  based; fast manoeuvres momentarily corrupt it, which the heavy LPF mitigates.

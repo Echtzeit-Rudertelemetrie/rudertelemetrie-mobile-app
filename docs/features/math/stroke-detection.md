@@ -253,14 +253,5 @@ Guards:
 | LPF cutoff   | angle smoothing before `ω` (fs = 100 Hz) | 3–5 Hz  | fixed const |
 | crew agg.    | max / mean / reference           | max     | boat-rig-config |
 
-## 7. Open questions
-
-1. ~~Confirm the per-oarlock sample rate.~~ **Resolved: 100 Hz** (ForceReader/AngleReader
-   10 ms; AppTypes.h). LPF cutoff and `ω` step pinned to `fs = 100 Hz`.
-2. ~~Absolute vs. auto-scaled thresholds?~~ **Decided: both, user-selectable** (§2.1) —
-   absolute defaults with an auto-scale (`k · F_peak_recent`) toggle. Remaining: tune
-   `k_on`/`k_off` and the warm-up seeding against real data.
-3. Validate the angle-turning-point definition of Umkehr against the boat-speed minimum
-   on real water data before locking it in. (The boat-speed signal is coarse — see the
-   GPS-speed note in [kinematics §1](kinematics-and-derived-metrics.md) — so the
-   per-oarlock angle turning point is the more reliable primary anyway.)
+`k_on`/`k_off`, `a_on`, and the warm-up seeding are tuned against recorded water data; see
+[the stroke-engine spec](../specs/stroke-engine.md) "Field tuning".

@@ -20,7 +20,7 @@ firmware transmits only integer-truncated m/s, the **position-derived speed** th
 pace/speed/distance all rely on (kinematics §1, [`recording-session.md`](recording-session.md)).
 So exposing position is worth doing early even independently of the map.
 
-## Approach — cached offline region (decided)
+## Approach — cached offline region
 
 On-water there is usually no connectivity, so the map targets **pre-cached offline tiles**
 rather than live fetching:
@@ -35,23 +35,21 @@ rather than live fetching:
 
 ## Rendering
 
-- `MapTile` (`CustomPaint`-style tile, own subscription) using a Flutter map package with
-  offline tile caching (`flutter_map` + a tile-cache/offline provider — confirm current
-  version/API and the offline-caching plugin via Context7 before implementing).
+- `MapTile` (`CustomPaint`-style tile, own subscription) built on **`flutter_map`** with
+  **`flutter_map_tile_caching` (FMTC)** as the offline store (verify current versions/API
+  via Context7 before implementing).
 - Draw the live position marker + a polyline of the session track (from the same GPS fix
   buffer used for haversine distance).
 - Auto-follow the marker; pinch/zoom.
+- **Region picker**: user drags a rectangle on the map + chooses a zoom range, then
+  downloads with a progress bar and a size estimate; downloaded regions are listed for
+  delete/refresh.
 
 ## Constraints & caveats
 
 - **Tile sourcing / attribution**: OSM tile-usage policy and attribution requirements apply
-  even for pre-caching — respect bulk-download limits (use a permitted provider) and show
-  the attribution. Settle the tile provider before shipping.
+  even for pre-caching — use a provider that permits bulk download and show the attribution.
+  Pick the tile provider before shipping (a key/provider account may be needed).
 - **Cache management**: bound cache size; let the user delete/refresh regions.
 - Filter invalid/glitchy fixes (`valid == false`, implausible jumps) exactly as the
   haversine distance does.
-
-## Open questions
-1. ~~Live vs. cached vs. track-only?~~ **Decided: cached offline region** (track-only is
-   the automatic fallback).
-2. Tile provider + offline-caching plugin choice, licences, size; region-picker UX.

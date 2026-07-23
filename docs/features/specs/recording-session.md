@@ -27,8 +27,13 @@ Holds `startedAt`, `stoppedAt`, and a `startMode ∈ {auto, manual}` flag for th
 Exposes:
 
 - `elapsed` — ticking `Duration` (`now − startedAt`), formatted `h:mm:ss`.
-- `distanceMeters` — dual estimator (integrate `Speed`; haversine over GPS fixes), see
-  math §2. Prefer haversine when GPS valid, else the integrator.
+- `speedMps` — **position-derived** speed (`Δs/Δt` over GPS fixes, math §1/§2.2), the basis
+  for `Speed (km/h)`, `Pace`, and `Distance`. The raw firmware `Speed` source is only a
+  coarse fallback when GPS position is stale. Computed by a small `GpsKinematics` helper
+  that consumes the `Latitude`/`Longitude` sources (exposed per
+  [`widget-map.md`](widget-map.md) — this is a shared prerequisite, not map-only).
+- `distanceMeters` — dual estimator (haversine over GPS fixes; integrate `speedMps` as
+  fallback), math §2. Prefer haversine when GPS valid, else the integrator.
 - reducer factories usable on any `DataSource`:
   - `RunningAverageSource(src)` → time-weighted mean since `startedAt` (math §5).
   - `SessionPeakSource(src)` → running max since `startedAt`.
@@ -54,18 +59,27 @@ source (see UI).
 
 ## Persistence & export
 
-Sessions are **persisted** (the PO wants history + export). On stop, write a session
-record — metadata (`startedAt`, `stoppedAt`, `startMode`, boat/rig config snapshot,
-distance, and per-metric summaries: averages + session peaks) plus the raw/derived sample
-series needed to reconstruct charts. Reuse the storage the dashboard layout already uses;
-for the sample series consider a compact append-only log per session.
+Every session is persisted. On `stop()`, write a session record:
 
-- **Export** each session as CSV and/or JSON (per-stream columns + a summary header).
-  Treat export as a file the user shares — surface a share/save action; don't auto-upload.
-- A **session history** list lets the user open a past session read-only (replay charts,
-  view summaries) and export it.
-- Storage growth: 100 Hz × several streams adds up — offer a retention limit / delete, and
-  consider downsampling the stored series for long sessions.
+- **`session.json`** — metadata + summary: `id`, `startedAt`, `stoppedAt`, `startMode`,
+  a `BoatConfig` snapshot (boat class, per-oarlock `l_in`/`L`, seat/side assignment),
+  `distanceMeters`, `strokeCount`, and per-metric `avg`/`peak` for speed, SPM, ratio,
+  power, force, and distance-per-stroke.
+- **`session.csv`** — the time series in **long format**: `elapsed_ms,source,value` (one
+  row per sample per source). Long format sidesteps aligning streams of differing rates
+  into one wide table and round-trips every registered source.
+
+Storage:
+- Reuse the local store the dashboard layout uses (documents-dir file per session + an
+  index). Write `session.csv` as an **append-only log during recording**, so the full
+  series is never held in memory.
+- **Retention**: keep series at full 100 Hz; cap stored sessions (default: last 50 **or** a
+  size budget, whichever hits first) and expose delete. Series older than the cap may be
+  downsampled to 10 Hz for chart replay while `session.json` summaries stay full-fidelity.
+- **Export/share**: a share/save action emits `session.csv` (+ `session.json`) via the
+  platform share sheet — never auto-upload.
+- A **session history** screen lists saved sessions; opening one replays its charts
+  read-only and offers export.
 
 ## UI
 
@@ -95,11 +109,4 @@ for the sample series consider a compact append-only log per session.
 - Step signal → `SessionPeakSource` holds the max; `RunningAverageSource` converges.
 - Note the constant-speed vector needs the position-derived `v`; a firmware `Speed` of a
   flat `5 m/s` would already be quantised, so drive the test from synthetic GPS fixes.
-
-## Open questions
-
-1. ~~Persist vs. live-only?~~ **Decided: persist + export** (CSV/JSON, history screen).
-2. ~~Auto-start vs. manual?~~ **Decided: both** — auto-start on detected rowing with a
-   manual override/reset.
-3. Export format details (CSV column set, JSON schema) and retention/downsampling policy —
-   settle when building the export.
+- Round-trip a recorded session through `session.csv` → reopen from history → chart matches.
