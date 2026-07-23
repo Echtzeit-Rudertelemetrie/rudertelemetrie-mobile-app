@@ -4,6 +4,7 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/packet_reassembler.dart';
+import 'package:rudertelemetrie_mobile_app/utils/bluetooth/packet_stats_logger.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/timestamp_conversion_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/angle_conversion_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/force_conversion_util.dart';
@@ -17,13 +18,17 @@ class BluetoothStreamHandler {
   int? _boatDeviceClockOrigin;
 
   late final PacketReassembler _reassembler = PacketReassembler(_decodeFrame);
+  late final PacketStatsLogger _stats = PacketStatsLogger(label: _deviceTag);
 
   BluetoothStreamHandler({
     required this.dataSourceRegistry,
     required this.deviceId,
   });
 
-  void onData(List<int> fragment) => _reassembler.addFragment(fragment);
+  void onData(List<int> fragment) {
+    _stats.recordFragment(fragment.length);
+    _reassembler.addFragment(fragment);
+  }
 
   void _decodeFrame(List<int> frame) {
     final packet = BluetoothPacket.decode(frame);
@@ -32,11 +37,23 @@ class BluetoothStreamHandler {
       case null:
         return;
       case OarlockPacket():
+        _stats.recordPacket(
+          sensorId: packet.sensorId,
+          sequenceNumber: packet.sequenceNumber,
+          valueCount: packet.forces.length + packet.angles.length,
+        );
         _handleOarlock(packet);
       case BoatPacket():
+        _stats.recordPacket(
+          sensorId: packet.sensorId,
+          sequenceNumber: packet.sequenceNumber,
+          valueCount: _boatValueCount,
+        );
         _handleBoat(packet);
     }
   }
+
+  static const _boatValueCount = 4;
 
   void _handleOarlock(OarlockPacket packet) {
     final group = 'Oarlock ${packet.sensorId} ($_deviceTag)';
@@ -106,6 +123,7 @@ class BluetoothStreamHandler {
   }
 
   void dispose() {
+    _stats.dispose();
     for (final source in _dataSources.values) {
       dataSourceRegistry.unregister(source.name);
       source.dispose();

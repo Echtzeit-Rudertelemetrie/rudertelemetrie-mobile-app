@@ -11,11 +11,15 @@ import 'dart:typed_data';
 ///   id 0      -> boat telemetry: force region = GpsData, angle region = ImuData
 ///   id 1..7   -> oarlock #id:    force region = forces, angle region = angles
 sealed class BluetoothPacket {
-  static const packetSize = 132;
+  /// Samples per force/angle region — the firmware's `PACKET_VALUES`. This is
+  /// the single knob that resizes the packet: [packetSize] and the region
+  /// offsets derive from it. Keep it in sync with the sender firmware and the
+  /// ESP-NOW receiver's length check, or packets are dropped as malformed.
+  static const samplesPerPacket = 10;
 
   static const _forceRegionOffset = 4;
-  static const _angleRegionOffset = 68;
-  static const _samplesPerRegion = 32;
+  static const _angleRegionOffset = _forceRegionOffset + samplesPerPacket * 2;
+  static const packetSize = _angleRegionOffset + samplesPerPacket * 2;
 
   final int sensorId;
   final int sequenceNumber;
@@ -57,7 +61,7 @@ class OarlockPacket extends BluetoothPacket {
   }
 
   static List<int> _readRegion(ByteData data, int offset) => [
-        for (var i = 0; i < BluetoothPacket._samplesPerRegion; i++)
+        for (var i = 0; i < BluetoothPacket.samplesPerPacket; i++)
           data.getUint16(offset + i * 2, Endian.little),
       ];
 }
