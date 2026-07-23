@@ -97,29 +97,23 @@ whole cluster of essential values. See the dependency graph in
 The questions that biased multiple features have been answered from the firmware and the
 PO. Details in the linked docs:
 
-1. **Angle convention — ✅ ±180° full range, self-calibrated in firmware.** `DataSender.h`
-   encodes `angle_deg = code/65535·360 − 180`; the app decoder already matches (its `−90…90°`
-   *comment* is stale — copied from the out-of-date `SimData`). The angle is an ICM-20948
-   orientation-EKF estimate that **zeroes and calibrates itself in firmware** — the app
-   consumes the signed angle directly and performs **no angle calibration**.
-   (stroke-detection §1.1)
+1. **Angle — ✅ ±180° full range, self-calibrated in firmware.** The app decodes the raw
+   `uint16` to a signed ±180° angle (`angle_deg = code/65535·360 − 180`); the ICM-20948
+   orientation EKF **zeroes and calibrates itself in firmware**, so the app consumes the
+   signed angle directly and performs **no angle calibration**. (Its `−90…90°` code comment
+   is stale and should be fixed.) (stroke-detection §1.1)
 2. **GPS speed — ✅ integer-truncated m/s → derive from position.** `Gps.cpp` casts
    `speed.mps()` into `int16`, so speed arrives in whole-m/s (3.6 km/h) steps. The app uses
    **position-derived speed** (`Δs/Δt` over ×1e6 lat/lon fixes) as primary; the firmware
-   `Speed` stream is a coarse fallback. A firmware `speed·100` fix is noted but not required.
-   (kinematics §1)
+   `Speed` stream is a coarse fallback. (kinematics §1)
 3. **Force sensor axis — ✅ perpendicular.** Load cell reads the scull pressing on the pin;
    0–1000 N full scale. Standard `F·cos θ` projection applies. (force-power §1)
 4. **Per-oarlock sample rate — ✅ 100 Hz.** ForceReader/AngleReader at 10 ms; sets the
    angle LPF/`ω` step. (stroke-detection §1.2)
-5. **IMU — ⚠️ units m/s² confirmed, orientation still open.** `ImuData` is m/s², but the
-   **boat IMU is currently simulated** (`SimData::imu`); the real axis mapping/signs are a
-   fixed property of the mounting, read off firmware when a physical hub IMU (LSM6DS/MPU) is
-   added — not an app-side calibration. Sim convention meanwhile: `acc_z` up, `acc_x`
-   longitudinal, `acc_y` lateral. (kinematics §6, level widget)
-
-Firmware cleanup items spotted in passing (not app work): the stale ±90° `SimData` angle
-encoding vs. the real ±180° `DataSender` path, and the app's stale angle code comment.
+5. **IMU — ✅ units m/s², axes fixed in firmware.** `ImuData` is m/s² with `acc_z` up,
+   `acc_x` longitudinal, `acc_y` lateral. The boat IMU currently streams simulated values
+   (`SimData::imu`), so the level widget shows simulated attitude for now. (kinematics §6,
+   level widget)
 
 ## Notes on the existing pipeline (why most values need no new widgets)
 

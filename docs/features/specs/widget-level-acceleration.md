@@ -30,19 +30,14 @@ surge/check.
 
 ## Edge cases
 
-- IMU axis→(roll,pitch) mapping is fixed by the mount orientation. Units are **m/s²**
-  (confirmed, `ImuData`), so no g-conversion. The boat IMU is **currently simulated**
-  (`SimData::imu`: `acc_z = 9.81` up, `acc_x` longitudinal, `acc_y` lateral) — use that as
-  the mapping; the real assignment is a fixed firmware property once a real hub IMU is
-  wired in (not an app-side calibration).
+- IMU axes are fixed by the mount orientation, units **m/s²** (`ImuData`), so no
+  g-conversion: `acc_z` up, `acc_x` longitudinal, `acc_y` lateral.
 - At rest `|g|` should ≈ 9.81; if far off, the accel isn't gravity-referenced — show a
   warning instead of a wrong level.
-- Until a real IMU exists, the widget effectively visualises simulated data — flag it as
-  "sim" so it isn't mistaken for real attitude.
+- The boat IMU currently emits simulated values (`SimData::imu`), so the widget visualises
+  simulated attitude for now — flag it as "sim" so it isn't mistaken for real attitude.
 
 ## Open questions
-1. ~~Confirm IMU units.~~ **Resolved: m/s²** (`ImuData`). The axis mapping is a fixed
-   firmware property (not app-configured); the **boat IMU is still simulated**, so the real
-   assignment lands when a real LSM6DS/MPU driver replaces `SimData::imu`.
-2. Do we also want a gyro? Only accel is currently in the boat packet. (Note: each
-   *oarlock* already runs a full ICM-20948 for angle — a boat-level gyro would be new.)
+1. IMU units are m/s² and axes are fixed in firmware; the boat IMU currently streams
+   simulated values.
+2. Do we also want a gyro? Only accel is in the boat packet.

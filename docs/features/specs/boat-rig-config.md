@@ -18,7 +18,6 @@ oarlock**:
 |-------|------|---------|
 | `innerLever l_in` | m | force-power model (mandatory) |
 | `scullLength L` | m | force-power model (mandatory); `l_out = L − l_in` |
-| `forceSensorAxis` | enum {perpendicular, longitudinal} | force-power §1 — **default & our hardware: perpendicular** |
 
 ### The angle needs no app configuration
 
@@ -29,9 +28,8 @@ firmware**. The app therefore stores **no** angle offset/sign and performs **no*
 calibration — it consumes `θ` as delivered (zero at the perpendicular, positive toward the
 bow) and any zero/drift correction is the firmware's job.
 
-> Minor cleanup (firmware/app, not a config concern): the stale `−90…+90°` comment in the
-> app's `angle_conversion_util.dart` describes the out-of-date `SimData` path; the ±180°
-> decode itself is correct.
+> Minor app cleanup (not a config concern): fix the stale `−90…+90°` comment in
+> `angle_conversion_util.dart` — the ±180° decode itself is correct.
 
 **Other firmware-resolved constants** (no app config needed): the per-oarlock **sample rate
 is 100 Hz** (ForceReader/AngleReader), and **GPS speed** is integer-truncated m/s so the app
@@ -39,8 +37,8 @@ derives speed from position instead (kinematics §1) — no speed-scaling consta
 
 ### UI (Part A)
 A "Setup → Rig" settings section (reuse `settings_section.dart`): numeric fields per
-connected oarlock for `l_in`, `L`, and a sensor-axis toggle. Defaults from the PO example
-(`L=2.88, l_in=0.88`) as placeholders. No angle-calibration step.
+connected oarlock for `l_in`, `L`. Defaults from the PO example (`L=2.88, l_in=0.88`) as
+placeholders. No angle-calibration step.
 
 ## Part B — Boat & crew layout (Nice-to-have, deprioritised)
 

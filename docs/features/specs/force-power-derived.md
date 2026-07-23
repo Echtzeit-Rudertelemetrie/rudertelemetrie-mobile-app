@@ -2,8 +2,8 @@
 
 **Importance:** Essential · **Complexity:** Medium (per-sample algebra) → Medium-High
 (power needs `ω`, per-stroke aggregates need the stroke engine)
-**Depends on:** `Force`/`Angle` sources, `Speed`, `BoatConfig` (rig `l_in`,`L`,
-`force_sensor_axis`), `StrokeEngine` (per-stroke aggregates).
+**Depends on:** `Force`/`Angle` sources, `Speed`, `BoatConfig` (rig `l_in`,`L`),
+`StrokeEngine` (per-stroke aggregates).
 **Math:** [`../math/force-power-model.md`](../math/force-power-model.md) — do not restate here.
 
 ## Problem
@@ -55,10 +55,7 @@ Session peaks of these come **free** from `SessionPeakSource`
 Force/power sources must not register (or must show "needs rig setup") until
 `BoatConfig` provides, per oar: `l_in`, `L` (→ `l_out`). The angle needs no setup — it
 arrives self-calibrated from firmware (force-power-model §1, boat-rig-config Part A).
-See [`boat-rig-config.md`](boat-rig-config.md). `force_sensor_axis` is **perpendicular**
-on our hardware (confirmed — load cell reads the scull's press against the pin), so the
-standard projection applies; the `longitudinal` branch (force-power-model §7.5) exists only
-as a config fallback and is not exercised.
+See [`boat-rig-config.md`](boat-rig-config.md).
 
 ## UI
 
@@ -85,6 +82,4 @@ as a config fallback and is not exercised.
 
 ## Open questions
 
-1. ~~Confirm `force_sensor_axis`.~~ **Resolved: perpendicular** (load cell on the pin).
-2. Per-oar vs. per-position rig constants when oarlocks are swapped between seats — tie to
-   `BoatConfig` assignment.
+1. Rig constants (`l_in`, `L`) are stored per oarlock device (the two-oarlock setup is fixed).

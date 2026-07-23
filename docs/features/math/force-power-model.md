@@ -37,17 +37,11 @@ Identity: F_D = F_G + F_B             # the two add up at the pin
 Ratio:    F_B = F_G · l_in / l_out
 ```
 
-**Which force does our sensor report? — Confirmed perpendicular.** The load cell sits on
-the oarlock where the scull presses against the iron pin, so it reads the pin reaction
-**perpendicular to the shaft** (`F_D`). These formulas therefore apply directly:
-`P = F·l·ω` and `F_prop = F·cos θ` (§3), with no double-`cos θ`. The firmware quantises it
-0–1000 N full scale (`DataSender.h`, `ForceReader` at 100 Hz), matching the app decoder.
-
-The alternate `longitudinal` case (a sensor reading pin bending along the boat axis, which
-would already be `F_D · cos θ`) is **not** our hardware; it is kept only as a config flag
-`force_sensor_axis ∈ {perpendicular, longitudinal}` (default `perpendicular`) in
-boat-rig-config so the math stays reusable if a different rig is ever instrumented. §3 below
-uses `perpendicular`.
+**What the sensor reports.** The load cell sits on the oarlock where the scull presses
+against the iron pin, so it reads the pin reaction **perpendicular to the shaft** (`F_D`).
+These formulas therefore apply directly: `P = F·l·ω` and `F_prop = F·cos θ` (§3), with no
+double-`cos θ`. The firmware quantises it 0–1000 N full scale (`DataSender.h`, `ForceReader`
+at 100 Hz), matching the app decoder.
 
 ---
 
@@ -199,16 +193,13 @@ Applies to `P_peak_stroke`, `F_peak_stroke`, `SPM`, boat speed, etc.
 4. `v_boat` from GPS is speed over ground; for `η_blade` the speed **relative to the
    water** matters. Wind/current bias it. Note it; don't correct it without a water-speed
    source.
-5. If `force_sensor_axis = longitudinal`, `F_prop = F_measured · v_boat` directly (no
-   extra `cos θ`), and `F_D = F_measured / cos θ` to recover the perpendicular force.
 
 ## 8. Required inputs summary
 
 | Input                | Source | Notes |
 |----------------------|--------|-------|
-| `F_D(t)`             | `Force N` stream | perpendicular-to-shaft, 0–1000 N (confirmed §1) |
+| `F_D(t)`             | `Force N` stream | perpendicular-to-shaft, 0–1000 N (§1) |
 | `θ(t)`, `ω(t)`       | `Angle N` stream + §1.2 | ±180° range; self-calibrated in firmware, consumed as-is |
 | `v_boat(t)`          | `Speed`/position | GPS over-ground; prefer position-derived (kinematics §1) |
 | `l_in`, `L`          | rig config | **mandatory**; `l_out = L − l_in` |
-| `force_sensor_axis`  | rig config | perpendicular (our hardware) \| longitudinal |
 | cycle boundaries `D[n]`, `T_stroke[n]` | stroke engine | for §6 aggregates |

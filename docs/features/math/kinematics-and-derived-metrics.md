@@ -31,8 +31,6 @@ Pace is undefined at `v = 0`; blank it (or show `—:—`) below a small speed f
 > - **Primary speed source = GPS position** (`v = Δs/Δt` from the haversine step, §2.2),
 >   which uses the full lat/lon resolution (×1e6 degrees ≈ 0.11 m).
 > - The firmware `Speed` stream is kept only as a coarse fallback when position is stale.
-> - A cheap firmware fix (send `speed·100` as cm/s) would make the direct value usable;
->   flagged as a `rowing_boat` improvement, not required for the app.
 >
 > Every speed/pace/distance number below assumes the position-derived `v`.
 
@@ -128,15 +126,12 @@ Dynamic (rowing) acceleration corrupts this; low-pass `a` heavily (cutoff < 0.5 
 the *level* reading, and separately show the *un*filtered longitudinal `a_x` as the
 "acceleration" indicator (the surge/check per stroke).
 
-**Units & axes (from `rowing_boat`):** `ImuData` documents `acc_x/y/z` in **m/s²**
-(float32), so no g→m/s² conversion is needed and the `|g| ≈ 9.81` rest check applies
-directly. But the boat IMU is **currently simulated** (`SimData::imu`) and no real driver
-exists yet — the simulation uses `acc_z = 9.81` (gravity up), `acc_x` = longitudinal
-surge, `acc_y` = small lateral. Use that mapping
-(`roll = atan2(a_y, a_z)`, `pitch = atan2(−a_x, √(a_y²+a_z²))`) as the working default; the
-real axis→(roll, pitch, longitudinal) assignment and signs are a **fixed property of the IMU
-mounting, read off firmware once a real hub IMU (e.g. LSM6DS/MPU) is wired in — not an
-app-side calibration**.
+**Units & axes:** `ImuData` reports `acc_x/y/z` in **m/s²** (float32), so no g→m/s²
+conversion is needed and the `|g| ≈ 9.81` rest check applies directly. The axes are fixed by
+the IMU mounting: `acc_z` up (gravity), `acc_x` longitudinal (surge), `acc_y` lateral.
+Mapping: `roll = atan2(a_y, a_z)`, `pitch = atan2(−a_x, √(a_y²+a_z²))`. The boat IMU
+currently emits simulated values (`SimData::imu`), so tilt readings are simulated until the
+hub streams real IMU data.
 
 ---
 

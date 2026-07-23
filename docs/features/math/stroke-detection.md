@@ -30,17 +30,13 @@ We require a **signed** angle with a fixed zero and orientation:
 
 So over one cycle `θ` moves `θ_catch (max +) → θ_finish (max −) → θ_catch`.
 
-**What the hardware sends (confirmed against `rowing_boat`):** the authoritative
-encoding is `DataSender.h`: `angle_deg = code/65535 · 360 − 180`, i.e. a fixed
-**±180° full range** at 0.0055°/LSB. The app decoder (`angle_conversion_util.dart`,
-`−180 + raw·360/65535`) already matches this; only its `−90…+90°` code comment is stale
-(it describes the out-of-date `SimData` path, which still uses ±90° — a firmware cleanup
-item, not an app one).
+**Angle encoding:** the app decodes the raw `uint16` to a signed **±180° full range**
+(`angle_conversion_util.dart`, `−180 + raw·360/65535`, ≈0.0055°/LSB). Its `−90…+90°` code
+comment is stale and should be corrected — the ±180° decode itself is right.
 
-The angle is **not** a potentiometer reading: each oarlock derives it from an ICM-20948
-(accel + gyro + magnetometer) through an orientation EKF (`AngleReader`). **The sensor
-zeroes and calibrates itself entirely in firmware — the app performs no angle
-calibration.** The app consumes the delivered signed angle directly and assumes it already
+Each oarlock derives the angle from an ICM-20948 (accel + gyro + magnetometer) through an
+orientation EKF (`AngleReader`). **The sensor zeroes and calibrates itself entirely in
+firmware — the app performs no angle calibration.** The app consumes the delivered signed angle directly and assumes it already
 follows the convention above (zero at the perpendicular, positive toward the bow); any zero
 or drift correction is the firmware's responsibility.
 

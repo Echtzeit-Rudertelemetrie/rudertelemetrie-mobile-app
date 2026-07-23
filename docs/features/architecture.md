@@ -73,9 +73,9 @@ origin, so this is a prerequisite for that whole cluster of essential values.
 
 ### 2.4 `BoatConfig` / rig model
 
-Holds boat class, seat→oarlock→(position, side) assignment, and per-oar `l_in`, `L`, and
-`force_sensor_axis` (the angle arrives self-calibrated from firmware — no app-side angle
-config). Feeds the force/power derived
+Holds boat class, seat→oarlock→(position, side) assignment, and per-oar `l_in`, `L` (the
+angle arrives self-calibrated from firmware — no app-side angle config). Feeds the
+force/power derived
 sources, the boat schematic, and stroke crew-aggregation. A `ChangeNotifier` provider
 persisted with the existing storage the dashboard layout uses. See
 [`specs/boat-rig-config.md`](specs/boat-rig-config.md).
