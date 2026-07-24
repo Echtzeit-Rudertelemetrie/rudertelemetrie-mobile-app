@@ -63,6 +63,14 @@ class _ChartTileState extends State<ChartTile>
   /// not anchor to zero: value-vs-value trajectories have a non-monotonic X, so
   /// bounds come straight from the min/max of the points.
   ({double min, double max, double interval}) get _xAxis {
+    final fixed = widget.visualizer.fixedXBounds;
+    if (fixed != null) {
+      return (
+        min: fixed.min,
+        max: fixed.max,
+        interval: _niceInterval((fixed.max - fixed.min) / 6),
+      );
+    }
     var dataMin = _points.first.x;
     var dataMax = _points.first.x;
     for (final p in _points) {
@@ -84,9 +92,11 @@ class _ChartTileState extends State<ChartTile>
     return 10 * magnitude;
   }
 
-  String _xLabel(double value) => '${_formatNumber(value)}${widget.visualizer.units.x.name}';
+  String _xLabel(double value) =>
+      '${_formatNumber(value)}${widget.visualizer.units.x.name}';
 
-  String _yLabel(double value) => '${_formatNumber(value)}${widget.visualizer.units.y.name}';
+  String _yLabel(double value) =>
+      '${_formatNumber(value)}${widget.visualizer.units.y.name}';
 
   String _formatNumber(double value) =>
       value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);

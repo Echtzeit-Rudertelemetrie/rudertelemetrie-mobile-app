@@ -8,9 +8,7 @@ class Home extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => FScaffold(
-    header: FHeader(
-      title: const Text("Home"),
-    ),
+    header: FHeader(title: const Text("Home")),
     child: Column(
       spacing: 10,
       children: [

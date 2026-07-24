@@ -7,11 +7,11 @@ import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 
 FThemeData getTheme() {
   final base =
-  const <TargetPlatform>{
+      const <TargetPlatform>{
         .android,
         .iOS,
         .fuchsia,
-  }.contains(defaultTargetPlatform)
+      }.contains(defaultTargetPlatform)
       ? FThemes.neutral.dark.touch
       : FThemes.neutral.dark.desktop;
 
@@ -30,9 +30,9 @@ FThemeData getTheme() {
       typography: base.typography,
       style: base.style,
       touch: const <TargetPlatform>{
-            .android,
-            .iOS,
-            .fuchsia,
+        .android,
+        .iOS,
+        .fuchsia,
       }.contains(defaultTargetPlatform),
     ),
     tileGroupStyle: FTileGroupStyle.inherit(

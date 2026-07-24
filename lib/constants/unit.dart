@@ -1,7 +1,1 @@
-enum Unit {
-  mN, N,
-  m, km,
-  ms, s, min,
-  deg,
-  mps, mps2,
-}
+enum Unit { mN, N, m, km, ms, s, min, deg, mps, mps2 }

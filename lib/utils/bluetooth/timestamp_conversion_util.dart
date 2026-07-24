@@ -2,7 +2,7 @@
 const _samplesPerPacket = 32;
 
 /// Spacing between consecutive samples within the firmware's sample stream.
-const _sampleIntervalMs = 5;
+const sensorSampleIntervalMs = 10;
 
 /// Maps a firmware packet sequence number and the sample's index within that
 /// packet to an absolute timestamp. Each packet carries [_samplesPerPacket]
@@ -15,5 +15,7 @@ DateTime convertSequenceNumbersToTimestamp(
 ) {
   final sampleIndex =
       packetSequenceNumber * _samplesPerPacket + dataSequenceNumber;
-  return start.add(Duration(milliseconds: sampleIndex * _sampleIntervalMs));
+  return start.add(
+    Duration(milliseconds: sampleIndex * sensorSampleIntervalMs),
+  );
 }

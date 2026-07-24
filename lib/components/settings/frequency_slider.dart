@@ -23,9 +23,12 @@ class _FrequencySliderState extends State<FrequencySlider> {
             initial: FSliderValue(max: toSlider(model.frequency, 1, 500)),
           ),
           label: Text('Frequency: ${model.frequency} Hz'),
-          tooltipBuilder: (style, value) => Text(intFromSlider(value, 1, 500).round().toString()),
+          tooltipBuilder: (style, value) =>
+              Text(intFromSlider(value, 1, 500).round().toString()),
           onEnd: (value) {
-            context.read<SimulationSettingsModel>().setFrequency(intFromSlider(value.max, 1, 500));
+            context.read<SimulationSettingsModel>().setFrequency(
+              intFromSlider(value.max, 1, 500),
+            );
           },
         ),
       ],

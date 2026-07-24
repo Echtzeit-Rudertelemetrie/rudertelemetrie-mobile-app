@@ -21,8 +21,9 @@ class ParamField extends StatefulWidget {
 }
 
 class _ParamFieldState extends State<ParamField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: _format(widget.value));
+  late final TextEditingController _controller = TextEditingController(
+    text: _format(widget.value),
+  );
 
   static String _format(double value) =>
       value == value.roundToDouble() ? value.toInt().toString() : '$value';
@@ -74,8 +75,7 @@ class _ParamFieldState extends State<ParamField> {
     cursorColor: const Color(0xFFF45866),
     decoration: InputDecoration(
       isDense: true,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       filled: true,
       fillColor: Colors.white10,
       enabledBorder: OutlineInputBorder(

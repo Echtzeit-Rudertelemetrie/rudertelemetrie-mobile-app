@@ -83,7 +83,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final cacheKey =
         '${config.id}_${visualizerKey}_${sourceKeys.join(',')}_${_paramsSignature(params)}';
-    final bound = _boundCache[cacheKey] ??
+    final bound =
+        _boundCache[cacheKey] ??
         () {
           final b = _bind(context, visualizerKey, sourceKeys, params);
           if (b != null) _boundCache[cacheKey] = b;
@@ -111,8 +112,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ) {
     if (visualizerKey == null) return null;
 
-    final visualizer =
-        context.read<VisualizerProviderModel>().registry.get(visualizerKey);
+    final visualizer = context.read<VisualizerProviderModel>().registry.get(
+      visualizerKey,
+    );
     if (visualizer == null) return null;
 
     final sourceRegistry = context.read<DataSourceProviderModel>().registry;
@@ -122,10 +124,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .toList();
 
     return switch (visualizer) {
-      Visualizer1 v when sources.isNotEmpty =>
-        v.bind(sources[0], params: params),
-      Visualizer2 v when sources.length >= 2 =>
-        v.bind(sources[0], sources[1], params: params),
+      Visualizer1 v when sources.isNotEmpty => v.bind(
+        sources[0],
+        params: params,
+      ),
+      Visualizer2 v when sources.length >= 2 => v.bind(
+        sources[0],
+        sources[1],
+        params: params,
+      ),
       _ => null,
     };
   }

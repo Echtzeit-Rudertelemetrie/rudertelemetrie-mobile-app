@@ -97,8 +97,9 @@ class BluetoothManager {
     final connection = _DeviceConnection(device);
     _connections[device.remoteId.str] = connection;
 
-    connection.connectionSubscription = device.connectionState
-        .listen((state) => _onConnectionState(connection, state));
+    connection.connectionSubscription = device.connectionState.listen(
+      (state) => _onConnectionState(connection, state),
+    );
 
     device
         .connect(autoConnect: true, mtu: null, license: License.free)
@@ -166,8 +167,9 @@ class BluetoothManager {
       deviceId: connection.device.remoteId.str,
     );
     connection.handler = handler;
-    connection.valueSubscription =
-        notify.onValueReceived.listen(handler.onData);
+    connection.valueSubscription = notify.onValueReceived.listen(
+      handler.onData,
+    );
   }
 
   void _forgetDevice(_DeviceConnection connection) {
@@ -178,8 +180,9 @@ class BluetoothManager {
 
   /// UUID of the firmware's `MeasurementPack` notify characteristic
   /// (service a1b2c3d4-0001-…, characteristic a1b2c3d4-0002-…).
-  static final Guid _measurementCharacteristic =
-      Guid('a1b2c3d4-0002-4a2b-9c3d-1234567890ab');
+  static final Guid _measurementCharacteristic = Guid(
+    'a1b2c3d4-0002-4a2b-9c3d-1234567890ab',
+  );
 
   Future<BluetoothCharacteristic?> findNotifyCharacteristic(
     BluetoothDevice device,

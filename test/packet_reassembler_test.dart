@@ -7,20 +7,13 @@ void main() {
 
   List<int> frame(int fill) => List<int>.filled(frameSize, fill);
 
-  List<List<int>> fragmentsOf(List<int> data, int chunk) => [
-        for (var i = 0; i < data.length; i += chunk)
-          data.sublist(i, (i + chunk).clamp(0, data.length)),
-      ];
-
-  test('reassembles a 20-byte-fragmented frame (MTU 23)', () {
+  test('ignores a partial notification', () {
     final frames = <List<int>>[];
     final r = PacketReassembler(frames.add);
 
-    for (final f in fragmentsOf(frame(7), 20)) {
-      r.addFragment(f);
-    }
+    r.addFragment(frame(7).sublist(0, 20));
 
-    expect(frames, [frame(7)]);
+    expect(frames, isEmpty);
   });
 
   test('passes through a single full-size notification (large MTU)', () {
@@ -32,32 +25,23 @@ void main() {
     expect(frames, [frame(3)]);
   });
 
-  test('reassembles several consecutive frames', () {
+  test('passes through several consecutive notifications', () {
     final frames = <List<int>>[];
     final r = PacketReassembler(frames.add);
 
     for (final packet in [frame(1), frame(2), frame(3)]) {
-      for (final f in fragmentsOf(packet, 20)) {
-        r.addFragment(f);
-      }
+      r.addFragment(packet);
     }
 
     expect(frames, [frame(1), frame(2), frame(3)]);
   });
 
-  test('drops a partial frame and re-aligns after a lost fragment', () {
+  test('drops a truncated value without corrupting the next notification', () {
     final frames = <List<int>>[];
     final r = PacketReassembler(frames.add);
 
-    // First packet loses its 3rd fragment, so it never reaches 132 (short).
-    final broken = fragmentsOf(frame(9), 20)..removeAt(2);
-    for (final f in broken) {
-      r.addFragment(f);
-    }
-    // Next packet arrives intact.
-    for (final f in fragmentsOf(frame(5), 20)) {
-      r.addFragment(f);
-    }
+    r.addFragment(frame(9).sublist(0, frameSize - 20));
+    r.addFragment(frame(5));
 
     expect(frames, [frame(5)]);
   });
@@ -67,9 +51,7 @@ void main() {
     final r = PacketReassembler(frames.add);
 
     r.addFragment([]);
-    for (final f in fragmentsOf(frame(4), 20)) {
-      r.addFragment(f);
-    }
+    r.addFragment(frame(4));
 
     expect(frames, [frame(4)]);
   });

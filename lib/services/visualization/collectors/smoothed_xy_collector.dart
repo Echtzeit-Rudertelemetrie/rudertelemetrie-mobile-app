@@ -37,10 +37,9 @@ class SmoothedXyCollector extends PointCollector {
     }
 
     final cutoff = newest.subtract(maxAge);
-    final fresh = latestByX.values
-        .where((p) => !p.timestamp.isBefore(cutoff))
-        .toList()
-      ..sort((a, b) => a.x.compareTo(b.x));
+    final fresh =
+        latestByX.values.where((p) => !p.timestamp.isBefore(cutoff)).toList()
+          ..sort((a, b) => a.x.compareTo(b.x));
     return List.unmodifiable(fresh);
   }
 }

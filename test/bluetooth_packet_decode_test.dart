@@ -9,8 +9,11 @@ class _PackBuilder {
   final ByteData _data = ByteData(BluetoothPacket.packetSize);
 
   _PackBuilder(int id, int sequence) {
-    _data.setUint32(0, ((id & 0x7) << 29) | (sequence & 0x1FFFFFFF),
-        Endian.little);
+    _data.setUint32(
+      0,
+      ((id & 0xF) << 28) | (sequence & 0x0FFFFFFF),
+      Endian.little,
+    );
   }
 
   _PackBuilder u16(int offset, int value) {
@@ -46,19 +49,22 @@ void main() {
     expect(BluetoothPacket.decode(List.filled(131, 0)), isNull);
   });
 
-  test('splits id (top 3 bits) and 29-bit sequence from the header', () {
-    final raw = _PackBuilder(3, 0x0ABCDEF).build();
+  test('splits id (top 4 bits) and 28-bit sequence from the header', () {
+    final raw = _PackBuilder(13, 0x0ABCDEF).build();
     final packet = BluetoothPacket.decode(raw)!;
 
-    expect(packet.sensorId, 3);
+    expect(packet.sensorId, 13);
     expect(packet.sequenceNumber, 0x0ABCDEF);
   });
 
-  test('decodes an oarlock packet (id 1..7) into force and angle samples', () {
+  test('decodes an oarlock packet (id 1..15) into force and angle samples', () {
     final builder = _PackBuilder(2, 7);
-    for (var i = 0; i < 32; i++) {
+    for (var i = 0; i < BluetoothPacket.samplesPerRegion; i++) {
       builder.u16(4 + i * 2, 100 + i); // force region
-      builder.u16(68 + i * 2, 500 + i); // angle region
+      builder.u16(
+        4 + BluetoothPacket.samplesPerRegion * 2 + i * 2,
+        500 + i,
+      ); // angle region
     }
 
     final packet = BluetoothPacket.decode(builder.build());

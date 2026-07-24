@@ -22,8 +22,15 @@ class TimeElapsedCombinator extends Combinator1 {
       DateTime? origin;
       return stream.map((m) {
         origin ??= m.timestamp;
-        final elapsedMs = m.timestamp.difference(origin!).inMilliseconds.toDouble();
-        return XYPoint(x: _toXUnit(elapsedMs), y: m.value, timestamp: m.timestamp);
+        final elapsedMs = m.timestamp
+            .difference(origin!)
+            .inMilliseconds
+            .toDouble();
+        return XYPoint(
+          x: _toXUnit(elapsedMs),
+          y: m.value,
+          timestamp: m.timestamp,
+        );
       });
     }).bind(source);
   }

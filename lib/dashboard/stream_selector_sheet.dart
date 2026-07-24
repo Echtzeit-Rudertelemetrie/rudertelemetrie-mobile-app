@@ -30,8 +30,8 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
     super.initState();
     _type = widget.config.data['type'] as String? ?? 'value';
     _visualizerKey = widget.config.data['visualizerKey'] as String?;
-    final stored =
-        (widget.config.data['sourceKeys'] as List<dynamic>?)?.cast<String>();
+    final stored = (widget.config.data['sourceKeys'] as List<dynamic>?)
+        ?.cast<String>();
     _sourceKeys = stored != null ? List<String?>.from(stored) : [];
     _params = _readStoredParams(widget.config.data['params']);
   }
@@ -76,7 +76,9 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
 
   AnyVisualizer? get _selectedVisualizer {
     if (_visualizerKey == null) return null;
-    return context.read<VisualizerProviderModel>().registry.get(_visualizerKey!);
+    return context.read<VisualizerProviderModel>().registry.get(
+      _visualizerKey!,
+    );
   }
 
   void _selectVisualizer(AnyVisualizer v) {
@@ -157,11 +159,13 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
           style: TextStyle(color: Colors.white54, fontSize: 12),
         ),
         const SizedBox(height: 4),
-        ...visualizers.map((v) => _VisualizerOption(
-              visualizer: v,
-              selected: _visualizerKey == v.name,
-              onTap: () => _selectVisualizer(v),
-            )),
+        ...visualizers.map(
+          (v) => _VisualizerOption(
+            visualizer: v,
+            selected: _visualizerKey == v.name,
+            onTap: () => _selectVisualizer(v),
+          ),
+        ),
         const SizedBox(height: 16),
 
         if (_selectedVisualizer?.params.isNotEmpty ?? false) ...[
@@ -170,18 +174,24 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 4),
-          ..._selectedVisualizer!.params.map((p) => ParamField(
-                key: ValueKey('param_${p.key}'),
-                param: p,
-                value: _params[p.key] ?? p.defaultValue,
-                onChanged: (v) => _params[p.key] = v,
-              )),
+          ..._selectedVisualizer!.params.map(
+            (p) => ParamField(
+              key: ValueKey('param_${p.key}'),
+              param: p,
+              value: _params[p.key] ?? p.defaultValue,
+              onChanged: (v) => _params[p.key] = v,
+            ),
+          ),
           const SizedBox(height: 16),
         ],
 
         for (int i = 0; i < sourceCount; i++) ...[
           Text(
-            sourceCount == 1 ? 'Data source' : 'Data source ${i + 1}',
+            sourceCount == 1
+                ? 'Data source'
+                : i == 0
+                ? 'X axis'
+                : 'Y axis',
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 4),
@@ -194,19 +204,22 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
               ),
             )
           else
-            ..._groupSources(dataSources).entries.map((group) => _SourceGroup(
-                  key: ValueKey('src${i}_${group.key}'),
-                  title: group.key,
-                  children: group.value
-                      .map((ds) => _SourceOption(
-                            dataSource: ds,
-                            selected: i < _sourceKeys.length &&
-                                _sourceKeys[i] == ds.name,
-                            onTap: () =>
-                                setState(() => _sourceKeys[i] = ds.name),
-                          ))
-                      .toList(),
-                )),
+            ..._groupSources(dataSources).entries.map(
+              (group) => _SourceGroup(
+                key: ValueKey('src${i}_${group.key}'),
+                title: group.key,
+                children: group.value
+                    .map(
+                      (ds) => _SourceOption(
+                        dataSource: ds,
+                        selected:
+                            i < _sourceKeys.length && _sourceKeys[i] == ds.name,
+                        onTap: () => setState(() => _sourceKeys[i] = ds.name),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
           const SizedBox(height: 12),
         ],
       ],
@@ -257,11 +270,7 @@ class _SourceGroup extends StatefulWidget {
   final String title;
   final List<Widget> children;
 
-  const _SourceGroup({
-    super.key,
-    required this.title,
-    required this.children,
-  });
+  const _SourceGroup({super.key, required this.title, required this.children});
 
   @override
   State<_SourceGroup> createState() => _SourceGroupState();

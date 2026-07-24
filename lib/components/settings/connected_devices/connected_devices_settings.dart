@@ -28,7 +28,9 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
 
     _state = bluetoothManager.state;
 
-    _bluetoothStateSubscription = bluetoothManager.onStateChange.listen((newState) {
+    _bluetoothStateSubscription = bluetoothManager.onStateChange.listen((
+      newState,
+    ) {
       setState(() {
         _state = newState;
       });
@@ -36,11 +38,12 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
 
     _connectedDevices = bluetoothManager.connectedDevices;
 
-    _connectedDevicesSubscription = bluetoothManager.onConnectedDevicesChange.listen((newDevices) {
-      setState(() {
-        _connectedDevices = newDevices;
-      });
-    });
+    _connectedDevicesSubscription = bluetoothManager.onConnectedDevicesChange
+        .listen((newDevices) {
+          setState(() {
+            _connectedDevices = newDevices;
+          });
+        });
   }
 
   @override
@@ -69,7 +72,7 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
             suffix: const Icon(FIcons.chevronRight),
           );
         },
-      )
+      ),
     ],
   );
 }

@@ -59,10 +59,7 @@ void main() {
         w('b', 2, 0, 2, 2),
         w('c', 0, 2, 2, 2),
       ];
-      final collisions = engine.getAllCollisions(
-        layout,
-        w('a', 0, 0, 4, 4),
-      );
+      final collisions = engine.getAllCollisions(layout, w('a', 0, 0, 4, 4));
       // b is at y=0,x=2; c is at y=2,x=0 → b should come first
       expect(collisions[0].id, 'b');
       expect(collisions[1].id, 'c');
@@ -132,8 +129,11 @@ void main() {
       final result = engine.moveElement(layout, 'a', 0, 1);
       for (var i = 0; i < result.length - 1; i++) {
         for (var j = i + 1; j < result.length; j++) {
-          expect(engine.collides(result[i], result[j]), isFalse,
-              reason: '${result[i].id} and ${result[j].id} should not collide');
+          expect(
+            engine.collides(result[i], result[j]),
+            isFalse,
+            reason: '${result[i].id} and ${result[j].id} should not collide',
+          );
         }
       }
     });

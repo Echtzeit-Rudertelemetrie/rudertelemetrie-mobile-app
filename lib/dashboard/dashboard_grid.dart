@@ -23,7 +23,8 @@ import 'widget_config.dart';
 /// ```
 class DashboardGrid extends StatefulWidget {
   /// Called for each tile to build its content. May return any widget.
-  final Widget Function(BuildContext context, WidgetConfig config) widgetBuilder;
+  final Widget Function(BuildContext context, WidgetConfig config)
+  widgetBuilder;
 
   const DashboardGrid({super.key, required this.widgetBuilder});
 

@@ -104,10 +104,7 @@ class DashboardLayoutEngine {
   // ---------------------------------------------------------------------------
 
   /// Place [widget] at the first available position, then compact.
-  List<WidgetConfig> addWidget(
-    List<WidgetConfig> layout,
-    WidgetConfig widget,
-  ) {
+  List<WidgetConfig> addWidget(List<WidgetConfig> layout, WidgetConfig widget) {
     final placed = _findFreeSlot(layout, widget);
     return [...layout, placed];
   }

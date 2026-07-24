@@ -18,11 +18,13 @@ class BoundVisualizer {
   final String name;
   final UnitPair units;
   final Stream<List<XYPoint>> output;
+  final ({double min, double max})? fixedXBounds;
 
   const BoundVisualizer({
     required this.name,
     required this.units,
     required this.output,
+    this.fixedXBounds,
   });
 }
 
@@ -53,6 +55,7 @@ class Visualizer1 extends AnyVisualizer {
   final Combinator1 combinator;
   final List<PointFilter> filters;
   final CollectorBuilder buildCollector;
+  final ({double min, double max})? fixedXBounds;
 
   Visualizer1({
     required this.name,
@@ -60,9 +63,13 @@ class Visualizer1 extends AnyVisualizer {
     this.filters = const [],
     this.params = const [],
     required this.buildCollector,
+    this.fixedXBounds,
   });
 
-  BoundVisualizer bind(DataSource source, {Map<String, double> params = const {}}) {
+  BoundVisualizer bind(
+    DataSource source, {
+    Map<String, double> params = const {},
+  }) {
     final collector = buildCollector(resolveParams(params));
     var stream = combinator.call(source.data);
     var units = combinator.units(source.unit);
@@ -74,6 +81,7 @@ class Visualizer1 extends AnyVisualizer {
       name: name,
       units: collector.unitTransform(units),
       output: stream.transform(collector.collector),
+      fixedXBounds: fixedXBounds,
     );
   }
 }
@@ -92,6 +100,7 @@ class Visualizer2 extends AnyVisualizer {
   final Combinator2 combinator;
   final List<PointFilter> filters;
   final CollectorBuilder buildCollector;
+  final ({double min, double max})? fixedXBounds;
 
   Visualizer2({
     required this.name,
@@ -99,6 +108,7 @@ class Visualizer2 extends AnyVisualizer {
     this.filters = const [],
     this.params = const [],
     required this.buildCollector,
+    this.fixedXBounds,
   });
 
   BoundVisualizer bind(
@@ -117,6 +127,7 @@ class Visualizer2 extends AnyVisualizer {
       name: name,
       units: collector.unitTransform(units),
       output: stream.transform(collector.collector),
+      fixedXBounds: fixedXBounds,
     );
   }
 }

@@ -60,10 +60,7 @@ class _SineWaveChartState extends State<SineWaveChart>
 
   @override
   Widget build(BuildContext context) {
-    final colors = [
-      const Color(0xFFF45866),
-      const Color(0xFF2292A4),
-    ];
+    final colors = [const Color(0xFFF45866), const Color(0xFF2292A4)];
 
     final t = _stopwatch.elapsed.inMicroseconds / 1e6;
     final xMax = t < _windowSeconds ? _windowSeconds : t;

@@ -81,7 +81,10 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
               onPanStart: _onDragStart,
               onPanUpdate: _onDragUpdate,
               onPanEnd: _onDragEnd,
-              child: const _Handle(icon: Icons.drag_indicator, color: Color(0xFFF45866)),
+              child: const _Handle(
+                icon: Icons.drag_indicator,
+                color: Color(0xFFF45866),
+              ),
             ),
           ),
 
@@ -122,8 +125,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     final model = context.read<DashboardModel>();
     final cfg = widget.config;
     widget.onDragUpdate?.call(
-      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(0, model.cols - cfg.w),
-      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(0, model.rows - cfg.h),
+      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(
+        0,
+        model.cols - cfg.w,
+      ),
+      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(
+        0,
+        model.rows - cfg.h,
+      ),
     );
   }
 
@@ -132,8 +141,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     final cfg = widget.config;
     model.moveWidget(
       cfg.id,
-      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(0, model.cols - cfg.w),
-      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(0, model.rows - cfg.h),
+      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(
+        0,
+        model.cols - cfg.w,
+      ),
+      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(
+        0,
+        model.rows - cfg.h,
+      ),
     );
     _dragAccum = Offset.zero;
     widget.onDragEnd?.call();
@@ -152,8 +167,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     _resizeWAccum += d.delta.dx;
     _resizeHAccum += d.delta.dy;
     widget.onResizeUpdate?.call(
-      (widget.config.w + (_resizeWAccum / widget.cellWidth).round()).clamp(1, 99),
-      (widget.config.h + (_resizeHAccum / widget.cellHeight).round()).clamp(1, 99),
+      (widget.config.w + (_resizeWAccum / widget.cellWidth).round()).clamp(
+        1,
+        99,
+      ),
+      (widget.config.h + (_resizeHAccum / widget.cellHeight).round()).clamp(
+        1,
+        99,
+      ),
     );
   }
 
@@ -199,10 +220,8 @@ class _ResizeHandle extends StatelessWidget {
   const _ResizeHandle();
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: _TrianglePainter(),
-    size: const Size(32, 32),
-  );
+  Widget build(BuildContext context) =>
+      CustomPaint(painter: _TrianglePainter(), size: const Size(32, 32));
 }
 
 class _TrianglePainter extends CustomPainter {

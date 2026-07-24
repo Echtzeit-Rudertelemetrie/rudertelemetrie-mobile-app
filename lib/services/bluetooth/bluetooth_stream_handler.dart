@@ -39,21 +39,28 @@ class BluetoothStreamHandler {
   }
 
   void _handleOarlock(OarlockPacket packet) {
-    final group = 'Oarlock ${packet.sensorId} ($_deviceTag)';
-    final force = _source('Force ${packet.sensorId}', Unit.N, group: group);
-    final angle = _source('Angle ${packet.sensorId}', Unit.deg, group: group);
+    // The current production setup has one oarlock per BLE hub. Keep the wire
+    // protocol ID internal instead of exposing misleading Force/Angle 1..15
+    // sources in the dashboard.
+    final group = 'Oarlock ($_deviceTag)';
+    final force = _source('Force', Unit.N, group: group);
+    final angle = _source('Angle', Unit.deg, group: group);
 
     for (var i = 0; i < packet.forces.length; i++) {
       final timestamp = _timestampFor(force, packet.sequenceNumber, i);
 
-      force.add(Measurement(
-        value: convertForceSensorData(packet.forces[i]),
-        timestamp: timestamp,
-      ));
-      angle.add(Measurement(
-        value: convertAngleSensorData(packet.angles[i]),
-        timestamp: timestamp,
-      ));
+      force.add(
+        Measurement(
+          value: convertForceSensorData(packet.forces[i]),
+          timestamp: timestamp,
+        ),
+      );
+      angle.add(
+        Measurement(
+          value: convertAngleSensorData(packet.angles[i]),
+          timestamp: timestamp,
+        ),
+      );
     }
   }
 
@@ -62,16 +69,24 @@ class BluetoothStreamHandler {
     final speed = _source('Speed', Unit.mps, group: group);
     final timestamp = _boatTimestamp(speed, packet.imu.timestampMs);
 
-    speed.add(Measurement(
-      value: packet.gps.speedMps.toDouble(),
-      timestamp: timestamp,
-    ));
-    _source('Acceleration X', Unit.mps2, group: group)
-        .add(Measurement(value: packet.imu.accX, timestamp: timestamp));
-    _source('Acceleration Y', Unit.mps2, group: group)
-        .add(Measurement(value: packet.imu.accY, timestamp: timestamp));
-    _source('Acceleration Z', Unit.mps2, group: group)
-        .add(Measurement(value: packet.imu.accZ, timestamp: timestamp));
+    speed.add(
+      Measurement(value: packet.gps.speedMps.toDouble(), timestamp: timestamp),
+    );
+    _source(
+      'Acceleration X',
+      Unit.mps2,
+      group: group,
+    ).add(Measurement(value: packet.imu.accX, timestamp: timestamp));
+    _source(
+      'Acceleration Y',
+      Unit.mps2,
+      group: group,
+    ).add(Measurement(value: packet.imu.accY, timestamp: timestamp));
+    _source(
+      'Acceleration Z',
+      Unit.mps2,
+      group: group,
+    ).add(Measurement(value: packet.imu.accZ, timestamp: timestamp));
   }
 
   DateTime _boatTimestamp(PushDataSource source, int deviceMs) {
@@ -79,7 +94,11 @@ class BluetoothStreamHandler {
     return source.startTime.add(Duration(milliseconds: deviceMs - origin));
   }
 
-  DateTime _timestampFor(PushDataSource source, int packetSequenceNumber, int index) {
+  DateTime _timestampFor(
+    PushDataSource source,
+    int packetSequenceNumber,
+    int index,
+  ) {
     return convertSequenceNumbersToTimestamp(
       source.startTime,
       packetSequenceNumber,
@@ -89,8 +108,11 @@ class BluetoothStreamHandler {
 
   PushDataSource _source(String name, Unit unit, {String? group}) {
     return _dataSources.putIfAbsent(name, () {
-      final source =
-          PushDataSource(name: _qualify(name), unit: unit, group: group);
+      final source = PushDataSource(
+        name: _qualify(name),
+        unit: unit,
+        group: group,
+      );
       dataSourceRegistry.register(source);
       return source;
     });

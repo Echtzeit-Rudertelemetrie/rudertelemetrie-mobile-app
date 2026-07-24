@@ -3,19 +3,19 @@ import 'dart:typed_data';
 /// Wire format sent by `rowing_boat` (firmware `MeasurementPack`, 132 bytes,
 /// packed, little-endian):
 ///
-///   [0..4)    idAndSeq : uint32   -> id = top 3 bits, sequence = low 29 bits
+///   [0..4)    idAndSeq : uint32   -> id = top 4 bits, sequence = low 28 bits
 ///   [4..68)   force region        -> 32 x uint16
 ///   [68..132) angle region        -> 32 x uint16
 ///
 /// The id selects what the two regions mean:
 ///   id 0      -> boat telemetry: force region = GpsData, angle region = ImuData
-///   id 1..7   -> oarlock #id:    force region = forces, angle region = angles
+///   id 1..15  -> oarlock #id:    force region = forces, angle region = angles
 sealed class BluetoothPacket {
-  static const packetSize = 132;
+  static const samplesPerRegion = 32;
+  static const packetSize = 4 + samplesPerRegion * 2 * 2;
 
   static const _forceRegionOffset = 4;
-  static const _angleRegionOffset = 68;
-  static const _samplesPerRegion = 32;
+  static const _angleRegionOffset = _forceRegionOffset + samplesPerRegion * 2;
 
   final int sensorId;
   final int sequenceNumber;
@@ -27,8 +27,8 @@ sealed class BluetoothPacket {
 
     final data = ByteData.sublistView(Uint8List.fromList(raw));
     final idAndSeq = data.getUint32(0, Endian.little);
-    final sensorId = (idAndSeq >> 29) & 0x7;
-    final sequenceNumber = idAndSeq & 0x1FFFFFFF;
+    final sensorId = (idAndSeq >> 28) & 0xF;
+    final sequenceNumber = idAndSeq & 0x0FFFFFFF;
 
     return sensorId == 0
         ? BoatPacket._decode(data, sequenceNumber)
@@ -47,7 +47,11 @@ class OarlockPacket extends BluetoothPacket {
     required this.angles,
   });
 
-  static OarlockPacket _decode(ByteData data, int sensorId, int sequenceNumber) {
+  static OarlockPacket _decode(
+    ByteData data,
+    int sensorId,
+    int sequenceNumber,
+  ) {
     return OarlockPacket._(
       sensorId: sensorId,
       sequenceNumber: sequenceNumber,
@@ -57,9 +61,9 @@ class OarlockPacket extends BluetoothPacket {
   }
 
   static List<int> _readRegion(ByteData data, int offset) => [
-        for (var i = 0; i < BluetoothPacket._samplesPerRegion; i++)
-          data.getUint16(offset + i * 2, Endian.little),
-      ];
+    for (var i = 0; i < BluetoothPacket.samplesPerRegion; i++)
+      data.getUint16(offset + i * 2, Endian.little),
+  ];
 }
 
 class BoatPacket extends BluetoothPacket {

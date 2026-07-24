@@ -13,7 +13,8 @@ class SinceThresholdCollector extends PointCollector {
   SinceThresholdCollector(this.threshold);
 
   @override
-  UnitPair Function(UnitPair) get unitTransform => (u) => u;
+  UnitPair Function(UnitPair) get unitTransform =>
+      (u) => u;
 
   @override
   StreamTransformer<XYPoint, List<XYPoint>> get collector =>
