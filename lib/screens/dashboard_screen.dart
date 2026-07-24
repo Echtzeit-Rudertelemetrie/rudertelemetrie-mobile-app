@@ -12,6 +12,7 @@ import '../dashboard/dashboard_grid.dart';
 import '../dashboard/dashboard_model.dart';
 import '../dashboard/stream_selector_sheet.dart';
 import '../components/dashboart_tiles/value_tile.dart';
+import '../components/telemetry_quality_indicator.dart';
 import '../dashboard/widget_config.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -54,8 +55,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       childPad: false,
       child: Stack(
         children: [
-          DashboardGrid(
-            widgetBuilder: (context, config) => _buildTile(context, config),
+          Column(
+            children: [
+              const TelemetryQualityIndicator(),
+              Expanded(
+                child: DashboardGrid(
+                  widgetBuilder: (context, config) =>
+                      _buildTile(context, config),
+                ),
+              ),
+            ],
           ),
           if (editMode)
             Positioned(

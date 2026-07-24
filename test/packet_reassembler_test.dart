@@ -3,7 +3,7 @@ import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_deco
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/packet_reassembler.dart';
 
 void main() {
-  const frameSize = BluetoothPacket.packetSize; // 132
+  const frameSize = BluetoothPacket.packetSize; // 36
 
   List<int> frame(int fill) => List<int>.filled(frameSize, fill);
 

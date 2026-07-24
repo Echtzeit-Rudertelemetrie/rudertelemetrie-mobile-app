@@ -24,4 +24,30 @@ void main() {
 
     handler.dispose();
   });
+
+  test('paces the 8 samples across the packet duration', () async {
+    final registry = DataSourceRegistry();
+    final handler = BluetoothStreamHandler(
+      dataSourceRegistry: registry,
+      deviceId: 'device',
+    );
+    final packet = ByteData(BluetoothPacket.packetSize)
+      ..setUint32(0, 1 << 28, Endian.little);
+
+    handler.onData(packet.buffer.asUint8List());
+    final force = registry.get('Force (vice)')!;
+    final received = <Object>[];
+    final subscription = force.data.listen(received.add);
+
+    expect(received, isEmpty);
+
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    expect(received.length, inInclusiveRange(1, 7));
+
+    await Future<void>.delayed(const Duration(milliseconds: 70));
+    expect(received, hasLength(8));
+
+    await subscription.cancel();
+    handler.dispose();
+  });
 }

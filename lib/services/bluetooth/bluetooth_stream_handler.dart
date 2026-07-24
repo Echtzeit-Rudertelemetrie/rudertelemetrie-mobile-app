@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:collection';
+
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
@@ -11,19 +14,33 @@ import 'package:rudertelemetrie_mobile_app/utils/sensor_data/force_conversion_ut
 class BluetoothStreamHandler {
   final DataSourceRegistry dataSourceRegistry;
   final String deviceId;
+  final void Function(int sequenceNumber)? onOarlockPacket;
+  final void Function()? onInvalidPacket;
 
   final Map<String, PushDataSource> _dataSources = {};
+  final Queue<_OarlockSample> _pendingOarlockSamples = Queue();
+  final Stopwatch _playbackClock = Stopwatch();
 
   int? _boatDeviceClockOrigin;
+  int _playbackSamples = 0;
+  Timer? _sampleTimer;
 
   late final PacketReassembler _reassembler = PacketReassembler(_decodeFrame);
 
   BluetoothStreamHandler({
     required this.dataSourceRegistry,
     required this.deviceId,
+    this.onOarlockPacket,
+    this.onInvalidPacket,
   });
 
-  void onData(List<int> fragment) => _reassembler.addFragment(fragment);
+  void onData(List<int> fragment) {
+    if (fragment.length != BluetoothPacket.packetSize) {
+      onInvalidPacket?.call();
+      return;
+    }
+    _reassembler.addFragment(fragment);
+  }
 
   void _decodeFrame(List<int> frame) {
     final packet = BluetoothPacket.decode(frame);
@@ -39,6 +56,7 @@ class BluetoothStreamHandler {
   }
 
   void _handleOarlock(OarlockPacket packet) {
+    onOarlockPacket?.call(packet.sequenceNumber);
     // The current production setup has one oarlock per BLE hub. Keep the wire
     // protocol ID internal instead of exposing misleading Force/Angle 1..15
     // sources in the dashboard.
@@ -46,22 +64,64 @@ class BluetoothStreamHandler {
     final force = _source('Force', Unit.N, group: group);
     final angle = _source('Angle', Unit.deg, group: group);
 
+    if (_sampleTimer != null) _emitDueOarlockSamples(force, angle);
+    if (_pendingOarlockSamples.length > BluetoothPacket.samplesPerRegion) {
+      _pendingOarlockSamples.clear();
+    }
+
     for (var i = 0; i < packet.forces.length; i++) {
       final timestamp = _timestampFor(force, packet.sequenceNumber, i);
-
-      force.add(
-        Measurement(
-          value: convertForceSensorData(packet.forces[i]),
-          timestamp: timestamp,
-        ),
-      );
-      angle.add(
-        Measurement(
-          value: convertAngleSensorData(packet.angles[i]),
-          timestamp: timestamp,
+      _pendingOarlockSamples.add(
+        _OarlockSample(
+          force: Measurement(
+            value: convertForceSensorData(packet.forces[i]),
+            timestamp: timestamp,
+          ),
+          angle: Measurement(
+            value: convertAngleSensorData(packet.angles[i]),
+            timestamp: timestamp,
+          ),
         ),
       );
     }
+
+    _startSampleTimer(force, angle);
+  }
+
+  void _startSampleTimer(PushDataSource force, PushDataSource angle) {
+    if (_sampleTimer != null) return;
+    _playbackSamples = 0;
+    _playbackClock
+      ..reset()
+      ..start();
+    _sampleTimer ??= Timer.periodic(
+      const Duration(milliseconds: 16),
+      (_) => _emitDueOarlockSamples(force, angle),
+    );
+  }
+
+  void _emitDueOarlockSamples(PushDataSource force, PushDataSource angle) {
+    if (_pendingOarlockSamples.isEmpty) {
+      _stopSampleTimer();
+      return;
+    }
+
+    final targetSamples =
+        _playbackClock.elapsedMilliseconds ~/ sensorSampleIntervalMs;
+    final dueSamples = targetSamples - _playbackSamples;
+    _playbackSamples = targetSamples;
+
+    for (var i = 0; i < dueSamples && _pendingOarlockSamples.isNotEmpty; i++) {
+      final sample = _pendingOarlockSamples.removeFirst();
+      force.add(sample.force);
+      angle.add(sample.angle);
+    }
+  }
+
+  void _stopSampleTimer() {
+    _sampleTimer?.cancel();
+    _sampleTimer = null;
+    _playbackClock.stop();
   }
 
   void _handleBoat(BoatPacket packet) {
@@ -128,10 +188,19 @@ class BluetoothStreamHandler {
   }
 
   void dispose() {
+    _stopSampleTimer();
+    _pendingOarlockSamples.clear();
     for (final source in _dataSources.values) {
       dataSourceRegistry.unregister(source.name);
       source.dispose();
     }
     _dataSources.clear();
   }
+}
+
+class _OarlockSample {
+  final Measurement force;
+  final Measurement angle;
+
+  const _OarlockSample({required this.force, required this.angle});
 }

@@ -1,5 +1,5 @@
 /// Samples the firmware packs into a single `MeasurementPack` (`PACKET_VALUES`).
-const _samplesPerPacket = 32;
+const _samplesPerPacket = 8;
 
 /// Spacing between consecutive samples within the firmware's sample stream.
 const sensorSampleIntervalMs = 10;

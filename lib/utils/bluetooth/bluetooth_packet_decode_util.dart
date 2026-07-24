@@ -1,17 +1,17 @@
 import 'dart:typed_data';
 
-/// Wire format sent by `rowing_boat` (firmware `MeasurementPack`, 132 bytes,
+/// Wire format sent by `rowing_boat` (firmware `MeasurementPack`, 36 bytes,
 /// packed, little-endian):
 ///
 ///   [0..4)    idAndSeq : uint32   -> id = top 4 bits, sequence = low 28 bits
-///   [4..68)   force region        -> 32 x uint16
-///   [68..132) angle region        -> 32 x uint16
+///   [4..20)   force region        -> 8 x uint16
+///   [20..36)  angle region        -> 8 x uint16
 ///
 /// The id selects what the two regions mean:
 ///   id 0      -> boat telemetry: force region = GpsData, angle region = ImuData
 ///   id 1..15  -> oarlock #id:    force region = forces, angle region = angles
 sealed class BluetoothPacket {
-  static const samplesPerRegion = 32;
+  static const samplesPerRegion = 8;
   static const packetSize = 4 + samplesPerRegion * 2 * 2;
 
   static const _forceRegionOffset = 4;

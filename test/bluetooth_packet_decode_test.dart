@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
 
-/// Byte-exact fixtures mirroring the firmware `MeasurementPack` (132 bytes,
+/// Byte-exact fixtures mirroring the firmware `MeasurementPack` (36 bytes,
 /// packed, little-endian) as emitted by `rowing_boat`.
 class _PackBuilder {
   final ByteData _data = ByteData(BluetoothPacket.packetSize);
@@ -46,7 +46,12 @@ class _PackBuilder {
 
 void main() {
   test('returns null for undersized buffers', () {
-    expect(BluetoothPacket.decode(List.filled(131, 0)), isNull);
+    expect(
+      BluetoothPacket.decode(
+        List.filled(BluetoothPacket.packetSize - 1, 0),
+      ),
+      isNull,
+    );
   });
 
   test('splits id (top 4 bits) and 28-bit sequence from the header', () {
@@ -72,12 +77,12 @@ void main() {
     expect(packet, isA<OarlockPacket>());
     final oarlock = packet as OarlockPacket;
     expect(oarlock.sensorId, 2);
-    expect(oarlock.forces.length, 32);
-    expect(oarlock.angles.length, 32);
+    expect(oarlock.forces.length, 8);
+    expect(oarlock.angles.length, 8);
     expect(oarlock.forces.first, 100);
-    expect(oarlock.forces.last, 131);
+    expect(oarlock.forces.last, 107);
     expect(oarlock.angles.first, 500);
-    expect(oarlock.angles.last, 531);
+    expect(oarlock.angles.last, 507);
   });
 
   test('decodes a boat packet (id 0) into GPS and IMU samples', () {
@@ -89,12 +94,12 @@ void main() {
         .i16(14, 270) // course_deg
         .u8(16, 8) // satellites
         .u8(17, 1) // valid
-        // ImuData in the angle region (offset 68)
-        .f32(68, 0.5) // acc_x
-        .f32(72, -1.25) // acc_y
-        .f32(76, 9.81) // acc_z
+        // ImuData in the angle region (offset 20)
+        .f32(20, 0.5) // acc_x
+        .f32(24, -1.25) // acc_y
+        .f32(28, 9.81) // acc_z
         .build();
-    // timestamp_ms at offset 80 left as 0.
+    // timestamp_ms at offset 32 left as 0.
 
     final packet = BluetoothPacket.decode(raw);
 

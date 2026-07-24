@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:rudertelemetrie_mobile_app/models/telemetry_quality.dart';
 import 'package:rudertelemetrie_mobile_app/services/bluetooth/bluetooth_stream_handler.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 
@@ -22,6 +23,7 @@ class ConnectedDevice {
 }
 
 class BluetoothManager {
+  final TelemetryQualityMonitor telemetryQuality = TelemetryQualityMonitor();
   final StreamController<BluetoothState> _stateStreamController =
       StreamController.broadcast();
 
@@ -165,6 +167,12 @@ class BluetoothManager {
     final handler = BluetoothStreamHandler(
       dataSourceRegistry: registry,
       deviceId: connection.device.remoteId.str,
+      onOarlockPacket: (sequence) => telemetryQuality.recordPacket(
+        connection.device.remoteId.str,
+        sequence,
+      ),
+      onInvalidPacket: () =>
+          telemetryQuality.recordInvalidPacket(connection.device.remoteId.str),
     );
     connection.handler = handler;
     connection.valueSubscription = notify.onValueReceived.listen(
@@ -220,6 +228,7 @@ class BluetoothManager {
 
   void _removeConnectedDeviceWithId(String id) {
     _connectedDevices.removeWhere((device) => device.id == id);
+    telemetryQuality.removeDevice(id);
     _connectedDevicesStreamController.sink.add(_connectedDevices);
   }
 }

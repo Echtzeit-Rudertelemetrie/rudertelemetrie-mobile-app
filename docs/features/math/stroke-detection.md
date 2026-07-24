@@ -60,7 +60,7 @@ discrete estimator (central difference on a low-pass-filtered angle):
 
 **Sample rate — confirmed 100 Hz.** `ForceReader`/`AngleReader` sample at 10 ms
 (`SAMPLE_INTERVAL_US = 10000`), and `AppTypes.h` documents "Sensor sampelt mit 100 Hz"
-with `PACKET_VALUES = 10` ⇒ 10 packets/s per oarlock. So Nyquist is 50 Hz and the 3–5 Hz
+with `PACKET_VALUES = 8` ⇒ 12.5 packets/s per oarlock. So Nyquist is 50 Hz and the 3–5 Hz
 LPF below sits comfortably under it. All thresholds are rate-independent (physical units);
 only the LPF cutoff and the `ω` finite-difference step depend on the rate, and both are now
 pinned to 100 Hz.
