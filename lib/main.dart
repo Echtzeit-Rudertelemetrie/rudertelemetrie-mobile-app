@@ -3,7 +3,9 @@ import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/boat_config_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/force_sources_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/recording_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/simulation_settings_provider.dart';
@@ -17,7 +19,9 @@ void main() {
         simulationSettingsProvider,
         dashboardProvider,
         dataSourceProvider,
+        boatConfigProvider,
         recordingProvider,
+        forceSourcesProvider,
         visualizerProvider,
         bluetoothProvider,
       ],
