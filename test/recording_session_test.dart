@@ -5,6 +5,7 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_
 import 'package:rudertelemetrie_mobile_app/services/data_processing/derived/session_reducer_sources.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/session_record.dart';
 
 double _latDegForMeters(double meters) => meters / 111320.0;
 
@@ -76,6 +77,31 @@ void main() {
 
     session.reset();
     expect(session.distanceMeters, 0);
+  });
+
+  group('auto start/stop', () {
+    test('onRowingDetected auto-starts an idle session', () {
+      session.onRowingDetected();
+      expect(session.isRecording, isTrue);
+      expect(session.startMode, StartMode.auto);
+    });
+
+    test('manual stop disarms auto-restart until reset re-arms', () {
+      session.onRowingDetected();
+      session.stop(); // manual
+      session.onRowingDetected();
+      expect(session.isRecording, isFalse); // stays stopped, auto disarmed
+
+      session.reset();
+      session.onRowingDetected();
+      expect(session.isRecording, isTrue);
+    });
+
+    test('manual start is not overridden by rowing detection', () {
+      session.start(); // manual
+      session.onRowingDetected();
+      expect(session.startMode, StartMode.manual);
+    });
   });
 
   group('reducers', () {

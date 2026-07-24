@@ -8,6 +8,7 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dar
 
 import '../components/recording/session_control.dart';
 import '../dashboard/add_widget_sheet.dart';
+import '../components/dashboart_tiles/bar_tile.dart';
 import '../components/dashboart_tiles/chart_tile.dart';
 import '../dashboard/dashboard_grid.dart';
 import '../dashboard/dashboard_model.dart';
@@ -95,6 +96,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final content = switch ((type, bound)) {
       ('chart', final BoundVisualizer b) => ChartTile(visualizer: b),
       ('value', final BoundVisualizer b) => ValueTile(visualizer: b),
+      ('bar', final BoundVisualizer b) => BarTile(visualizer: b),
       _ => const _NoStreamPlaceholder(),
     };
 

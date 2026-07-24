@@ -14,11 +14,16 @@ enum SessionState { idle, recording, stopped }
 
 /// Owns the single recording origin and lifecycle (idle → recording → stopped),
 /// the session clock, position-derived speed/distance, and the derived
-/// `Speed (km/h)`/`Pace`/`Distance`/`Elapsed` sources. Phase 0 is manual-only;
-/// auto-start hooks onto the stroke engine in a later phase.
+/// `Speed (km/h)`/`Pace`/`Distance`/`Elapsed` sources.
+///
+/// Start/stop is auto + manual (recording-session spec): the stroke engine calls
+/// [onRowingDetected]/[onStrokeActivity] to auto-start on detected rowing and
+/// auto-stop after [_autoStopIdle] of no strokes. A manual [stop] always wins
+/// and disarms auto-restart until [reset] re-arms it.
 class RecordingSession extends ChangeNotifier {
   static const _paceSpeedFloorMps = 0.3;
   static const _tick = Duration(seconds: 1);
+  static const _autoStopIdle = Duration(seconds: 20);
 
   final DataSourceRegistry registry;
   final SessionStore? store;
@@ -48,6 +53,9 @@ class RecordingSession extends ChangeNotifier {
   DateTime? _lastSpeedTime;
   double? _lastSpeedKmh;
 
+  bool _autoArmed = true;
+  DateTime? _lastStrokeAt;
+
   RecordingSession({required this.registry, this.store}) {
     _speedKmh = _register('Speed (km/h)', Unit.kmh);
     _pace = _register('Pace (/500m)', Unit.s);
@@ -75,6 +83,7 @@ class RecordingSession extends ChangeNotifier {
     _startMode = mode;
     _startedAt = DateTime.now();
     _stoppedAt = null;
+    _lastStrokeAt = _startedAt;
     _state = SessionState.recording;
     _resetAccumulators();
     _ticker = Timer.periodic(_tick, (_) => _onTick());
@@ -82,8 +91,11 @@ class RecordingSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  void stop() {
+  void stop() => _stop(manual: true);
+
+  void _stop({required bool manual}) {
     if (!isRecording) return;
+    if (manual) _autoArmed = false;
     _stoppedAt = DateTime.now();
     _state = SessionState.stopped;
     _ticker?.cancel();
@@ -98,9 +110,22 @@ class RecordingSession extends ChangeNotifier {
     _state = SessionState.idle;
     _startedAt = null;
     _stoppedAt = null;
+    _autoArmed = true;
     _resetAccumulators();
     unawaited(store?.abortSession());
     notifyListeners();
+  }
+
+  /// Called by the stroke engine on a detected catch. Auto-starts a session
+  /// unless auto is disarmed by a prior manual stop.
+  void onRowingDetected() {
+    if (isRecording || !_autoArmed) return;
+    start(mode: StartMode.auto);
+  }
+
+  /// Called by the stroke engine on each finish; resets the auto-stop idle timer.
+  void onStrokeActivity() {
+    if (isRecording) _lastStrokeAt = DateTime.now();
   }
 
   void _resetAccumulators() {
@@ -135,7 +160,18 @@ class RecordingSession extends ChangeNotifier {
     _elapsedSource.add(
       Measurement(value: elapsed.inSeconds.toDouble(), timestamp: DateTime.now()),
     );
+    if (_shouldAutoStop()) {
+      _stop(manual: false);
+      return;
+    }
     notifyListeners();
+  }
+
+  bool _shouldAutoStop() {
+    final last = _lastStrokeAt;
+    return _startMode == StartMode.auto &&
+        last != null &&
+        DateTime.now().difference(last) > _autoStopIdle;
   }
 
   void _bindGpsSources() {

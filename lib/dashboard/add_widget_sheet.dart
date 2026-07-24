@@ -132,6 +132,15 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
               onTap: _canAdd ? () => _add(context, 'value', 2, 2) : null,
             ),
           ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _AddButton(
+              icon: Icons.bar_chart,
+              label: 'Bar',
+              enabled: _canAdd,
+              onTap: _canAdd ? () => _add(context, 'bar', 2, 3) : null,
+            ),
+          ),
         ],
       ),
       children: [

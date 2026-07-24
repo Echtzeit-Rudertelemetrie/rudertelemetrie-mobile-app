@@ -4,4 +4,5 @@ enum Unit {
   ms, s, min,
   deg,
   mps, kmh, mps2,
+  spm, count, ratio,
 }
