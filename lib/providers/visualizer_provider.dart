@@ -92,7 +92,7 @@ class VisualizerProviderModel extends ChangeNotifier {
       Visualizer2(
         name: 'Force vs Angle',
         // Source 1 is angle (x), source 2 is force (y).
-        combinator: ValueVsValueCombinator(),
+        combinator: ValueVsValueCombinator(requireMatchingTimestamps: true),
         params: const [
           VisualizerParam(
             key: 'threshold',
@@ -104,7 +104,7 @@ class VisualizerProviderModel extends ChangeNotifier {
         ],
         buildCollector: (p) =>
             MonotonicStrokeCollector(forceThreshold: p['threshold']!),
-        fixedXBounds: (min: -90, max: 90),
+        fixedXBounds: (min: -180, max: 180),
       ),
     );
   }

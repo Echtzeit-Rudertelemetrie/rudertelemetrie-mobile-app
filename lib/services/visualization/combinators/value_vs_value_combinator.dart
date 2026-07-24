@@ -6,12 +6,15 @@ import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/combinator.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/unit_pair.dart';
 
-/// Maps two synchronized data sources to (source1.value, source2.value).
-///
-/// A point is emitted only when both measurements have the same timestamp.
-/// This avoids staircase artifacts caused by combining a new force sample with
-/// the previous angle sample (or vice versa).
+/// Maps two data sources to (source1.value, source2.value).
 class ValueVsValueCombinator extends Combinator2 {
+  /// When true, only samples with identical timestamps are paired. This is
+  /// useful for force/angle values originating from the same firmware packet.
+  /// Other XY visualizers retain combine-latest behavior by default.
+  final bool requireMatchingTimestamps;
+
+  ValueVsValueCombinator({this.requireMatchingTimestamps = false});
+
   @override
   UnitPair units(Unit s1Unit, Unit s2Unit) => (x: s1Unit, y: s2Unit);
 
@@ -27,11 +30,16 @@ class ValueVsValueCombinator extends Combinator2 {
 
       void tryEmit() {
         if (latest1 == null || latest2 == null) return;
-        if (latest1!.timestamp != latest2!.timestamp ||
-            latest1!.timestamp == lastEmittedTimestamp) {
+        if (requireMatchingTimestamps &&
+            latest1!.timestamp != latest2!.timestamp) {
           return;
         }
-        final ts = latest1!.timestamp;
+        final ts = latest1!.timestamp.isAfter(latest2!.timestamp)
+            ? latest1!.timestamp
+            : latest2!.timestamp;
+        if (ts == lastEmittedTimestamp) {
+          return;
+        }
         lastEmittedTimestamp = ts;
         controller.add(
           XYPoint(x: latest1!.value, y: latest2!.value, timestamp: ts),

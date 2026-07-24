@@ -9,7 +9,7 @@ void main() {
     final angles = StreamController<Measurement>.broadcast();
     final forces = StreamController<Measurement>.broadcast();
     final points = <({double x, double y})>[];
-    final subscription = ValueVsValueCombinator()
+    final subscription = ValueVsValueCombinator(requireMatchingTimestamps: true)
         .call(angles.stream, forces.stream)
         .listen((point) => points.add((x: point.x, y: point.y)));
     final first = DateTime(2026);
