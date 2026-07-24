@@ -6,6 +6,7 @@ import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
+import '../components/recording/session_control.dart';
 import '../dashboard/add_widget_sheet.dart';
 import '../components/dashboart_tiles/chart_tile.dart';
 import '../dashboard/dashboard_grid.dart';
@@ -45,6 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       header: FHeader(
         title: const Text('Dashboard'),
         suffixes: [
+          const SessionControl(),
           FHeaderAction(
             icon: Icon(editMode ? FIcons.check : FIcons.pencil),
             onPress: model.toggleEditMode,

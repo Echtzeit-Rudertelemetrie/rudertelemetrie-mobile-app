@@ -3,5 +3,5 @@ enum Unit {
   m, km,
   ms, s, min,
   deg,
-  mps, mps2,
+  mps, kmh, mps2,
 }

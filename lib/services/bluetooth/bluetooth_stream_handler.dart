@@ -66,6 +66,12 @@ class BluetoothStreamHandler {
       value: packet.gps.speedMps.toDouble(),
       timestamp: timestamp,
     ));
+    if (packet.gps.valid) {
+      _source('Latitude', Unit.deg, group: group)
+          .add(Measurement(value: packet.gps.latitude, timestamp: timestamp));
+      _source('Longitude', Unit.deg, group: group)
+          .add(Measurement(value: packet.gps.longitude, timestamp: timestamp));
+    }
     _source('Acceleration X', Unit.mps2, group: group)
         .add(Measurement(value: packet.imu.accX, timestamp: timestamp));
     _source('Acceleration Y', Unit.mps2, group: group)

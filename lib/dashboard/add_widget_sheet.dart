@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/derived/session_reducer_sources.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 import 'dashboard_model.dart';
@@ -21,6 +23,7 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
   String? _visualizerKey;
   List<String?> _sourceKeys = [];
   Map<String, double> _params = {};
+  Reduction _reduction = Reduction.raw;
 
   @override
   void didChangeDependencies() {
@@ -73,12 +76,33 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
         data: {
           'type': type,
           'visualizerKey': _visualizerKey,
-          'sourceKeys': List<String>.from(_sourceKeys.whereType<String>()),
+          'sourceKeys': _effectiveSourceKeys(context),
           'params': Map<String, double>.from(_params),
         },
       ),
     );
     Navigator.pop(context);
+  }
+
+  /// Resolves the selected source keys, wrapping a single source in a registered
+  /// reducer when the user picked an average/peak reduction.
+  List<String> _effectiveSourceKeys(BuildContext context) {
+    final keys = List<String>.from(_sourceKeys.whereType<String>());
+    if (_reduction == Reduction.raw || keys.length != 1) return keys;
+
+    final registry = context.read<DataSourceProviderModel>().registry;
+    final base = registry.get(keys.first);
+    if (base == null) return keys;
+
+    final reduced = reducedSource(base, _reduction, context.read<RecordingSession>());
+    if (reduced == null) return keys;
+    final existing = registry.get(reduced.name);
+    if (existing != null) {
+      reduced.dispose();
+      return [existing.name];
+    }
+    registry.register(reduced);
+    return [reduced.name];
   }
 
   @override
@@ -167,9 +191,72 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
                 )),
           const SizedBox(height: 12),
         ],
+
+        if (sourceCount == 1) ...[
+          const Text(
+            'Reduction',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          _ReductionSelector(
+            selected: _reduction,
+            onChanged: (r) => setState(() => _reduction = r),
+          ),
+        ],
       ],
     );
   }
+}
+
+class _ReductionSelector extends StatelessWidget {
+  final Reduction selected;
+  final ValueChanged<Reduction> onChanged;
+
+  const _ReductionSelector({required this.selected, required this.onChanged});
+
+  static const _labels = {
+    Reduction.raw: 'Raw',
+    Reduction.average: 'Average',
+    Reduction.peak: 'Peak since start',
+  };
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      for (final entry in _labels.entries) ...[
+        Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(entry.key),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF45866)
+                    .withAlpha(selected == entry.key ? 40 : 0),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selected == entry.key
+                      ? const Color(0xFFF45866)
+                      : Colors.white24,
+                ),
+              ),
+              child: Text(
+                entry.value,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected == entry.key
+                      ? const Color(0xFFF45866)
+                      : Colors.white70,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (entry.key != Reduction.peak) const SizedBox(width: 6),
+      ],
+    ],
+  );
 }
 
 class _VisualizerOption extends StatelessWidget {
