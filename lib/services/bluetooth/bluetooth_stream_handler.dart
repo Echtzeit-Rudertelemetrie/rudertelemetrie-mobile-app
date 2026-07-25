@@ -22,6 +22,8 @@ class BluetoothStreamHandler {
   final Stopwatch _playbackClock = Stopwatch();
 
   int? _boatDeviceClockOrigin;
+  int? _lastOarlockSequence;
+  DateTime? _nextOarlockTimestamp;
   int _playbackSamples = 0;
   Timer? _sampleTimer;
 
@@ -56,6 +58,9 @@ class BluetoothStreamHandler {
   }
 
   void _handleOarlock(OarlockPacket packet) {
+    final sequenceAdvance = _acceptOarlockSequence(packet.sequenceNumber);
+    if (sequenceAdvance == null) return; // duplicate or late retry
+
     onOarlockPacket?.call(packet.sequenceNumber);
     // The current production setup has one oarlock per BLE hub. Keep the wire
     // protocol ID internal instead of exposing misleading Force/Angle 1..15
@@ -69,8 +74,22 @@ class BluetoothStreamHandler {
       _pendingOarlockSamples.clear();
     }
 
+    var packetStart = _nextOarlockTimestamp ?? force.startTime;
+    if (sequenceAdvance > 1) {
+      packetStart = packetStart.add(
+        Duration(
+          milliseconds:
+              (sequenceAdvance - 1) *
+              BluetoothPacket.samplesPerRegion *
+              sensorSampleIntervalMs,
+        ),
+      );
+    }
+
     for (var i = 0; i < packet.forces.length; i++) {
-      final timestamp = _timestampFor(force, packet.sequenceNumber, i);
+      final timestamp = packetStart.add(
+        Duration(milliseconds: i * sensorSampleIntervalMs),
+      );
       _pendingOarlockSamples.add(
         _OarlockSample(
           force: Measurement(
@@ -84,6 +103,11 @@ class BluetoothStreamHandler {
         ),
       );
     }
+    _nextOarlockTimestamp = packetStart.add(
+      const Duration(
+        milliseconds: BluetoothPacket.samplesPerRegion * sensorSampleIntervalMs,
+      ),
+    );
 
     _startSampleTimer(force, angle);
   }
@@ -154,16 +178,34 @@ class BluetoothStreamHandler {
     return source.startTime.add(Duration(milliseconds: deviceMs - origin));
   }
 
-  DateTime _timestampFor(
-    PushDataSource source,
-    int packetSequenceNumber,
-    int index,
-  ) {
-    return convertSequenceNumbersToTimestamp(
-      source.startTime,
-      packetSequenceNumber,
-      index,
-    );
+  /// Returns the forward sequence advance, 1 after a sender restart, or null
+  /// for a duplicate / slightly late retry. This keeps timestamps monotonic
+  /// even when the embedded sender reboots and starts its sequence at zero.
+  int? _acceptOarlockSequence(int sequence) {
+    const modulo = 1 << 28;
+    const halfModulo = modulo ~/ 2;
+    const maxLatePackets = 64;
+    final previous = _lastOarlockSequence;
+    if (previous == null) {
+      _lastOarlockSequence = sequence;
+      return 1;
+    }
+
+    final advance = (sequence - previous) % modulo;
+    if (advance == 0) return null;
+    if (advance < halfModulo) {
+      _lastOarlockSequence = sequence;
+      return advance;
+    }
+
+    final backwards = (previous - sequence) % modulo;
+    if (backwards <= maxLatePackets) return null;
+
+    // Large backwards jump: sender restarted. Continue directly after the
+    // previous local sample instead of jumping the chart back to t=0.
+    _lastOarlockSequence = sequence;
+    _pendingOarlockSamples.clear();
+    return 1;
   }
 
   PushDataSource _source(String name, Unit unit, {String? group}) {

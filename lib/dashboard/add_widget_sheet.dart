@@ -4,6 +4,7 @@ import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
+import 'package:rudertelemetrie_mobile_app/services/visualization/force_angle_source_pair.dart';
 
 import 'dashboard_model.dart';
 import 'param_field.dart';
@@ -88,6 +89,10 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     final visualizers = context.read<VisualizerProviderModel>().registry.all;
     final dataSources = context.watch<DataSourceProviderModel>().registry.all;
     final sourceCount = _selectedVisualizer?.sourceCount ?? 0;
+    final forceAnglePairs = forceAngleSourcePairs(dataSources);
+    final selectsForceAnglePair =
+        _selectedVisualizer?.sourceSelectionMode ==
+        SourceSelectionMode.forceAnglePair;
 
     return SheetScaffold(
       title: 'Add Widget',
@@ -144,42 +149,72 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
           const SizedBox(height: 16),
         ],
 
-        for (int i = 0; i < sourceCount; i++) ...[
-          Text(
-            sourceCount == 1
-                ? 'Data source'
-                : i == 0
-                ? 'X axis'
-                : 'Y axis',
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+        if (selectsForceAnglePair) ...[
+          const Text(
+            'Oarlock (X: angle, Y: force)',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 4),
-          if (dataSources.isEmpty)
+          if (forceAnglePairs.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                'No streams available.',
+                'No oarlock with force and angle data available.',
                 style: TextStyle(color: Colors.white38),
               ),
             )
           else
-            ..._groupSources(dataSources).entries.map(
-              (group) => _SourceGroup(
-                key: ValueKey('src${i}_${group.key}'),
-                title: group.key,
-                children: group.value
-                    .map(
-                      (ds) => _SourceOption(
-                        dataSource: ds,
-                        selected: _sourceKeys[i] == ds.name,
-                        onTap: () => setState(() => _sourceKeys[i] = ds.name),
-                      ),
-                    )
-                    .toList(),
+            ...forceAnglePairs.map(
+              (pair) => _SourceOption(
+                dataSource: pair.angle,
+                label: pair.label,
+                selected:
+                    _sourceKeys.length == 2 &&
+                    _sourceKeys[0] == pair.angle.name &&
+                    _sourceKeys[1] == pair.force.name,
+                onTap: () => setState(() {
+                  _sourceKeys = pair.sourceKeys;
+                }),
               ),
             ),
           const SizedBox(height: 12),
-        ],
+        ] else
+          for (int i = 0; i < sourceCount; i++) ...[
+            Text(
+              sourceCount == 1
+                  ? 'Data source'
+                  : i == 0
+                  ? 'X axis'
+                  : 'Y axis',
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 4),
+            if (dataSources.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No streams available.',
+                  style: TextStyle(color: Colors.white38),
+                ),
+              )
+            else
+              ..._groupSources(dataSources).entries.map(
+                (group) => _SourceGroup(
+                  key: ValueKey('src${i}_${group.key}'),
+                  title: group.key,
+                  children: group.value
+                      .map(
+                        (ds) => _SourceOption(
+                          dataSource: ds,
+                          selected: _sourceKeys[i] == ds.name,
+                          onTap: () => setState(() => _sourceKeys[i] = ds.name),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            const SizedBox(height: 12),
+          ],
       ],
     );
   }
@@ -284,11 +319,13 @@ class _SourceGroupState extends State<_SourceGroup> {
 
 class _SourceOption extends StatelessWidget {
   final DataSource dataSource;
+  final String? label;
   final bool selected;
   final VoidCallback onTap;
 
   const _SourceOption({
     required this.dataSource,
+    this.label,
     required this.selected,
     required this.onTap,
   });
@@ -306,7 +343,7 @@ class _SourceOption extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                dataSource.name,
+                label ?? dataSource.name,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
               ),
               Text(

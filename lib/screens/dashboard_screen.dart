@@ -5,6 +5,7 @@ import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
+import 'package:rudertelemetrie_mobile_app/services/visualization/force_angle_source_pair.dart';
 
 import '../dashboard/add_widget_sheet.dart';
 import '../components/dashboart_tiles/chart_tile.dart';
@@ -127,10 +128,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (visualizer == null) return null;
 
     final sourceRegistry = context.read<DataSourceProviderModel>().registry;
-    final sources = sourceKeys
+    var sources = sourceKeys
         .map((k) => sourceRegistry.get(k))
         .whereType<DataSource>()
         .toList();
+    if (visualizer.sourceSelectionMode == SourceSelectionMode.forceAnglePair) {
+      final pair = resolveForceAngleSourcePair(sourceRegistry.all, sourceKeys);
+      sources = pair == null ? [] : [pair.angle, pair.force];
+    }
 
     return switch (visualizer) {
       Visualizer1 v when sources.isNotEmpty => v.bind(

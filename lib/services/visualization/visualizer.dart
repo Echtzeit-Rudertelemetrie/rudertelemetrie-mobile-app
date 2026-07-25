@@ -12,6 +12,8 @@ import 'visualizer_param.dart';
 /// Builds a [PointCollector] from the resolved parameter values of a widget.
 typedef CollectorBuilder = PointCollector Function(Map<String, double> params);
 
+enum SourceSelectionMode { individual, forceAnglePair }
+
 /// The result of binding a [Visualizer] to concrete [DataSource] instances.
 /// Holds the final [units] and a ready-to-subscribe [output] stream.
 class BoundVisualizer {
@@ -32,6 +34,7 @@ class BoundVisualizer {
 sealed class AnyVisualizer {
   String get name;
   int get sourceCount;
+  SourceSelectionMode get sourceSelectionMode;
 
   /// Numeric settings this visualizer exposes for per-widget configuration.
   List<VisualizerParam> get params;
@@ -50,6 +53,9 @@ class Visualizer1 extends AnyVisualizer {
   int get sourceCount => 1;
 
   @override
+  final SourceSelectionMode sourceSelectionMode;
+
+  @override
   final List<VisualizerParam> params;
 
   final Combinator1 combinator;
@@ -64,6 +70,7 @@ class Visualizer1 extends AnyVisualizer {
     this.params = const [],
     required this.buildCollector,
     this.fixedXBounds,
+    this.sourceSelectionMode = SourceSelectionMode.individual,
   });
 
   BoundVisualizer bind(
@@ -95,6 +102,9 @@ class Visualizer2 extends AnyVisualizer {
   int get sourceCount => 2;
 
   @override
+  final SourceSelectionMode sourceSelectionMode;
+
+  @override
   final List<VisualizerParam> params;
 
   final Combinator2 combinator;
@@ -109,6 +119,7 @@ class Visualizer2 extends AnyVisualizer {
     this.params = const [],
     required this.buildCollector,
     this.fixedXBounds,
+    this.sourceSelectionMode = SourceSelectionMode.individual,
   });
 
   BoundVisualizer bind(

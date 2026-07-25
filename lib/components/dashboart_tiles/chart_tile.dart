@@ -131,12 +131,12 @@ class _ChartTileState extends State<ChartTile>
   Widget build(BuildContext context) {
     if (_points.isEmpty) {
       return const Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFFF45866),
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Text(
+            'Waiting for a stroke …',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white38, fontSize: 11),
           ),
         ),
       );

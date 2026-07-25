@@ -50,4 +50,32 @@ void main() {
     await subscription.cancel();
     handler.dispose();
   });
+
+  test(
+    'drops duplicate packets and keeps timestamps monotonic after restart',
+    () async {
+      final registry = DataSourceRegistry();
+      final sequences = <int>[];
+      final handler = BluetoothStreamHandler(
+        dataSourceRegistry: registry,
+        deviceId: 'test-device',
+        onOarlockPacket: sequences.add,
+      );
+
+      List<int> packet(int sequence) {
+        final data = ByteData(BluetoothPacket.packetSize)
+          ..setUint32(0, (1 << 28) | sequence, Endian.little);
+        return data.buffer.asUint8List();
+      }
+
+      handler.onData(packet(1000));
+      handler.onData(packet(1000)); // radio retry
+      handler.onData(packet(1001));
+      handler.onData(packet(999)); // late packet
+      handler.onData(packet(1)); // sender reboot
+
+      expect(sequences, [1000, 1001, 1]);
+      handler.dispose();
+    },
+  );
 }
