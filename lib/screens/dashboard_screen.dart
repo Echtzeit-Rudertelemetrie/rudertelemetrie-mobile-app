@@ -10,8 +10,10 @@ import '../components/recording/session_control.dart';
 import '../dashboard/add_widget_sheet.dart';
 import '../components/dashboart_tiles/angle_gauge_tile.dart';
 import '../components/dashboart_tiles/bar_tile.dart';
+import '../components/dashboart_tiles/boat_schematic_tile.dart';
 import '../components/dashboart_tiles/chart_tile.dart';
 import '../components/dashboart_tiles/level_tile.dart';
+import '../components/dashboart_tiles/map_tile.dart';
 import '../dashboard/dashboard_grid.dart';
 import '../dashboard/dashboard_model.dart';
 import '../dashboard/stream_selector_sheet.dart';
@@ -87,7 +89,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final params = _readParams(config.data['params']);
 
     // Instrument tiles bypass the visualizer pipeline and read sources directly.
-    if (type == 'gauge' || type == 'level') {
+    if (type == 'gauge' ||
+        type == 'level' ||
+        type == 'schematic' ||
+        type == 'track') {
       return _buildInstrument(context, type!, sourceKeys);
     }
 
@@ -120,7 +125,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     List<String> sourceKeys,
   ) {
     final registry = context.read<DataSourceProviderModel>().registry;
-    if (type == 'level') return LevelTile(registry: registry);
+    switch (type) {
+      case 'level':
+        return LevelTile(registry: registry);
+      case 'schematic':
+        return BoatSchematicTile(registry: registry);
+      case 'track':
+        return MapTile(registry: registry);
+    }
     final source = sourceKeys.isEmpty ? null : registry.get(sourceKeys.first);
     return source == null
         ? const _NoStreamPlaceholder()

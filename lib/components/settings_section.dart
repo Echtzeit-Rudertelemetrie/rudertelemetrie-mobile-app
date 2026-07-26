@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:rudertelemetrie_mobile_app/screens/boat_setup_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/connected_devices_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/history_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/rig_setup_screen.dart';
@@ -28,6 +29,15 @@ class SettingsSection extends StatelessWidget {
         onPress: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const RigSetupScreen()),
+        ),
+      ),
+      .tile(
+        prefix: const Icon(FIcons.rows3),
+        title: const Text('Boat Setup'),
+        suffix: const Icon(FIcons.chevronRight),
+        onPress: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const BoatSetupScreen()),
         ),
       ),
       .tile(

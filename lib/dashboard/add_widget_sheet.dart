@@ -192,6 +192,28 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _AddButton(
+                  icon: Icons.rowing,
+                  label: 'Boat',
+                  enabled: true,
+                  onTap: () => _addSimple(context, 'schematic', const [], 2, 3),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AddButton(
+                  icon: Icons.map,
+                  label: 'Map',
+                  enabled: true,
+                  onTap: () => _addSimple(context, 'track', const [], 3, 3),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
       children: [
