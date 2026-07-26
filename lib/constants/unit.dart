@@ -5,4 +5,5 @@ enum Unit {
   deg,
   mps, kmh, mps2,
   spm, count, ratio,
+  W, J, radps, pct,
 }

@@ -55,3 +55,80 @@ List<DataSource> buildForceSources({
     ),
   ];
 }
+
+/// ω floor (rad/s) below which the blade is treated as not moving: power → 0,
+/// efficiency suppressed (force-power §4 edge case).
+const double _omegaFloor = 0.2;
+
+/// Builds the per-sample power sources for one oarlock (force-power-model §2-4)
+/// from its `Force`/`Angle`, the shared ω source [omega], the rig, and — for the
+/// propulsion metrics — the boat [speedKmh] source. Speed-dependent sources are
+/// omitted when [speedKmh] is null (no GPS speed yet).
+List<DataSource> buildPowerSources({
+  required DataSource force,
+  required DataSource angle,
+  required DataSource omega,
+  required DataSource? speedKmh,
+  required RigConfig rig,
+  required String oarlockKey,
+}) {
+  final suffix = force.name.replaceFirst('Force ', '');
+  final group = 'Force & Power ($oarlockKey)';
+  final lIn = rig.innerLever;
+  final l = rig.scullLength;
+  final lOut = rig.outerLever;
+
+  double handleForce(double fD) => fD * lOut / l;
+  double bladeForce(double fD) => fD * lIn / l;
+
+  final sources = <DataSource>[
+    // P_oar = F_G · l_in · |ω|
+    CombineLatestSource(
+      name: 'Power $suffix',
+      unit: Unit.W,
+      group: group,
+      sources: [force, omega],
+      compute: (v) => handleForce(v[0]) * lIn * v[1].abs(),
+    ),
+  ];
+
+  if (speedKmh == null) return sources;
+
+  double bladeSpeed(double omegaValue) => lOut * omegaValue.abs();
+  double alongBoat(double angleDeg, double speedKmhValue) =>
+      (speedKmhValue / 3.6) * math.cos(_radians(angleDeg));
+
+  return sources
+    ..addAll([
+      // P_prop = F_B · cosθ · v_boat
+      CombineLatestSource(
+        name: 'Propulsion Power $suffix',
+        unit: Unit.W,
+        group: group,
+        sources: [force, angle, speedKmh],
+        alignedCount: 2,
+        compute: (v) => bladeForce(v[0]) * math.cos(_radians(v[1])) * (v[2] / 3.6),
+      ),
+      // v_slip = l_out·|ω| − v_boat·cosθ
+      CombineLatestSource(
+        name: 'Blade Slip $suffix',
+        unit: Unit.mps,
+        group: group,
+        sources: [omega, angle, speedKmh],
+        alignedCount: 2,
+        compute: (v) => bladeSpeed(v[0]) - alongBoat(v[1], v[2]),
+      ),
+      // η_blade = v_boat·cosθ / (l_out·|ω|), clamped [0,1]·100
+      CombineLatestSource(
+        name: 'Blade Efficiency $suffix',
+        unit: Unit.pct,
+        group: group,
+        sources: [omega, angle, speedKmh],
+        alignedCount: 2,
+        compute: (v) {
+          if (v[0].abs() < _omegaFloor) return 0;
+          return (alongBoat(v[1], v[2]) / bladeSpeed(v[0])).clamp(0.0, 1.0) * 100;
+        },
+      ),
+    ]);
+}

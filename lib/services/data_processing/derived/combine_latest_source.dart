@@ -5,11 +5,13 @@ import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 
 /// A [DataSource] whose value is a function of one or more input sources
-/// (architecture §2.1). On each input it recomputes from the latest of every
-/// source, emitting once all inputs are present and their timestamps align
-/// within [tolerance]. Emissions are de-duplicated per triggering timestamp, so
-/// a single 100 Hz sample pair (identical force/angle timestamps) yields exactly
-/// one output sample.
+/// (architecture §2.1). The first [alignedCount] sources are the aligned
+/// trigger group: an output is emitted when they are all present and share a
+/// timestamp within [tolerance] (de-duplicated per timestamp, so a 100 Hz
+/// force/angle pair yields exactly one sample). Any remaining sources are
+/// latest-held — they must have a value but their timestamps are not checked,
+/// which lets a lower-rate boat `Speed` feed into oarlock-rate power sources.
+/// [alignedCount] defaults to every source.
 class CombineLatestSource extends DataSource {
   final String _name;
   final Unit _unit;
@@ -17,6 +19,7 @@ class CombineLatestSource extends DataSource {
   final List<DataSource> sources;
   final double Function(List<double> latest) compute;
   final Duration tolerance;
+  final int _alignedCount;
 
   final StreamController<Measurement> _controller = StreamController.broadcast();
   final List<StreamSubscription<Measurement>> _subs = [];
@@ -32,10 +35,12 @@ class CombineLatestSource extends DataSource {
     required this.sources,
     required this.compute,
     String? group,
+    int? alignedCount,
     this.tolerance = const Duration(milliseconds: 5),
   })  : _name = name,
         _unit = unit,
-        _group = group {
+        _group = group,
+        _alignedCount = alignedCount ?? sources.length {
     startTime = DateTime.now();
     _latest = List<Measurement?>.filled(sources.length, null);
     for (var i = 0; i < sources.length; i++) {
@@ -58,16 +63,24 @@ class CombineLatestSource extends DataSource {
 
   void _onInput(int index, Measurement m) {
     _latest[index] = m;
-    final ts = m.timestamp;
     for (final latest in _latest) {
       if (latest == null) return;
-      if (latest.timestamp.difference(ts).abs() > tolerance) return;
     }
-    if (_lastEmitted == ts) return;
-    _lastEmitted = ts;
+
+    var reference = _latest[0]!.timestamp;
+    for (var i = 1; i < _alignedCount; i++) {
+      final ts = _latest[i]!.timestamp;
+      if (ts.isAfter(reference)) reference = ts;
+    }
+    for (var i = 0; i < _alignedCount; i++) {
+      if (_latest[i]!.timestamp.difference(reference).abs() > tolerance) return;
+    }
+
+    if (_lastEmitted == reference) return;
+    _lastEmitted = reference;
     _controller.add(Measurement(
       value: compute([for (final l in _latest) l!.value]),
-      timestamp: ts,
+      timestamp: reference,
     ));
   }
 
