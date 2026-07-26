@@ -62,14 +62,18 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           FHeaderAction(icon: const Icon(FIcons.trash2), onPress: _delete),
         ],
       ),
-      child: ListView(
-        children: [
-          _summary(s),
-          const SizedBox(height: 16),
-          const Text('Replay', style: TextStyle(color: Colors.white54, fontSize: 12)),
-          const SizedBox(height: 6),
-          _replay(),
-        ],
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListView(
+          children: [
+            _summary(s),
+            const SizedBox(height: 16),
+            const Text('Replay',
+                style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 6),
+            _replay(),
+          ],
+        ),
       ),
     );
   }

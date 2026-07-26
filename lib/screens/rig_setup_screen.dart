@@ -28,18 +28,21 @@ class RigSetupScreen extends StatelessWidget {
           ),
         ],
       ),
-      child: keys.isEmpty
-          ? const _EmptyHint()
-          : ListView(
-              children: [
-                for (final key in keys)
-                  _OarlockRig(
-                    key: ValueKey(key),
-                    oarlockKey: key,
-                    rig: config.rigFor(key),
-                  ),
-              ],
-            ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: keys.isEmpty
+            ? const _EmptyHint()
+            : ListView(
+                children: [
+                  for (final key in keys)
+                    _OarlockRig(
+                      key: ValueKey(key),
+                      oarlockKey: key,
+                      rig: config.rigFor(key),
+                    ),
+                ],
+              ),
+      ),
     );
   }
 }

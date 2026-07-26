@@ -23,7 +23,9 @@ class StrokeSettingsScreen extends StatelessWidget {
           ),
         ],
       ),
-      child: ListView(
+      child: Material(
+        type: MaterialType.transparency,
+        child: ListView(
         children: [
           const _Label('Threshold mode'),
           _Segmented<ThresholdMode>(
@@ -76,6 +78,7 @@ class StrokeSettingsScreen extends StatelessWidget {
             onChanged: settings.setCrewAggregation,
           ),
         ],
+        ),
       ),
     );
   }

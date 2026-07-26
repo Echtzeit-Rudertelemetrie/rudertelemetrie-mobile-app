@@ -16,6 +16,7 @@ import '../components/dashboart_tiles/level_tile.dart';
 import '../components/dashboart_tiles/map_tile.dart';
 import '../dashboard/dashboard_grid.dart';
 import '../dashboard/dashboard_model.dart';
+import '../dashboard/preset_sheet.dart';
 import '../dashboard/stream_selector_sheet.dart';
 import '../components/dashboart_tiles/value_tile.dart';
 import '../dashboard/widget_config.dart';
@@ -49,7 +50,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return FScaffold(
       header: FHeader(
-        title: const Text('Dashboard'),
+        title: _PresetTitle(
+          name: model.activePreset?.name ?? 'Dashboard',
+          onTap: () => _showPresetSheet(context, model),
+        ),
         suffixes: [
           const SessionControl(),
           FHeaderAction(
@@ -192,6 +196,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _showPresetSheet(BuildContext context, DashboardModel model) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ChangeNotifierProvider.value(
+        value: model,
+        child: const PresetSheet(),
+      ),
+    );
+  }
+
   void _showAddSheet(BuildContext context, DashboardModel model) {
     showModalBottomSheet(
       context: context,
@@ -203,6 +219,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+}
+
+/// Dashboard title doubling as the preset switcher.
+class _PresetTitle extends StatelessWidget {
+  final String name;
+  final VoidCallback onTap;
+
+  const _PresetTitle({required this.name, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    behavior: HitTestBehavior.opaque,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(child: Text(name, overflow: TextOverflow.ellipsis)),
+        const SizedBox(width: 4),
+        const Icon(FIcons.chevronDown, size: 16),
+      ],
+    ),
+  );
 }
 
 class _NoStreamPlaceholder extends StatelessWidget {
