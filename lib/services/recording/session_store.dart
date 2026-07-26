@@ -17,11 +17,65 @@ abstract class SessionStore {
   Future<void> finishSession(SessionSummary summary);
   Future<void> abortSession();
   Future<List<SessionSummary>> listSessions();
+  Future<void> deleteSession(String id);
+
+  /// File paths (csv + json) for the share sheet, existing ones only.
+  Future<List<String>> exportPaths(String id);
+
+  /// Raw `session.csv` contents, or null if absent.
+  Future<String?> readCsv(String id);
+}
+
+/// One decoded time-series sample from `session.csv`.
+class SessionSample {
+  final int elapsedMs;
+  final double value;
+  const SessionSample(this.elapsedMs, this.value);
 }
 
 /// Formats one long-format CSV row for a sample. Exposed for tests.
 String sessionCsvRow(int elapsedMs, String source, double value) =>
     '$elapsedMs,${_escape(source)},$value';
+
+/// Parses a long-format `session.csv` into per-source sample series. Tolerant of
+/// the header row and quoted source names. Exposed for tests and replay.
+Map<String, List<SessionSample>> parseSessionCsv(String csv) {
+  final series = <String, List<SessionSample>>{};
+  for (final line in const LineSplitter().convert(csv)) {
+    if (line.isEmpty || line.startsWith('elapsed_ms')) continue;
+    final fields = _splitCsvRow(line);
+    if (fields.length != 3) continue;
+    final elapsed = int.tryParse(fields[0]);
+    final value = double.tryParse(fields[2]);
+    if (elapsed == null || value == null) continue;
+    (series[fields[1]] ??= []).add(SessionSample(elapsed, value));
+  }
+  return series;
+}
+
+List<String> _splitCsvRow(String line) {
+  final fields = <String>[];
+  final buffer = StringBuffer();
+  var inQuotes = false;
+  for (var i = 0; i < line.length; i++) {
+    final ch = line[i];
+    if (ch == '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
+        buffer.write('"');
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch == ',' && !inQuotes) {
+      fields.add(buffer.toString());
+      buffer.clear();
+    } else {
+      buffer.write(ch);
+    }
+  }
+  fields.add(buffer.toString());
+  return fields;
+}
 
 String _escape(String field) =>
     field.contains(',') || field.contains('"')
@@ -138,5 +192,30 @@ class FileSessionStore implements SessionStore {
         .whereType<Map<String, dynamic>>()
         .map(SessionSummary.fromJson)
         .toList();
+  }
+
+  @override
+  Future<void> deleteSession(String id) async {
+    final dir = Directory('${(await _sessionsRoot()).path}/$id');
+    if (await dir.exists()) await dir.delete(recursive: true);
+    final remaining =
+        (await listSessions()).where((s) => s.info.id != id).toList();
+    final json = jsonEncode(remaining.map((s) => s.toJson()).toList());
+    await (await _indexFile()).writeAsString(json);
+  }
+
+  @override
+  Future<List<String>> exportPaths(String id) async {
+    final dir = await _sessionDir(id);
+    return [
+      for (final name in ['session.csv', 'session.json'])
+        if (await File('${dir.path}/$name').exists()) '${dir.path}/$name',
+    ];
+  }
+
+  @override
+  Future<String?> readCsv(String id) async {
+    final file = File('${(await _sessionDir(id)).path}/session.csv');
+    return await file.exists() ? file.readAsString() : null;
   }
 }

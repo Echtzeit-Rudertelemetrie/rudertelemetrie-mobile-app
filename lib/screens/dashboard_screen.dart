@@ -8,8 +8,10 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dar
 
 import '../components/recording/session_control.dart';
 import '../dashboard/add_widget_sheet.dart';
+import '../components/dashboart_tiles/angle_gauge_tile.dart';
 import '../components/dashboart_tiles/bar_tile.dart';
 import '../components/dashboart_tiles/chart_tile.dart';
+import '../components/dashboart_tiles/level_tile.dart';
 import '../dashboard/dashboard_grid.dart';
 import '../dashboard/dashboard_model.dart';
 import '../dashboard/stream_selector_sheet.dart';
@@ -84,6 +86,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final type = config.data['type'] as String?;
     final params = _readParams(config.data['params']);
 
+    // Instrument tiles bypass the visualizer pipeline and read sources directly.
+    if (type == 'gauge' || type == 'level') {
+      return _buildInstrument(context, type!, sourceKeys);
+    }
+
     final cacheKey =
         '${config.id}_${visualizerKey}_${sourceKeys.join(',')}_${_paramsSignature(params)}';
     final bound = _boundCache[cacheKey] ??
@@ -105,6 +112,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: () => _showStreamSelector(context, config),
       child: content,
     );
+  }
+
+  Widget _buildInstrument(
+    BuildContext context,
+    String type,
+    List<String> sourceKeys,
+  ) {
+    final registry = context.read<DataSourceProviderModel>().registry;
+    if (type == 'level') return LevelTile(registry: registry);
+    final source = sourceKeys.isEmpty ? null : registry.get(sourceKeys.first);
+    return source == null
+        ? const _NoStreamPlaceholder()
+        : AngleGaugeTile(source: source);
   }
 
   BoundVisualizer? _bind(

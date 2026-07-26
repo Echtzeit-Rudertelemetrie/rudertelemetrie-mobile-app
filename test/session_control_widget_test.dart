@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/components/recording/session_control.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/recording_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/session_store_provider.dart';
 
 void main() {
   // Regression: the recording session registers derived sources in its
@@ -15,7 +16,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
       MultiProvider(
-        providers: [dataSourceProvider, recordingProvider],
+        providers: [dataSourceProvider, sessionStoreProvider, recordingProvider],
         child: MaterialApp(
           home: Builder(
             builder: (context) {

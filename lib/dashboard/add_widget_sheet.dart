@@ -84,6 +84,28 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     Navigator.pop(context);
   }
 
+  /// Instrument tiles (gauge/level) bypass the visualizer pipeline and just
+  /// carry their source keys.
+  void _addSimple(BuildContext context, String type, List<String> keys, int w, int h) {
+    context.read<DashboardModel>().addWidget(
+      WidgetConfig(
+        id: 'w_${DateTime.now().millisecondsSinceEpoch}',
+        x: 0,
+        y: 0,
+        w: w,
+        h: h,
+        data: {'type': type, 'sourceKeys': keys},
+      ),
+    );
+    Navigator.pop(context);
+  }
+
+  void _addGauge(BuildContext context) {
+    final keys = _sourceKeys.whereType<String>().toList();
+    if (keys.isEmpty) return;
+    _addSimple(context, 'gauge', [keys.first], 2, 2);
+  }
+
   /// Resolves the selected source keys, wrapping a single source in a registered
   /// reducer when the user picked an average/peak reduction.
   List<String> _effectiveSourceKeys(BuildContext context) {
@@ -111,35 +133,64 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     final dataSources = context.watch<DataSourceProviderModel>().registry.all;
     final sourceCount = _selectedVisualizer?.sourceCount ?? 0;
 
+    final hasSource = _sourceKeys.any((k) => k != null);
+
     return SheetScaffold(
       title: 'Add Widget',
-      footer: Row(
+      footer: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: _AddButton(
-              icon: Icons.show_chart,
-              label: 'Chart',
-              enabled: _canAdd,
-              onTap: _canAdd ? () => _add(context, 'chart', 2, 3) : null,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _AddButton(
+                  icon: Icons.show_chart,
+                  label: 'Chart',
+                  enabled: _canAdd,
+                  onTap: _canAdd ? () => _add(context, 'chart', 2, 3) : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AddButton(
+                  icon: Icons.pin,
+                  label: 'Value',
+                  enabled: _canAdd,
+                  onTap: _canAdd ? () => _add(context, 'value', 2, 2) : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AddButton(
+                  icon: Icons.bar_chart,
+                  label: 'Bar',
+                  enabled: _canAdd,
+                  onTap: _canAdd ? () => _add(context, 'bar', 2, 3) : null,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _AddButton(
-              icon: Icons.pin,
-              label: 'Value',
-              enabled: _canAdd,
-              onTap: _canAdd ? () => _add(context, 'value', 2, 2) : null,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _AddButton(
-              icon: Icons.bar_chart,
-              label: 'Bar',
-              enabled: _canAdd,
-              onTap: _canAdd ? () => _add(context, 'bar', 2, 3) : null,
-            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _AddButton(
+                  icon: Icons.speed,
+                  label: 'Gauge',
+                  enabled: hasSource,
+                  onTap: hasSource ? () => _addGauge(context) : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _AddButton(
+                  icon: Icons.explore,
+                  label: 'Level',
+                  enabled: true,
+                  onTap: () => _addSimple(context, 'level', const [], 2, 2),
+                ),
+              ),
+            ],
           ),
         ],
       ),

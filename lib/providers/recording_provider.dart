@@ -9,11 +9,8 @@ final recordingProvider = ChangeNotifierProvider<RecordingSession>(
   // registration notifies via a deferred microtask (registerDeferred), so it is
   // safe even though provider `create` runs during the build phase.
   lazy: false,
-  create: (context) {
-    final registry = context.read<DataSourceProviderModel>().registry;
-    return RecordingSession(
-      registry: registry,
-      store: FileSessionStore(registry),
-    );
-  },
+  create: (context) => RecordingSession(
+    registry: context.read<DataSourceProviderModel>().registry,
+    store: context.read<SessionStore>(),
+  ),
 );
