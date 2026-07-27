@@ -97,8 +97,8 @@ class BoatPacket extends BluetoothPacket {
 class GpsSample {
   final double latitude;
   final double longitude;
-  final int speedMps;
-  final int courseDeg;
+  final double speedMps;
+  final double courseDeg;
   final int satellites;
   final bool valid;
 
@@ -115,8 +115,8 @@ class GpsSample {
     return GpsSample._(
       latitude: data.getInt32(offset, Endian.little) / 1e6,
       longitude: data.getInt32(offset + 4, Endian.little) / 1e6,
-      speedMps: data.getInt16(offset + 8, Endian.little),
-      courseDeg: data.getInt16(offset + 10, Endian.little),
+      speedMps: data.getUint16(offset + 8, Endian.little) / 100.0,
+      courseDeg: data.getUint16(offset + 10, Endian.little) / 100.0,
       satellites: data.getUint8(offset + 12),
       valid: data.getUint8(offset + 13) != 0,
     );

@@ -4,6 +4,7 @@ import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/models/speed_settings_model.dart';
 import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_store.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
@@ -55,6 +56,7 @@ void initializeBluetooth(BuildContext context) {
   final dataSourceRegistry = context.read<DataSourceProviderModel>().registry;
   final bluetoothManager = context.read<BluetoothProviderModel>().manager;
   final notifications = context.read<AppNotifications>();
+  final speedSettings = context.read<SpeedSettingsModel>();
 
   bluetoothManager.onDeviceConnected.listen(
     (device) => notifications.info('${device.name} connected'),
@@ -64,7 +66,7 @@ void initializeBluetooth(BuildContext context) {
   );
   bluetoothManager.onError.listen(notifications.alert);
 
-  bluetoothManager.initialize(dataSourceRegistry);
+  bluetoothManager.initialize(dataSourceRegistry, speedSettings);
 }
 
 /// Sweeps directories left behind by a recording the app never got to finish,

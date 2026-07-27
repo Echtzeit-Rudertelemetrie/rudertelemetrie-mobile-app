@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
+import 'package:rudertelemetrie_mobile_app/models/speed_settings_model.dart';
 import 'package:rudertelemetrie_mobile_app/services/bluetooth/bluetooth_stream_handler.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
@@ -41,6 +42,7 @@ void main() {
     handler = BluetoothStreamHandler(
       dataSourceRegistry: registry,
       deviceId: 'AA:BB:CC:DD:EE:01',
+      speedSettings: SpeedSettingsModel(),
       onOarlockPacket: accepted.add,
     );
   });
@@ -164,6 +166,7 @@ void main() {
     final strict = BluetoothStreamHandler(
       dataSourceRegistry: registry,
       deviceId: 'device',
+      speedSettings: SpeedSettingsModel(),
       onInvalidPacket: () => invalid++,
     );
     addTearDown(strict.dispose);

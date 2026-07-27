@@ -88,8 +88,8 @@ void main() {
         // GpsData in the force region (offset 4)
         .i32(4, 47123456) // lat * 1e6
         .i32(8, 9345678) // lon * 1e6
-        .i16(12, 5) // speed_mps
-        .i16(14, 270) // course_deg
+        .u16(12, 523) // speed_cms = 5.23 m/s
+        .u16(14, 27025) // course_cdeg = 270.25°
         .u8(16, 8) // satellites
         .u8(17, 1) // valid
         // ImuData in the angle region (offset 20)
@@ -107,8 +107,8 @@ void main() {
     expect(boat.sequenceNumber, 42);
     expect(boat.gps.latitude, closeTo(47.123456, 1e-9));
     expect(boat.gps.longitude, closeTo(9.345678, 1e-9));
-    expect(boat.gps.speedMps, 5);
-    expect(boat.gps.courseDeg, 270);
+    expect(boat.gps.speedMps, 5.23);
+    expect(boat.gps.courseDeg, 270.25);
     expect(boat.gps.satellites, 8);
     expect(boat.gps.valid, isTrue);
     expect(boat.imu.accX, closeTo(0.5, 1e-6));

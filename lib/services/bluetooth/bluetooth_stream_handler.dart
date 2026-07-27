@@ -3,8 +3,11 @@ import 'dart:collection';
 
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
+import 'package:rudertelemetrie_mobile_app/models/speed_settings_model.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/speed_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/packet_reassembler.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/angle_conversion_util.dart';
@@ -13,10 +16,11 @@ import 'package:rudertelemetrie_mobile_app/utils/sensor_data/force_conversion_ut
 class BluetoothStreamHandler {
   final DataSourceRegistry dataSourceRegistry;
   final String deviceId;
+  final SpeedSettingsModel speedSettings;
   final void Function(int sequenceNumber)? onOarlockPacket;
   final void Function()? onInvalidPacket;
 
-  final Map<String, PushDataSource> _dataSources = {};
+  final Map<String, DataSource> _dataSources = {};
   final Map<int, _OarlockStream> _oarlocks = {};
 
   int? _boatDeviceClockOrigin;
@@ -26,6 +30,7 @@ class BluetoothStreamHandler {
   BluetoothStreamHandler({
     required this.dataSourceRegistry,
     required this.deviceId,
+    required this.speedSettings,
     this.onOarlockPacket,
     this.onInvalidPacket,
   });
@@ -72,13 +77,13 @@ class BluetoothStreamHandler {
 
   void _handleBoat(BoatPacket packet) {
     final group = 'Boat ($_deviceTag)';
-    final speed = _source('Speed', Unit.mps, group: group);
+    final speed = _speedSource(group);
     final timestamp = _boatTimestamp(speed, packet.imu.timestampMs);
 
-    speed.add(
-      Measurement(value: packet.gps.speedMps.toDouble(), timestamp: timestamp),
-    );
     if (packet.gps.valid) {
+      speed.addMps(
+        Measurement(value: packet.gps.speedMps, timestamp: timestamp),
+      );
       _source(
         'Latitude',
         Unit.deg,
@@ -107,21 +112,35 @@ class BluetoothStreamHandler {
     ).add(Measurement(value: packet.imu.accZ, timestamp: timestamp));
   }
 
-  DateTime _boatTimestamp(PushDataSource source, int deviceMs) {
+  DateTime _boatTimestamp(DataSource source, int deviceMs) {
     final origin = _boatDeviceClockOrigin ??= deviceMs;
     return source.startTime.add(Duration(milliseconds: deviceMs - origin));
   }
 
   PushDataSource _source(String name, Unit unit, {String? group}) {
     return _dataSources.putIfAbsent(name, () {
-      final source = PushDataSource(
-        name: _qualify(name),
-        unit: unit,
-        group: group,
-      );
-      dataSourceRegistry.register(source);
-      return source;
-    });
+          final source = PushDataSource(
+            name: _qualify(name),
+            unit: unit,
+            group: group,
+          );
+          dataSourceRegistry.register(source);
+          return source;
+        })
+        as PushDataSource;
+  }
+
+  SpeedDataSource _speedSource(String group) {
+    return _dataSources.putIfAbsent('Speed', () {
+          final source = SpeedDataSource(
+            name: _qualify('Speed'),
+            settings: speedSettings,
+            group: group,
+          );
+          dataSourceRegistry.register(source);
+          return source;
+        })
+        as SpeedDataSource;
   }
 
   String _qualify(String name) => '$name ($_deviceTag)';
