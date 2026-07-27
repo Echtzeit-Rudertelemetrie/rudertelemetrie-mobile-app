@@ -13,7 +13,11 @@ const _sampleMs = BluetoothPacket.sampleIntervalMs;
 const _packetMs = _samples * _sampleMs;
 
 /// One oarlock `MeasurementPack` with constant force/angle samples.
-List<int> _oarlockFrame(int sensorId, int sequence) {
+List<int> _oarlockFrame(
+  int sensorId,
+  int sequence, {
+  double angleDeg = -169.013,
+}) {
   final data = ByteData(BluetoothPacket.packetSize);
   data.setUint32(
     0,
@@ -22,8 +26,19 @@ List<int> _oarlockFrame(int sensorId, int sequence) {
   );
   for (var i = 0; i < _samples; i++) {
     data.setUint16(4 + i * 2, 1000, Endian.little);
-    data.setUint16(4 + (_samples + i) * 2, 2000, Endian.little);
+    final encodedAngle = ((angleDeg + 180) / 360 * 65535).round().clamp(
+      0,
+      65535,
+    );
+    data.setUint16(4 + (_samples + i) * 2, encodedAngle, Endian.little);
   }
+  return data.buffer.asUint8List();
+}
+
+List<int> _boatFrame(double pitchDeg, {int timestampMs = 1000}) {
+  final data = ByteData(BluetoothPacket.packetSize);
+  data.setInt16(28, (pitchDeg * 100).round(), Endian.little);
+  data.setUint32(32, timestampMs, Endian.little);
   return data.buffer.asUint8List();
 }
 
@@ -72,8 +87,10 @@ void main() {
       unorderedEquals([
         'Force 1 (EE01)',
         'Angle 1 (EE01)',
+        'Raw Angle 1 (EE01)',
         'Force 2 (EE01)',
         'Angle 2 (EE01)',
+        'Raw Angle 2 (EE01)',
       ]),
     );
   });
@@ -159,6 +176,29 @@ void main() {
     handler.onData(_oarlockFrame(1, 1)); // sender reboot
 
     expect(accepted, [1000, 1001, 1]);
+  });
+
+  test('adds opposite-signed boat pitch to every oarlock angle', () async {
+    handler.onData(_boatFrame(-30));
+    handler.onData(_oarlockFrame(1, 0, angleDeg: 50));
+    final received = listen(sourceStartingWith('Angle 1'));
+
+    await _drainPlayback(1);
+
+    expect(received, hasLength(_samples));
+    for (final sample in received) {
+      expect(sample.value, closeTo(20, 0.01));
+    }
+  });
+
+  test('wraps corrected angles into the -180 to 180 degree range', () async {
+    handler.onData(_boatFrame(30));
+    handler.onData(_oarlockFrame(1, 0, angleDeg: 170));
+    final received = listen(sourceStartingWith('Angle 1'));
+
+    await _drainPlayback(1);
+
+    expect(received.last.value, closeTo(-160, 0.01));
   });
 
   test('reports a notification that is not a whole packet', () {

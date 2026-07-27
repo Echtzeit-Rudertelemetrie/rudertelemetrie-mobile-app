@@ -24,6 +24,7 @@ class BluetoothStreamHandler {
   final Map<int, _OarlockStream> _oarlocks = {};
 
   int? _boatDeviceClockOrigin;
+  double? _boatRotationDeg;
 
   late final PacketReassembler _reassembler = PacketReassembler(_decodeFrame);
 
@@ -71,6 +72,8 @@ class BluetoothStreamHandler {
       return _OarlockStream(
         force: _source('Force $sensorId', Unit.N, group: group),
         angle: _source('Angle $sensorId', Unit.deg, group: group),
+        rawAngle: _source('Raw Angle $sensorId', Unit.deg, group: group),
+        boatRotationDeg: () => _boatRotationDeg,
       );
     });
   }
@@ -79,6 +82,9 @@ class BluetoothStreamHandler {
     final group = 'Boat ($_deviceTag)';
     final speed = _speedSource(group);
     final timestamp = _boatTimestamp(speed, packet.imu.timestampMs);
+    // The installed boat IMU was physically verified on 2026-07-27: a flat
+    // 42-degree turn changed pitch by 42 degrees while yaw/roll stayed near 0.
+    _boatRotationDeg = packet.imu.pitchDeg;
 
     if (packet.gps.valid) {
       speed.addMps(
@@ -110,6 +116,21 @@ class BluetoothStreamHandler {
       Unit.mps2,
       group: group,
     ).add(Measurement(value: packet.imu.accZ, timestamp: timestamp));
+    _source(
+      'Boat Roll',
+      Unit.deg,
+      group: group,
+    ).add(Measurement(value: packet.imu.rollDeg, timestamp: timestamp));
+    _source(
+      'Boat Pitch',
+      Unit.deg,
+      group: group,
+    ).add(Measurement(value: packet.imu.pitchDeg, timestamp: timestamp));
+    _source(
+      'Boat Yaw',
+      Unit.deg,
+      group: group,
+    ).add(Measurement(value: packet.imu.yawDeg, timestamp: timestamp));
   }
 
   DateTime _boatTimestamp(DataSource source, int deviceMs) {
@@ -185,6 +206,8 @@ class _OarlockStream {
 
   final PushDataSource force;
   final PushDataSource angle;
+  final PushDataSource rawAngle;
+  final double? Function() boatRotationDeg;
 
   final Queue<_OarlockSample> _pending = Queue();
   final Stopwatch _clock = Stopwatch();
@@ -194,7 +217,12 @@ class _OarlockStream {
   int _emitted = 0;
   Timer? _timer;
 
-  _OarlockStream({required this.force, required this.angle});
+  _OarlockStream({
+    required this.force,
+    required this.angle,
+    required this.rawAngle,
+    required this.boatRotationDeg,
+  });
 
   /// Returns the forward sequence advance, 1 after a sender restart, or null
   /// for a duplicate / slightly late retry. This keeps timestamps monotonic
@@ -281,7 +309,18 @@ class _OarlockStream {
     for (var i = 0; i < due && _pending.isNotEmpty; i++) {
       final sample = _pending.removeFirst();
       force.add(sample.force);
-      angle.add(sample.angle);
+      rawAngle.add(sample.angle);
+      final boatRotation = boatRotationDeg();
+      angle.add(
+        Measurement(
+          value: boatRotation == null
+              ? sample.angle.value
+              // The two installed IMUs use opposite signs for the same
+              // physical boat turn, so adding pitch cancels common rotation.
+              : _wrapDegrees(sample.angle.value + boatRotation),
+          timestamp: sample.angle.timestamp,
+        ),
+      );
     }
   }
 
@@ -295,6 +334,16 @@ class _OarlockStream {
     _stop();
     _pending.clear();
   }
+}
+
+double _wrapDegrees(double angle) {
+  while (angle > 180) {
+    angle -= 360;
+  }
+  while (angle <= -180) {
+    angle += 360;
+  }
+  return angle;
 }
 
 class _OarlockSample {

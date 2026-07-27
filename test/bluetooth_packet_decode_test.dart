@@ -36,11 +36,6 @@ class _PackBuilder {
     return this;
   }
 
-  _PackBuilder f32(int offset, double value) {
-    _data.setFloat32(offset, value, Endian.little);
-    return this;
-  }
-
   List<int> build() => _data.buffer.asUint8List();
 }
 
@@ -93,9 +88,12 @@ void main() {
         .u8(16, 8) // satellites
         .u8(17, 1) // valid
         // ImuData in the angle region (offset 20)
-        .f32(20, 0.5) // acc_x
-        .f32(24, -1.25) // acc_y
-        .f32(28, 9.81) // acc_z
+        .i16(20, 51) // acc_x = 51 mg
+        .i16(22, -127) // acc_y = -127 mg
+        .i16(24, 1000) // acc_z = 1 g
+        .i16(26, 1250) // roll = 12.50°
+        .i16(28, -325) // pitch = -3.25°
+        .i16(30, 9075) // yaw = 90.75°
         .build();
     // timestamp_ms at offset 32 left as 0.
 
@@ -111,9 +109,12 @@ void main() {
     expect(boat.gps.courseDeg, 270.25);
     expect(boat.gps.satellites, 8);
     expect(boat.gps.valid, isTrue);
-    expect(boat.imu.accX, closeTo(0.5, 1e-6));
-    expect(boat.imu.accY, closeTo(-1.25, 1e-6));
-    expect(boat.imu.accZ, closeTo(9.81, 1e-6));
+    expect(boat.imu.accX, closeTo(0.500139, 1e-6));
+    expect(boat.imu.accY, closeTo(-1.245445, 1e-6));
+    expect(boat.imu.accZ, closeTo(9.80665, 1e-6));
+    expect(boat.imu.rollDeg, 12.5);
+    expect(boat.imu.pitchDeg, -3.25);
+    expect(boat.imu.yawDeg, 90.75);
     expect(boat.imu.timestampMs, 0);
   });
 }
