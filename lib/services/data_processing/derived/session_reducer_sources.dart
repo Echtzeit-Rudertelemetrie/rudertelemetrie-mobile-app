@@ -8,6 +8,24 @@ import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.
 /// The reductions a value tile can apply to a base source.
 enum Reduction { raw, average, peak }
 
+const Map<Reduction, String> _reductionPrefixes = {
+  Reduction.average: 'Avg',
+  Reduction.peak: 'Peak',
+};
+
+/// Reads a reducer source's name back into the reduction and the base it wraps.
+/// A configuration sheet needs this to show what the user picked: the stored
+/// key names the derived source, which itself is gone after a restart.
+({Reduction reduction, String baseName})? splitReducedName(String name) {
+  for (final entry in _reductionPrefixes.entries) {
+    final prefix = '${entry.value} ';
+    if (name.startsWith(prefix)) {
+      return (reduction: entry.key, baseName: name.substring(prefix.length));
+    }
+  }
+  return null;
+}
+
 /// Base for a [DataSource] that reduces another source over the current
 /// recording session. Accumulation is re-based whenever the session (re)starts
 /// and frozen once it stops (recording-session spec).
@@ -26,10 +44,10 @@ abstract class SessionReducerSource extends DataSource {
     _sub = base.data.listen(_onSample);
   }
 
-  String get namePrefix;
+  Reduction get reduction;
 
   @override
-  String get name => '$namePrefix ${base.name}';
+  String get name => '${_reductionPrefixes[reduction]} ${base.name}';
 
   @override
   Unit get unit => base.unit;
@@ -85,7 +103,7 @@ class RunningAverageSource extends SessionReducerSource {
   double? _lastValue;
 
   @override
-  String get namePrefix => 'Avg';
+  Reduction get reduction => Reduction.average;
 
   @override
   double? reduce(Measurement m) {
@@ -118,7 +136,7 @@ class SessionPeakSource extends SessionReducerSource {
   double? _peak;
 
   @override
-  String get namePrefix => 'Peak';
+  Reduction get reduction => Reduction.peak;
 
   @override
   double? reduce(Measurement m) {

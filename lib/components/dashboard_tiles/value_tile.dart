@@ -83,6 +83,7 @@ class _ValueTileState extends State<ValueTile> {
       return TileIdleState(
         label: widget.visualizer.name,
         hint: widget.visualizer.idleHint,
+        source: widget.visualizer.sourceLabel,
       );
     }
 

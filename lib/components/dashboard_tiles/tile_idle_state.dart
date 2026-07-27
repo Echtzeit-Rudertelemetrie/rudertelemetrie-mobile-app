@@ -6,17 +6,27 @@ import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 /// A gated pipeline (per-stroke source, drive-gated curve, session reducer) can
 /// stay legitimately empty for minutes while everything upstream is healthy. A
 /// blank tile or a spinner that never resolves reads as a broken binding, so
-/// the tile keeps naming itself through [label] and, when the binding knows
-/// what it is waiting for, says so through [hint].
+/// the tile keeps naming itself through [label] and [source] and, when the
+/// binding knows what it is waiting for, says so through [hint].
 class TileIdleState extends StatelessWidget {
   final String label;
   final String? hint;
 
-  const TileIdleState({super.key, required this.label, required this.hint});
+  /// The data source(s) the tile reads. Null for a tile bound to fixed
+  /// hardware rather than a source the user picked.
+  final String? source;
+
+  const TileIdleState({
+    super.key,
+    required this.label,
+    required this.hint,
+    this.source,
+  });
 
   @override
   Widget build(BuildContext context) {
     final hint = this.hint;
+    final source = this.source;
 
     return Center(
       child: Padding(
@@ -34,6 +44,17 @@ class TileIdleState extends StatelessWidget {
                   fontSize: AppTypeScale.caption,
                 ),
               ),
+              if (source != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  source,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: AppTypeScale.caption,
+                  ),
+                ),
+              ],
               const SizedBox(height: 6),
               _indicator(),
               if (hint != null) ...[

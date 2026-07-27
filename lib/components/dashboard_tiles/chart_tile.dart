@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_idle_state.dart';
+import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_title.dart';
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
@@ -136,6 +137,7 @@ class _ChartTileState extends State<ChartTile>
       return TileIdleState(
         label: widget.visualizer.name,
         hint: widget.visualizer.idleHint,
+        source: widget.visualizer.sourceLabel,
       );
     }
 
@@ -148,27 +150,11 @@ class _ChartTileState extends State<ChartTile>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 2),
-            child: Row(
-              children: [
-                Text(
-                  widget.visualizer.name,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: AppTypeScale.caption,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${widget.visualizer.units.y.label} / ${widget.visualizer.units.x.label}',
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: AppTypeScale.caption,
-                  ),
-                ),
-              ],
-            ),
+          TileTitle(
+            label: widget.visualizer.name,
+            source: widget.visualizer.sourceLabel,
+            units:
+                '${widget.visualizer.units.y.label} / ${widget.visualizer.units.x.label}',
           ),
           Expanded(
             child: LineChart(

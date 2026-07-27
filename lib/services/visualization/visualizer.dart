@@ -35,6 +35,11 @@ class BoundVisualizer {
   /// a drive, a recording. Null when points should simply arrive.
   final String? idleHint;
 
+  /// The data source(s) feeding this binding, named as the user picked them.
+  /// A tile that has nothing to draw yet shows this, so an empty tile still
+  /// says which stream it is bound to.
+  final String? sourceLabel;
+
   final Stream<List<XYPoint>> _pipeline;
   final StreamController<List<XYPoint>> _fanout =
       StreamController<List<XYPoint>>.broadcast();
@@ -48,6 +53,7 @@ class BoundVisualizer {
     required Stream<List<XYPoint>> output,
     this.fixedXBounds,
     this.idleHint,
+    this.sourceLabel,
   }) : _pipeline = output;
 
   /// A fresh subscription per listener. Emits the most recent points first when
@@ -91,6 +97,10 @@ class BoundVisualizer {
 /// wins — it is the narrower gate, and the last one the points pass through.
 String? resolveIdleHint(PointCollector collector, List<DataSource> sources) =>
     collector.idleHint ?? sources.map((s) => s.idleHint).nonNulls.firstOrNull;
+
+/// Names the sources a binding reads, as one line for a tile to show.
+String sourceLabelOf(List<DataSource> sources) =>
+    sources.map((s) => s.name).join(' · ');
 
 /// Base class for all visualizers. Use [Visualizer1] or [Visualizer2] directly.
 sealed class AnyVisualizer {
@@ -152,6 +162,7 @@ class Visualizer1 extends AnyVisualizer {
       output: stream.transform(collector.collector),
       fixedXBounds: fixedXBounds,
       idleHint: resolveIdleHint(collector, [source]),
+      sourceLabel: sourceLabelOf([source]),
     );
   }
 }
@@ -203,6 +214,7 @@ class Visualizer2 extends AnyVisualizer {
       output: stream.transform(collector.collector),
       fixedXBounds: fixedXBounds,
       idleHint: resolveIdleHint(collector, [s1, s2]),
+      sourceLabel: sourceLabelOf([s1, s2]),
     );
   }
 }

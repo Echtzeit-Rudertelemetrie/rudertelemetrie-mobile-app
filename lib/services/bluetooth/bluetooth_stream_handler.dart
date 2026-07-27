@@ -8,6 +8,7 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/speed_data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/bluetooth/gps_packet_log.dart';
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibration.dart';
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
@@ -32,6 +33,7 @@ class BluetoothStreamHandler {
   double? _boatRotationDeg;
 
   late final PacketReassembler _reassembler = PacketReassembler(_decodeFrame);
+  late final GpsPacketLog _gpsLog = GpsPacketLog(deviceId: _deviceTag);
 
   BluetoothStreamHandler({
     required this.dataSourceRegistry,
@@ -59,7 +61,7 @@ class BluetoothStreamHandler {
       case OarlockPacket():
         _handleOarlock(packet);
       case BoatPacket():
-        _handleBoat(packet);
+        _handleBoat(packet, frame);
     }
   }
 
@@ -86,7 +88,8 @@ class BluetoothStreamHandler {
     });
   }
 
-  void _handleBoat(BoatPacket packet) {
+  void _handleBoat(BoatPacket packet, List<int> frame) {
+    _gpsLog.record(packet, DateTime.now(), rawFrame: frame);
     final group = 'Boat ($_deviceTag)';
     final speed = _speedSource(group);
     final timestamp = _boatTimestamp(speed, packet.imu.timestampMs);

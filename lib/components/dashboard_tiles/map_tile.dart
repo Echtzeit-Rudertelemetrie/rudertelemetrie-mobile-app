@@ -178,19 +178,30 @@ class _MapTileState extends State<MapTile> {
                 ],
               ),
               if (_hasFix) _boatMarker(_lastPoint!),
-              const RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution('© OpenStreetMap contributors'),
-                ],
-              ),
             ],
           ),
+          _attribution(),
           if (!_hasFix) _idleOverlay(),
           if (!_follow) _recentreButton(),
         ],
       ),
     );
   }
+
+  /// OSM's licence still requires visible credit, so the expandable info button
+  /// is replaced by a static label rather than dropped.
+  Widget _attribution() => const Positioned(
+    left: 4,
+    bottom: 2,
+    child: Text(
+      '© OpenStreetMap',
+      style: TextStyle(
+        color: Colors.white70,
+        fontSize: AppTypeScale.caption,
+        shadows: [Shadow(color: Colors.black87, blurRadius: 2)],
+      ),
+    ),
+  );
 
   /// Sits on top of the map tiles, so it carries its own backdrop instead of
   /// relying on the tile colours for contrast.
