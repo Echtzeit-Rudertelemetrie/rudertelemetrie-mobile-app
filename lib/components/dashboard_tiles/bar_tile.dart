@@ -79,6 +79,7 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     if (_points.isEmpty) {
       return TileIdleState(
+        label: widget.visualizer.name,
         hint: widget.visualizer.idleHint ?? 'No strokes detected yet.',
       );
     }

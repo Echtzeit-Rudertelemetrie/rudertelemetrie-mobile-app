@@ -34,7 +34,7 @@ class TelemetryQualityMonitor extends ChangeNotifier {
   /// missing telemetry — worth interrupting the rower for. Anything less is
   /// noise the pipeline already absorbs.
   static const spikeWindow = Duration(seconds: 10);
-  static const spikeThreshold = 8;
+  static const spikeThreshold = 20;
 
   /// Nothing here gets better by being told twice in a row.
   static const spikeCooldown = Duration(seconds: 30);

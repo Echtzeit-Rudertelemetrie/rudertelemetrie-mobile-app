@@ -185,21 +185,44 @@ class _MapTileState extends State<MapTile> {
               ),
             ],
           ),
-          if (!_hasFix)
-            const Center(
-              child: Text(
-                'Waiting for GPS',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: AppTypeScale.caption,
-                ),
-              ),
-            ),
+          if (!_hasFix) _idleOverlay(),
           if (!_follow) _recentreButton(),
         ],
       ),
     );
   }
+
+  /// Sits on top of the map tiles, so it carries its own backdrop instead of
+  /// relying on the tile colours for contrast.
+  Widget _idleOverlay() => Center(
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Map',
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: AppTypeScale.caption,
+            ),
+          ),
+          SizedBox(height: 2),
+          Text(
+            'Waiting for GPS',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: AppTypeScale.caption,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _boatMarker(LatLng position) => MarkerLayer(
     markers: [

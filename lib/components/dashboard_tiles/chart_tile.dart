@@ -133,7 +133,10 @@ class _ChartTileState extends State<ChartTile>
   @override
   Widget build(BuildContext context) {
     if (_points.isEmpty) {
-      return TileIdleState(hint: widget.visualizer.idleHint);
+      return TileIdleState(
+        label: widget.visualizer.name,
+        hint: widget.visualizer.idleHint,
+      );
     }
 
     final spots = _points.map((p) => FlSpot(p.x, p.y)).toList();

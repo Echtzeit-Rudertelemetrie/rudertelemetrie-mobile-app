@@ -79,7 +79,12 @@ class _ValueTileState extends State<ValueTile> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_received) return TileIdleState(hint: widget.visualizer.idleHint);
+    if (!_received) {
+      return TileIdleState(
+        label: widget.visualizer.name,
+        hint: widget.visualizer.idleHint,
+      );
+    }
 
     final value = _latest;
     final unit = widget.visualizer.units.y;

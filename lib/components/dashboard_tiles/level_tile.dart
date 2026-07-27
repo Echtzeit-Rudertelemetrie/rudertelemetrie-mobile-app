@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_idle_state.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/source_binder.dart';
@@ -23,6 +24,7 @@ class LevelTile extends StatefulWidget {
 
 class _LevelTileState extends State<LevelTile>
     with SingleTickerProviderStateMixin {
+  static const _title = 'Level';
   static const _axes = ['X', 'Y', 'Z'];
 
   late final SourceBinder _binder;
@@ -83,78 +85,55 @@ class _LevelTileState extends State<LevelTile>
   @override
   Widget build(BuildContext context) {
     if (!_hasSources) {
-      return const Center(
-        child: Text(
-          'No boat IMU',
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: AppTypeScale.caption,
-          ),
-        ),
-      );
-    }
-    if (!_reading.isGravityReferenced) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(8),
-          child: Text(
-            'Accel not gravity-referenced\n(|g| off) — level unavailable',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.amber,
-              fontSize: AppTypeScale.caption,
-            ),
-          ),
-        ),
-      );
+      return const TileIdleState(label: _title, hint: 'No boat IMU');
     }
 
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Level',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: AppTypeScale.caption,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.white12,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: const Text(
-                  'SIM',
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: AppTypeScale.caption,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Expanded(
-            child: CustomPaint(
-              painter: _LevelPainter(reading: _reading, surge: _surge),
-              size: Size.infinite,
-            ),
-          ),
-          Text(
-            'roll ${_reading.rollDegrees.toStringAsFixed(0)}°  '
-            'pitch ${_reading.pitchDegrees.toStringAsFixed(0)}°',
-            style: const TextStyle(
+          const Text(
+            _title,
+            style: TextStyle(
               color: Colors.white54,
               fontSize: AppTypeScale.caption,
             ),
           ),
+          Expanded(child: _body()),
         ],
       ),
+    );
+  }
+
+  Widget _body() {
+    if (!_reading.isGravityReferenced) {
+      return const Center(
+        child: Text(
+          'Accel not gravity-referenced\n(|g| off) — level unavailable',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.amber, fontSize: AppTypeScale.caption),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: CustomPaint(
+            painter: _LevelPainter(reading: _reading, surge: _surge),
+            size: Size.infinite,
+          ),
+        ),
+        Text(
+          'roll ${_reading.rollDegrees.toStringAsFixed(0)}°  '
+          'pitch ${_reading.pitchDegrees.toStringAsFixed(0)}°',
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: AppTypeScale.caption,
+          ),
+        ),
+      ],
     );
   }
 }

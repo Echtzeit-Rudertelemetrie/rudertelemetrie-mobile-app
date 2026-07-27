@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_idle_state.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/source_binder.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
@@ -78,15 +79,7 @@ class _BoatSchematicTileState extends State<BoatSchematicTile>
     );
 
     if (placements.isEmpty) {
-      return const Center(
-        child: Text(
-          'No oarlocks connected',
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: AppTypeScale.caption,
-          ),
-        ),
-      );
+      return const TileIdleState(label: 'Boat', hint: 'No oarlocks connected');
     }
 
     return Padding(
