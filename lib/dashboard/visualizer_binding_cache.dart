@@ -3,7 +3,10 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dar
 
 /// Identity of a tile's binding: everything whose change must produce a fresh
 /// [BoundVisualizer]. Source *instances* are included, not just their keys, so a
-/// reconnected device rebinds while an unchanged one does not.
+/// reconnected device rebinds while an unchanged one does not. Source units are
+/// included because a binding derives its axis units once, at bind time: a
+/// source that switches unit (speed following the display setting) would
+/// otherwise keep the old axis label and mix both scales in one trace.
 String bindingSignature({
   required String? visualizerKey,
   required List<String> sourceKeys,
@@ -14,7 +17,7 @@ String bindingSignature({
   return [
     visualizerKey,
     sourceKeys.join(','),
-    sources.map(identityHashCode).join(','),
+    sources.map((s) => '${identityHashCode(s)}:${s.unit.name}').join(','),
     paramKeys.map((k) => '$k=${params[k]}').join(','),
   ].join('|');
 }

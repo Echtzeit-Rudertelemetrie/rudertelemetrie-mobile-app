@@ -10,12 +10,9 @@ import 'widget_config.dart';
 class DashboardModel extends ChangeNotifier {
   static const int _cols = 4;
 
-  /// Rows visible without scrolling. The grid grows past this and scrolls, so a
-  /// full dashboard never has to stack tiles on top of each other.
+  /// The grid's full height. It does not scroll, so this is also every row the
+  /// user will ever see.
   static const int viewportRows = 8;
-
-  /// Hard ceiling, so a runaway layout cannot grow without bound.
-  static const int maxRows = 64;
 
   static const String defaultPresetName = 'Default';
 
@@ -30,15 +27,7 @@ class DashboardModel extends ChangeNotifier {
 
   int get cols => _cols;
 
-  /// Height of the grid in rows: enough for what is on it, never less than a
-  /// viewport, so there is always somewhere to drag a tile.
-  int get rows {
-    var needed = viewportRows;
-    for (final item in _layout) {
-      if (item.y + item.h > needed) needed = item.y + item.h;
-    }
-    return needed.clamp(viewportRows, maxRows);
-  }
+  int get rows => viewportRows;
 
   DashboardLayoutEngine get _engine =>
       DashboardLayoutEngine(cols: _cols, rows: rows);
@@ -79,16 +68,14 @@ class DashboardModel extends ChangeNotifier {
   void resizeWidget(String id, int w, int h) =>
       _commit(_engine.resizeElement(_layout, id, w, h));
 
-  /// Places [widget] in the first free slot, growing the grid if the visible
-  /// rows are full. Returns false only when the [maxRows] ceiling leaves no
-  /// room — the caller says so rather than letting the tile land under another.
+  /// Places [widget] in the first free slot. Returns false when the viewport
+  /// has no room left — the caller says so rather than letting the tile land
+  /// under another or below the fold.
   bool addWidget(WidgetConfig widget) {
-    final engine = DashboardLayoutEngine(
-      cols: _cols,
-      rows: (rows + widget.h).clamp(1, maxRows),
-    );
-    final next = engine.addWidget(_layout, widget);
-    if (engine.getAllCollisions(_layout, next.last).isNotEmpty) return false;
+    final next = _engine.addWidget(_layout, widget);
+    final placed = next.last;
+    if (placed.y + placed.h > rows) return false;
+    if (_engine.getAllCollisions(_layout, placed).isNotEmpty) return false;
     _commit(next);
     return true;
   }
@@ -168,7 +155,18 @@ class DashboardModel extends ChangeNotifier {
   void _activate(String id) {
     _activeId = id;
     final index = _indexOf(id);
-    _layout = index == -1 ? [] : List.of(_presets[index].layout);
+    _layout = index == -1 ? [] : _fitToViewport(_presets[index].layout);
+  }
+
+  /// Presets saved while the grid still scrolled can reach below the viewport.
+  /// Compaction pulls those back into view; a tile that still does not fit is
+  /// dropped rather than parked where the user can neither see nor reach it.
+  List<WidgetConfig> _fitToViewport(List<WidgetConfig> layout) {
+    if (layout.every((item) => item.y + item.h <= rows)) return List.of(layout);
+    return _engine
+        .compact(layout)
+        .where((item) => item.y + item.h <= rows)
+        .toList();
   }
 
   void _commit(List<WidgetConfig> layout) {

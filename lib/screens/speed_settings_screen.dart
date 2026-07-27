@@ -12,7 +12,7 @@ class SpeedSettingsScreen extends StatelessWidget {
 
     return FScaffold(
       header: FHeader.nested(
-        title: const Text('Geschwindigkeit'),
+        title: const Text('Speed'),
         prefixes: [
           FHeaderAction(
             icon: const Icon(FIcons.arrowLeft),
@@ -33,12 +33,12 @@ class SpeedSettingsScreen extends StatelessWidget {
                 children: [
                   RadioListTile(
                     value: SpeedDisplayUnit.kmh,
-                    title: Text('Kilometer pro Stunde'),
-                    subtitle: Text('km/h (Standard)'),
+                    title: Text('Kilometers per hour'),
+                    subtitle: Text('km/h (default)'),
                   ),
                   RadioListTile(
                     value: SpeedDisplayUnit.mps,
-                    title: Text('Meter pro Sekunde'),
+                    title: Text('Meters per second'),
                     subtitle: Text('m/s'),
                   ),
                   RadioListTile(

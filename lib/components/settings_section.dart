@@ -74,8 +74,8 @@ class SettingsSection extends StatelessWidget {
       ),
       .tile(
         prefix: const Icon(Icons.speed),
-        title: const Text('Geschwindigkeitseinheit'),
-        subtitle: const Text('km/h, m/s oder /500 m'),
+        title: const Text('Speed Unit'),
+        subtitle: const Text('km/h, m/s or /500 m'),
         suffix: const Icon(FIcons.chevronRight),
         onPress: () => Navigator.push(
           context,

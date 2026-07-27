@@ -21,7 +21,13 @@ class Home extends StatelessWidget {
         FButton(
           onPress: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
+            // Opened as a fullscreen dialog to suppress iOS' edge swipe-back —
+            // it would otherwise steal the drag on tile handles near the left
+            // edge. The dashboard's own header button closes it.
+            MaterialPageRoute(
+              builder: (_) => const DashboardScreen(),
+              fullscreenDialog: true,
+            ),
           ),
           // Named for what it does: recording is started from the dashboard's
           // own control, or automatically when rowing is detected.

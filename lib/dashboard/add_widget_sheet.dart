@@ -89,9 +89,9 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     _reportPlacement(context, placed);
   }
 
-  /// The dashboard grows and scrolls, so only the hard row ceiling can refuse a
-  /// tile — and when it does, the user hears about it instead of watching the
-  /// tile disappear under another.
+  /// The dashboard is one fixed viewport, so it refuses a tile as soon as the
+  /// grid is full — and when it does, the user hears about it instead of
+  /// watching the tile disappear under another.
   void _reportPlacement(BuildContext context, bool placed) {
     if (!placed) {
       context.read<AppNotifications>().alert(

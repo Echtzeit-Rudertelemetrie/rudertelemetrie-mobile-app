@@ -163,6 +163,50 @@ void main() {
       expect(restored.layout.map((w) => w.id), ['a', 'b']);
     });
 
+    test(
+      'a preset reaching below the viewport is pulled back into it',
+      () async {
+        final store = FakePresetStore()
+          ..data = DashboardPresetData(
+            presets: [
+              DashboardPreset(
+                id: 'p1',
+                name: 'Legacy',
+                layout: [_tile('a'), _tile('b', y: 12)],
+              ),
+            ],
+            activeId: 'p1',
+          );
+
+        final model = await _loaded(store);
+
+        expect(model.layout.map((w) => w.id), ['a', 'b']);
+        expect(model.layout.every((w) => w.y + w.h <= model.rows), isTrue);
+      },
+    );
+
+    test(
+      'tiles that cannot be pulled back into the viewport are dropped',
+      () async {
+        final store = FakePresetStore()
+          ..data = DashboardPresetData(
+            presets: [
+              DashboardPreset(
+                id: 'p1',
+                name: 'Legacy',
+                layout: [for (var y = 0; y < 16; y++) _tile('w$y', y: y)],
+              ),
+            ],
+            activeId: 'p1',
+          );
+
+        final model = await _loaded(store);
+
+        expect(model.layout, hasLength(DashboardModel.viewportRows));
+        expect(model.layout.every((w) => w.y + w.h <= model.rows), isTrue);
+      },
+    );
+
     test('presets survive a JSON round-trip with widget data intact', () {
       final preset = DashboardPreset(
         id: 'p1',

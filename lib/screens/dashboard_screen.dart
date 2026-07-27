@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/models/speed_settings_model.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/screens/rig_setup_screen.dart';
@@ -49,14 +50,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final editMode = model.editMode;
     // Rebind tiles when data sources appear/disappear (e.g. a device connects).
     context.watch<DataSourceProviderModel>();
+    // The speed source reports its unit from this setting, and a binding reads
+    // that unit once — so a change here has to reach the bound tiles.
+    context.watch<SpeedSettingsModel>();
     _bindings.retainOnly({for (final config in model.layout) config.id});
 
     return FScaffold(
-      header: FHeader(
+      header: FHeader.nested(
         title: _PresetTitle(
           name: model.activePreset?.name ?? 'Dashboard',
           onTap: () => _showPresetSheet(context, model),
         ),
+        prefixes: [
+          FHeaderAction(
+            icon: const Icon(FIcons.x),
+            semanticsLabel: 'Close dashboard',
+            onPress: () => Navigator.pop(context),
+          ),
+        ],
         suffixes: [
           const SessionControl(),
           FHeaderAction(

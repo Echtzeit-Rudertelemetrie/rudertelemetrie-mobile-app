@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,6 +11,9 @@ import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 /// Drop this into any screen and provide a [widgetBuilder] that returns the
 /// content widget for each tile.  The framework handles drag, resize, collision,
 /// and edit-mode handles — it never inspects what your builder returns.
+///
+/// The grid is exactly one viewport tall and never scrolls, so the drag and
+/// resize gestures own every pixel of it.
 ///
 /// ```dart
 /// DashboardGrid(
@@ -36,10 +37,6 @@ class DashboardGrid extends StatefulWidget {
 }
 
 class _DashboardGridState extends State<DashboardGrid> {
-  /// Below this a tile is unreadable — in landscape a divided viewport would
-  /// otherwise squash every row flat.
-  static const _minCellHeight = 64.0;
-
   WidgetConfig? _ghost;
 
   @override
@@ -49,69 +46,62 @@ class _DashboardGridState extends State<DashboardGrid> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final cellW = constraints.maxWidth / model.cols;
-        final cellH = math.max(
-          _minCellHeight,
-          constraints.maxHeight / DashboardModel.viewportRows,
-        );
+        final cellH = constraints.maxHeight / model.rows;
 
-        return SingleChildScrollView(
-          child: SizedBox(
-            width: constraints.maxWidth,
-            // Grows with the layout instead of packing tiles into a fixed
-            // viewport, where a full grid used to overlap them silently.
-            height: cellH * model.rows,
-            child: Stack(
-              children: [
-                for (final cfg in model.layout)
-                  AnimatedPositioned(
-                    key: ValueKey(cfg.id),
-                    duration: _ghost?.id == cfg.id
-                        ? Duration.zero
-                        : const Duration(milliseconds: 150),
-                    curve: Curves.easeOut,
-                    left: cfg.x * cellW,
-                    top: cfg.y * cellH,
-                    width: cfg.w * cellW,
-                    height: cfg.h * cellH,
-                    child: Padding(
-                      padding: const EdgeInsets.all(3),
-                      child: DashboardWidgetTile(
-                        config: cfg,
-                        cellWidth: cellW,
-                        cellHeight: cellH,
-                        child: widget.widgetBuilder(context, cfg),
-                        onDragUpdate: (gx, gy) =>
-                            setState(() => _ghost = cfg.copyWith(x: gx, y: gy)),
-                        onDragEnd: () => setState(() => _ghost = null),
-                        onResizeUpdate: (gw, gh) =>
-                            setState(() => _ghost = cfg.copyWith(w: gw, h: gh)),
-                        onResizeEnd: () => setState(() => _ghost = null),
-                      ),
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: Stack(
+            children: [
+              for (final cfg in model.layout)
+                AnimatedPositioned(
+                  key: ValueKey(cfg.id),
+                  duration: _ghost?.id == cfg.id
+                      ? Duration.zero
+                      : const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  left: cfg.x * cellW,
+                  top: cfg.y * cellH,
+                  width: cfg.w * cellW,
+                  height: cfg.h * cellH,
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: DashboardWidgetTile(
+                      config: cfg,
+                      cellWidth: cellW,
+                      cellHeight: cellH,
+                      child: widget.widgetBuilder(context, cfg),
+                      onDragUpdate: (gx, gy) =>
+                          setState(() => _ghost = cfg.copyWith(x: gx, y: gy)),
+                      onDragEnd: () => setState(() => _ghost = null),
+                      onResizeUpdate: (gw, gh) =>
+                          setState(() => _ghost = cfg.copyWith(w: gw, h: gh)),
+                      onResizeEnd: () => setState(() => _ghost = null),
                     ),
                   ),
+                ),
 
-                if (_ghost != null)
-                  Positioned(
-                    left: _ghost!.x * cellW,
-                    top: _ghost!.y * cellH,
-                    width: _ghost!.w * cellW,
-                    height: _ghost!.h * cellH,
-                    child: IgnorePointer(
-                      child: Container(
-                        margin: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: AppPalette.accent.withAlpha(40),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppPalette.accent.withAlpha(150),
-                            width: 2,
-                          ),
+              if (_ghost != null)
+                Positioned(
+                  left: _ghost!.x * cellW,
+                  top: _ghost!.y * cellH,
+                  width: _ghost!.w * cellW,
+                  height: _ghost!.h * cellH,
+                  child: IgnorePointer(
+                    child: Container(
+                      margin: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: AppPalette.accent.withAlpha(40),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppPalette.accent.withAlpha(150),
+                          width: 2,
                         ),
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         );
       },

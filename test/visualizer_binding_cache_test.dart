@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
+import 'package:rudertelemetrie_mobile_app/models/speed_settings_model.dart';
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/visualizer_binding_cache.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/speed_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 BoundVisualizer _bound(String name) => BoundVisualizer(
@@ -66,6 +68,20 @@ void main() {
 
     final reconnected = PushDataSource(name: 'Force 1', unit: Unit.N);
     bindTile('tile_1', _signature(sources: [reconnected]));
+    expect(builds, 2);
+  });
+
+  test('a source that switches unit rebinds', () {
+    final settings = SpeedSettingsModel();
+    final speed = SpeedDataSource(name: 'Speed (ABCD)', settings: settings);
+    addTearDown(speed.dispose);
+
+    bindTile('tile_1', _signature(sources: [speed]));
+    bindTile('tile_1', _signature(sources: [speed]));
+    expect(builds, 1);
+
+    settings.setDisplayUnit(SpeedDisplayUnit.pace500m);
+    bindTile('tile_1', _signature(sources: [speed]));
     expect(builds, 2);
   });
 
