@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/components/confirm_dialog.dart';
 
 import 'dashboard_model.dart';
 import 'dashboard_preset.dart';
 import 'sheet_scaffold.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
-const _accent = Color(0xFFF45866);
+const _accent = AppPalette.accent;
 
 /// Preset picker: switch the visible dashboard, rename or delete a saved
 /// layout, and create a new one (empty or as a copy of what is on screen).
@@ -44,6 +46,26 @@ class _PresetSheetState extends State<PresetSheet> {
     setState(() => _renaming = null);
   }
 
+  /// An empty preset is nothing to lose; one the user has built up is.
+  Future<void> _delete(
+    BuildContext context,
+    DashboardModel model,
+    DashboardPreset preset,
+  ) async {
+    if (preset.layout.isNotEmpty) {
+      final confirmed = await confirmDestructiveAction(
+        context,
+        title: 'Delete “${preset.name}”?',
+        detail:
+            '${preset.layout.length} tile'
+            '${preset.layout.length == 1 ? '' : 's'} will be lost.',
+        confirmLabel: 'Delete',
+      );
+      if (!confirmed) return;
+    }
+    model.deletePreset(preset.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final model = context.watch<DashboardModel>();
@@ -67,7 +89,7 @@ class _PresetSheetState extends State<PresetSheet> {
             onTap: () => _select(context, preset.id),
             onRenameStart: () => setState(() => _renaming = preset.id),
             onRenameSubmit: (value) => _submitRename(preset.id, value),
-            onDelete: () => model.deletePreset(preset.id),
+            onDelete: () => _delete(context, model, preset),
           ),
       ],
     );
@@ -119,13 +141,16 @@ class _PresetRow extends StatelessWidget {
                     children: [
                       Text(
                         preset.name,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
                       ),
                       Text(
                         _subtitle,
                         style: const TextStyle(
                           color: Colors.white38,
-                          fontSize: 11,
+                          fontSize: AppTypeScale.caption,
                         ),
                       ),
                     ],
@@ -161,8 +186,9 @@ class _RenameField extends StatefulWidget {
 }
 
 class _RenameFieldState extends State<_RenameField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initial);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
 
   @override
   void dispose() {
@@ -316,15 +342,10 @@ class _Radio extends StatelessWidget {
     height: 20,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      border: Border.all(
-        color: selected ? _accent : Colors.white38,
-        width: 2,
-      ),
+      border: Border.all(color: selected ? _accent : Colors.white38, width: 2),
     ),
     child: selected
-        ? const Center(
-            child: CircleAvatar(radius: 5, backgroundColor: _accent),
-          )
+        ? const Center(child: CircleAvatar(radius: 5, backgroundColor: _accent))
         : null,
   );
 }

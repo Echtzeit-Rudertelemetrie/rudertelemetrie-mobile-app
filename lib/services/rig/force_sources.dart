@@ -98,37 +98,37 @@ List<DataSource> buildPowerSources({
   double alongBoat(double angleDeg, double speedKmhValue) =>
       (speedKmhValue / 3.6) * math.cos(_radians(angleDeg));
 
-  return sources
-    ..addAll([
-      // P_prop = F_B · cosθ · v_boat
-      CombineLatestSource(
-        name: 'Propulsion Power $suffix',
-        unit: Unit.W,
-        group: group,
-        sources: [force, angle, speedKmh],
-        alignedCount: 2,
-        compute: (v) => bladeForce(v[0]) * math.cos(_radians(v[1])) * (v[2] / 3.6),
-      ),
-      // v_slip = l_out·|ω| − v_boat·cosθ
-      CombineLatestSource(
-        name: 'Blade Slip $suffix',
-        unit: Unit.mps,
-        group: group,
-        sources: [omega, angle, speedKmh],
-        alignedCount: 2,
-        compute: (v) => bladeSpeed(v[0]) - alongBoat(v[1], v[2]),
-      ),
-      // η_blade = v_boat·cosθ / (l_out·|ω|), clamped [0,1]·100
-      CombineLatestSource(
-        name: 'Blade Efficiency $suffix',
-        unit: Unit.pct,
-        group: group,
-        sources: [omega, angle, speedKmh],
-        alignedCount: 2,
-        compute: (v) {
-          if (v[0].abs() < _omegaFloor) return 0;
-          return (alongBoat(v[1], v[2]) / bladeSpeed(v[0])).clamp(0.0, 1.0) * 100;
-        },
-      ),
-    ]);
+  return sources..addAll([
+    // P_prop = F_B · cosθ · v_boat
+    CombineLatestSource(
+      name: 'Propulsion Power $suffix',
+      unit: Unit.W,
+      group: group,
+      sources: [force, angle, speedKmh],
+      alignedCount: 2,
+      compute: (v) =>
+          bladeForce(v[0]) * math.cos(_radians(v[1])) * (v[2] / 3.6),
+    ),
+    // v_slip = l_out·|ω| − v_boat·cosθ
+    CombineLatestSource(
+      name: 'Blade Slip $suffix',
+      unit: Unit.mps,
+      group: group,
+      sources: [omega, angle, speedKmh],
+      alignedCount: 2,
+      compute: (v) => bladeSpeed(v[0]) - alongBoat(v[1], v[2]),
+    ),
+    // η_blade = v_boat·cosθ / (l_out·|ω|), clamped [0,1]·100
+    CombineLatestSource(
+      name: 'Blade Efficiency $suffix',
+      unit: Unit.pct,
+      group: group,
+      sources: [omega, angle, speedKmh],
+      alignedCount: 2,
+      compute: (v) {
+        if (v[0].abs() < _omegaFloor) return 0;
+        return (alongBoat(v[1], v[2]) / bladeSpeed(v[0])).clamp(0.0, 1.0) * 100;
+      },
+    ),
+  ]);
 }

@@ -34,8 +34,7 @@ void main() {
       slots: const {},
       oarlockKeys: ['Oarlock 1 (T)', 'Oarlock 2 (T)'],
     );
-    expect(placements.map((p) => p.side),
-        [OarSide.starboard, OarSide.port]);
+    expect(placements.map((p) => p.side), [OarSide.starboard, OarSide.port]);
   });
 
   test('boat classes expose seat counts and sculling flag', () {

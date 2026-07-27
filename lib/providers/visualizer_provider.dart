@@ -17,107 +17,122 @@ class VisualizerProviderModel extends ChangeNotifier {
   final VisualizerRegistry registry = VisualizerRegistry();
 
   VisualizerProviderModel() {
-    registry.register(Visualizer1(
-      name: 'Time Window',
-      combinator: TimeElapsedCombinator(Unit.s),
-      params: const [
-        VisualizerParam(
-          key: 'windowSeconds',
-          label: 'Time window',
-          defaultValue: 20,
-          min: 1,
-          unitLabel: 's',
+    registry.register(
+      Visualizer1(
+        name: 'Time Window',
+        combinator: TimeElapsedCombinator(Unit.s),
+        params: const [
+          VisualizerParam(
+            key: 'windowSeconds',
+            label: 'Time window',
+            defaultValue: 20,
+            min: 1,
+            unitLabel: 's',
+          ),
+        ],
+        buildCollector: (p) => TimeWindowCollector(
+          Duration(milliseconds: (p['windowSeconds']! * 1000).round()),
         ),
-      ],
-      buildCollector: (p) => TimeWindowCollector(
-        Duration(milliseconds: (p['windowSeconds']! * 1000).round()),
       ),
-    ));
-    registry.register(Visualizer1(
-      name: 'Since Threshold',
-      combinator: TimeElapsedCombinator(Unit.s),
-      params: const [
-        VisualizerParam(
-          key: 'threshold',
-          label: 'Threshold',
-          defaultValue: 50,
-        ),
-      ],
-      buildCollector: (p) => SinceThresholdCollector(p['threshold']!),
-    ));
-    registry.register(Visualizer2(
-      name: 'X vs Y (Window)',
-      combinator: ValueVsValueCombinator(),
-      params: const [
-        VisualizerParam(
-          key: 'windowSeconds',
-          label: 'Freshness window',
-          defaultValue: 4,
-          min: 1,
-          unitLabel: 's',
-        ),
-      ],
-      buildCollector: (p) {
-        final window = Duration(
-          milliseconds: (p['windowSeconds']! * 1000).round(),
-        );
-        return SmoothedXyCollector(TimeWindowCollector(window), maxAge: window);
-      },
-    ));
-    registry.register(Visualizer2(
-      name: 'X vs Y (Stroke)',
-      combinator: ValueVsValueCombinator(),
-      params: const [
-        VisualizerParam(
-          key: 'threshold',
-          label: 'Threshold',
-          defaultValue: 50,
-        ),
-      ],
-      buildCollector: (p) => SmoothedXyCollector(
-        SinceThresholdCollector(p['threshold']!),
-        maxAge: const Duration(days: 1),
+    );
+    registry.register(
+      Visualizer1(
+        name: 'Since Threshold',
+        combinator: TimeElapsedCombinator(Unit.s),
+        params: const [
+          VisualizerParam(
+            key: 'threshold',
+            label: 'Threshold',
+            defaultValue: 50,
+          ),
+        ],
+        buildCollector: (p) => SinceThresholdCollector(p['threshold']!),
       ),
-    ));
+    );
+    registry.register(
+      Visualizer2(
+        name: 'X vs Y (Window)',
+        combinator: ValueVsValueCombinator(),
+        params: const [
+          VisualizerParam(
+            key: 'windowSeconds',
+            label: 'Freshness window',
+            defaultValue: 4,
+            min: 1,
+            unitLabel: 's',
+          ),
+        ],
+        buildCollector: (p) {
+          final window = Duration(
+            milliseconds: (p['windowSeconds']! * 1000).round(),
+          );
+          return SmoothedXyCollector(
+            TimeWindowCollector(window),
+            maxAge: window,
+          );
+        },
+      ),
+    );
+    registry.register(
+      Visualizer2(
+        name: 'X vs Y (Stroke)',
+        combinator: ValueVsValueCombinator(),
+        params: const [
+          VisualizerParam(
+            key: 'threshold',
+            label: 'Threshold',
+            defaultValue: 50,
+          ),
+        ],
+        buildCollector: (p) => SmoothedXyCollector(
+          SinceThresholdCollector(p['threshold']!),
+          maxAge: const Duration(days: 1),
+        ),
+      ),
+    );
     // Force/angle curve segmented on true drive boundaries with hysteresis
     // (catch ↑ F_on, finish ↓ F_off) — bind X = Angle, Y = Force N.
-    registry.register(Visualizer2(
-      name: 'Force vs Angle (Drive)',
-      combinator: ValueVsValueCombinator(),
-      params: const [
-        VisualizerParam(
-          key: 'fOn',
-          label: 'Catch force (F_on)',
-          defaultValue: 40,
-          unitLabel: 'N',
+    registry.register(
+      Visualizer2(
+        name: 'Force vs Angle (Drive)',
+        combinator: ValueVsValueCombinator(),
+        params: const [
+          VisualizerParam(
+            key: 'fOn',
+            label: 'Catch force (F_on)',
+            defaultValue: 40,
+            unitLabel: 'N',
+          ),
+          VisualizerParam(
+            key: 'fOff',
+            label: 'Finish force (F_off)',
+            defaultValue: 20,
+            unitLabel: 'N',
+          ),
+        ],
+        buildCollector: (p) => SmoothedXyCollector(
+          DriveGatedCollector(fOn: p['fOn']!, fOff: p['fOff']!),
+          maxAge: const Duration(days: 1),
         ),
-        VisualizerParam(
-          key: 'fOff',
-          label: 'Finish force (F_off)',
-          defaultValue: 20,
-          unitLabel: 'N',
-        ),
-      ],
-      buildCollector: (p) => SmoothedXyCollector(
-        DriveGatedCollector(fOn: p['fOn']!, fOff: p['fOff']!),
-        maxAge: const Duration(days: 1),
       ),
-    ));
+    );
     // One bar per stroke for any per-stroke source (group "Stroke").
-    registry.register(Visualizer1(
-      name: 'Per-Stroke Bars',
-      combinator: StrokeIndexCombinator(),
-      params: const [
-        VisualizerParam(
-          key: 'strokeWindow',
-          label: 'Strokes shown',
-          defaultValue: 20,
-          min: 1,
-        ),
-      ],
-      buildCollector: (p) =>
-          PerStrokeBarCollector(p['strokeWindow']!.round()),
-    ));
+    registry.register(
+      Visualizer1(
+        name: 'Per-Stroke Bars',
+        combinator: StrokeIndexCombinator(),
+        params: const [
+          VisualizerParam(
+            key: 'strokeWindow',
+            label: 'Strokes shown',
+            defaultValue: 20,
+            min: 1,
+          ),
+        ],
+        buildCollector: (p) =>
+            PerStrokeBarCollector(p['strokeWindow']!.round()),
+      ),
+    );
   }
 }
 

@@ -8,7 +8,8 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.
 /// decoded Bluetooth packet). Broadcasts so multiple dashboard tiles can observe
 /// the same stream.
 class PushDataSource extends DataSource {
-  final StreamController<Measurement> _controller = StreamController.broadcast();
+  final StreamController<Measurement> _controller =
+      StreamController.broadcast();
 
   @override
   final String name;

@@ -25,7 +25,8 @@ class LevelReading {
   /// isn't gravity-dominated — show a warning instead).
   bool get isGravityReferenced => (gravity - 9.81).abs() < 2.5;
 
-  static LevelReading fromAccel(double ax, double ay, double az) => LevelReading(
+  static LevelReading fromAccel(double ax, double ay, double az) =>
+      LevelReading(
         roll: math.atan2(ay, az),
         pitch: math.atan2(-ax, math.sqrt(ay * ay + az * az)),
         gravity: math.sqrt(ax * ax + ay * ay + az * az),

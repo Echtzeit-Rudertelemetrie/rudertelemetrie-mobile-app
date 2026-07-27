@@ -18,10 +18,24 @@ class ConnectedDevice {
   final String id;
   final String name;
 
-  ConnectedDevice({required this.id, required this.name});
+  /// Last known signal strength in dBm, or null before one has been read.
+  final int? rssi;
+
+  ConnectedDevice({required this.id, required this.name, this.rssi});
+
+  ConnectedDevice withRssi(int? value) =>
+      ConnectedDevice(id: id, name: name, rssi: value);
 }
 
 class BluetoothManager {
+  static const _deviceName = 'RowingBoat';
+
+  /// Discovery runs as a duty cycle rather than continuously: a permanent scan
+  /// is a significant battery drain over a multi-hour outing.
+  static const _scanWindow = Duration(seconds: 10);
+  static const _scanInterval = Duration(seconds: 60);
+  static const _rssiInterval = Duration(seconds: 10);
+
   final StreamController<BluetoothState> _stateStreamController =
       StreamController.broadcast();
 
@@ -29,15 +43,30 @@ class BluetoothManager {
   final StreamController<List<ConnectedDevice>>
   _connectedDevicesStreamController = StreamController.broadcast();
 
+  final StreamController<String> _errorStreamController =
+      StreamController.broadcast();
+  final StreamController<ConnectedDevice> _deviceConnectedController =
+      StreamController.broadcast();
+  final StreamController<ConnectedDevice> _deviceLostController =
+      StreamController.broadcast();
+
   BluetoothState _state = BluetoothState.unknown;
   BluetoothAdapterState _adapterState = BluetoothAdapterState.unknown;
+  bool _supported = true;
+  bool _dataSetupFailed = false;
 
   DataSourceRegistry? _dataSourceRegistry;
 
   final Map<String, _DeviceConnection> _connections = {};
 
+  /// Devices the user asked to forget. Skipped on discovery until [rescan],
+  /// otherwise the next scan window would immediately reconnect them.
+  final Set<String> _forgotten = {};
+
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   StreamSubscription<List<ScanResult>>? _scanResultsSubscription;
+  Timer? _scanCycleTimer;
+  Timer? _rssiTimer;
 
   BluetoothState get state => _state;
 
@@ -48,34 +77,43 @@ class BluetoothManager {
   Stream<List<ConnectedDevice>> get onConnectedDevicesChange =>
       _connectedDevicesStreamController.stream;
 
+  /// Human-readable Bluetooth failures, for surfacing to the user.
+  Stream<String> get onError => _errorStreamController.stream;
+
+  Stream<ConnectedDevice> get onDeviceConnected =>
+      _deviceConnectedController.stream;
+
+  Stream<ConnectedDevice> get onDeviceLost => _deviceLostController.stream;
+
   Future<void> initialize(DataSourceRegistry dataSourceRegistry) async {
     _dataSourceRegistry = dataSourceRegistry;
-
     await checkStatus();
-
-    await _startScanIfReady();
+    await _syncScanning();
   }
 
   Future<void> checkStatus() async {
-    if (!await FlutterBluePlus.isSupported) {
-      _updateState(BluetoothState.unsupported);
+    _supported = await FlutterBluePlus.isSupported;
+    if (!_supported) {
+      _publishState();
       return;
     }
 
     FlutterBluePlus.setLogLevel(LogLevel.warning);
 
+    // One long-lived results subscription: tying it to a scan window (via
+    // `cancelWhenScanComplete`) would end discovery permanently after the first
+    // window closes.
     _adapterStateSubscription ??= _subscribeToAdapterState();
     _scanResultsSubscription ??= _subscribeToScanResults();
-
-    FlutterBluePlus.cancelWhenScanComplete(_scanResultsSubscription!);
+    _publishState();
   }
 
   StreamSubscription<BluetoothAdapterState> _subscribeToAdapterState() {
     return FlutterBluePlus.adapterState.listen((BluetoothAdapterState state) {
       _adapterState = state;
-      final isOn = state == BluetoothAdapterState.on;
-      _updateState(isOn ? BluetoothState.active : BluetoothState.disabled);
-      if (isOn) _startScanIfReady();
+      if (state != BluetoothAdapterState.on) _dataSetupFailed = false;
+      _publishState();
+      unawaited(_syncScanning());
     });
   }
 
@@ -89,20 +127,36 @@ class BluetoothManager {
 
   void _handleScanResult(ScanResult result) {
     final device = result.device;
-    if (_connections.containsKey(device.remoteId.str)) return;
+    final id = device.remoteId.str;
+    if (_forgotten.contains(id) || _connections.containsKey(id)) return;
+    _lastSeenRssi[id] = result.rssi;
     _connectDevice(device);
   }
+
+  final Map<String, int> _lastSeenRssi = {};
 
   void _connectDevice(BluetoothDevice device) {
     final connection = _DeviceConnection(device);
     _connections[device.remoteId.str] = connection;
 
-    connection.connectionSubscription = device.connectionState
-        .listen((state) => _onConnectionState(connection, state));
+    connection.connectionSubscription = device.connectionState.listen(
+      (state) => _onConnectionState(connection, state),
+    );
 
     device
         .connect(autoConnect: true, mtu: null, license: License.free)
-        .catchError((_) => _forgetDevice(connection));
+        .catchError((Object error) {
+          _reportError('Could not connect to ${_label(device)}', error);
+          _forgetDevice(connection);
+        });
+  }
+
+  String _label(BluetoothDevice device) =>
+      device.advName.isEmpty ? device.remoteId.str : device.advName;
+
+  void _reportError(String message, Object error) {
+    debugPrint('$message: $error');
+    _errorStreamController.sink.add(message);
   }
 
   void _onConnectionState(
@@ -122,25 +176,36 @@ class BluetoothManager {
   Future<void> _onDeviceConnected(_DeviceConnection connection) async {
     final device = connection.device;
 
-    _updateState(BluetoothState.connected);
     _addConnectedDevice(
-      ConnectedDevice(id: device.remoteId.str, name: device.advName),
+      ConnectedDevice(
+        id: device.remoteId.str,
+        name: _label(device),
+        rssi: _lastSeenRssi[device.remoteId.str],
+      ),
     );
+    await _syncScanning();
+    _startRssiPolling();
 
     if (connection.handler != null || connection.isSettingUp) return;
     connection.isSettingUp = true;
 
-    if (!kIsWeb && Platform.isAndroid) {
-      await device.requestMtu(512);
+    try {
+      if (!kIsWeb && Platform.isAndroid) {
+        await device.requestMtu(512);
+      }
+      await _registerDataSource(connection);
+    } catch (error) {
+      _reportError('Could not read data from ${_label(device)}', error);
+      _markDataSetupFailed();
+    } finally {
+      connection.isSettingUp = false;
     }
-
-    await _registerDataSource(connection);
-    connection.isSettingUp = false;
   }
 
   void _onDeviceDisconnected(_DeviceConnection connection) {
     connection.teardownStream();
     _removeConnectedDeviceWithId(connection.device.remoteId.str);
+    unawaited(_syncScanning());
     // The connection entry and its connectionState listener stay alive so
     // autoConnect reconnection re-runs [_onDeviceConnected].
   }
@@ -148,26 +213,33 @@ class BluetoothManager {
   Future<void> _registerDataSource(_DeviceConnection connection) async {
     final registry = _dataSourceRegistry;
     if (registry == null) {
-      _updateState(BluetoothState.failed);
+      _markDataSetupFailed();
       return;
     }
 
     final notify = await findNotifyCharacteristic(connection.device);
 
     if (notify == null) {
-      _updateState(BluetoothState.failed);
+      _reportError(
+        'No measurement channel on ${_label(connection.device)}',
+        StateError('no notify characteristic'),
+      );
+      _markDataSetupFailed();
       return;
     }
 
     await notify.setNotifyValue(true);
+    _dataSetupFailed = false;
+    _publishState();
 
     final handler = BluetoothStreamHandler(
       dataSourceRegistry: registry,
       deviceId: connection.device.remoteId.str,
     );
     connection.handler = handler;
-    connection.valueSubscription =
-        notify.onValueReceived.listen(handler.onData);
+    connection.valueSubscription = notify.onValueReceived.listen(
+      handler.onData,
+    );
   }
 
   void _forgetDevice(_DeviceConnection connection) {
@@ -178,8 +250,9 @@ class BluetoothManager {
 
   /// UUID of the firmware's `MeasurementPack` notify characteristic
   /// (service a1b2c3d4-0001-…, characteristic a1b2c3d4-0002-…).
-  static final Guid _measurementCharacteristic =
-      Guid('a1b2c3d4-0002-4a2b-9c3d-1234567890ab');
+  static final Guid _measurementCharacteristic = Guid(
+    'a1b2c3d4-0002-4a2b-9c3d-1234567890ab',
+  );
 
   Future<BluetoothCharacteristic?> findNotifyCharacteristic(
     BluetoothDevice device,
@@ -198,26 +271,173 @@ class BluetoothManager {
     return firstNotify;
   }
 
-  Future<void> _startScanIfReady() async {
-    if (_adapterState != BluetoothAdapterState.on) return;
-    if (FlutterBluePlus.isScanningNow) return;
-    await FlutterBluePlus.startScan(withNames: ["RowingBoat"]);
+  /// Scans only while nothing is connected, so an outing does not spend its
+  /// battery on discovery. A disconnect restarts the cycle by itself.
+  Future<void> _syncScanning() async {
+    final wanted =
+        _adapterState == BluetoothAdapterState.on && _connectedDevices.isEmpty;
+    if (!wanted) {
+      await stopScan();
+      return;
+    }
+    await _startScanCycle();
   }
 
-  void _updateState(BluetoothState state) {
-    _state = state;
-    _stateStreamController.sink.add(state);
+  Future<void> _startScanCycle() async {
+    _scanCycleTimer ??= Timer.periodic(
+      _scanInterval,
+      (_) => unawaited(_scanWindowOnce()),
+    );
+    await _scanWindowOnce();
+  }
+
+  Future<void> _scanWindowOnce() async {
+    if (_adapterState != BluetoothAdapterState.on) return;
+    if (FlutterBluePlus.isScanningNow) return;
+    try {
+      await FlutterBluePlus.startScan(
+        withNames: [_deviceName],
+        timeout: _scanWindow,
+      );
+    } catch (error) {
+      _reportError('Bluetooth scan could not be started', error);
+    }
+  }
+
+  /// Ends the current scan window and the duty cycle behind it.
+  Future<void> stopScan() async {
+    _scanCycleTimer?.cancel();
+    _scanCycleTimer = null;
+    if (!FlutterBluePlus.isScanningNow) return;
+    try {
+      await FlutterBluePlus.stopScan();
+    } catch (error) {
+      _reportError('Bluetooth scan could not be stopped', error);
+    }
+  }
+
+  /// Starts a discovery window immediately, regardless of the duty cycle, and
+  /// gives forgotten devices another chance — asking to scan means asking to
+  /// find everything.
+  Future<void> rescan() async {
+    _forgotten.clear();
+    if (_adapterState != BluetoothAdapterState.on) return;
+    await _startScanCycle();
+  }
+
+  /// Drops the connection but keeps the device discoverable, so autoConnect or
+  /// the next scan window can bring it back.
+  Future<void> disconnect(String deviceId) async {
+    final connection = _connections[deviceId];
+    if (connection == null) return;
+    try {
+      await connection.device.disconnect();
+    } catch (error) {
+      _reportError(
+        'Could not disconnect ${connection.device.remoteId.str}',
+        error,
+      );
+    }
+  }
+
+  /// Disconnects and stops trying: the device is ignored until [rescan].
+  Future<void> forget(String deviceId) async {
+    _forgotten.add(deviceId);
+    await disconnect(deviceId);
+    final connection = _connections[deviceId];
+    if (connection != null) _forgetDevice(connection);
+    await _syncScanning();
+  }
+
+  /// Signal strength only changes while connected, and scanning is off by then,
+  /// so it is read from the link itself rather than from advertisements.
+  void _startRssiPolling() {
+    _rssiTimer ??= Timer.periodic(_rssiInterval, (_) => unawaited(_pollRssi()));
+  }
+
+  Future<void> _pollRssi() async {
+    if (_connectedDevices.isEmpty) {
+      _rssiTimer?.cancel();
+      _rssiTimer = null;
+      return;
+    }
+    var changed = false;
+    for (var i = 0; i < _connectedDevices.length; i++) {
+      final entry = _connectedDevices[i];
+      final device = _connections[entry.id]?.device;
+      if (device == null) continue;
+      try {
+        final rssi = await device.readRssi();
+        if (rssi == entry.rssi) continue;
+        _connectedDevices[i] = entry.withRssi(rssi);
+        changed = true;
+      } catch (_) {
+        // A read failing is not worth a message; the last value stands.
+      }
+    }
+    if (changed) _connectedDevicesStreamController.sink.add(_connectedDevices);
+  }
+
+  void _markDataSetupFailed() {
+    _dataSetupFailed = true;
+    _publishState();
+  }
+
+  /// The reported state always follows the live adapter and connection set —
+  /// never the last event seen — so a disconnect cannot leave it on `connected`.
+  BluetoothState get _derivedState {
+    if (!_supported) return BluetoothState.unsupported;
+    if (_adapterState == BluetoothAdapterState.unknown) {
+      return BluetoothState.unknown;
+    }
+    if (_adapterState != BluetoothAdapterState.on) {
+      return BluetoothState.disabled;
+    }
+    if (_dataSetupFailed) return BluetoothState.failed;
+    return _connectedDevices.isEmpty
+        ? BluetoothState.active
+        : BluetoothState.connected;
+  }
+
+  void _publishState() {
+    final next = _derivedState;
+    if (next == _state) return;
+    _state = next;
+    _stateStreamController.sink.add(next);
   }
 
   void _addConnectedDevice(ConnectedDevice device) {
     if (_connectedDevices.any((d) => d.id == device.id)) return;
     _connectedDevices.add(device);
     _connectedDevicesStreamController.sink.add(_connectedDevices);
+    _deviceConnectedController.sink.add(device);
+    _publishState();
   }
 
   void _removeConnectedDeviceWithId(String id) {
-    _connectedDevices.removeWhere((device) => device.id == id);
+    final index = _connectedDevices.indexWhere((device) => device.id == id);
+    if (index == -1) return;
+    final removed = _connectedDevices.removeAt(index);
     _connectedDevicesStreamController.sink.add(_connectedDevices);
+    _deviceLostController.sink.add(removed);
+    _publishState();
+  }
+
+  Future<void> dispose() async {
+    _rssiTimer?.cancel();
+    _rssiTimer = null;
+    await stopScan();
+    await _adapterStateSubscription?.cancel();
+    await _scanResultsSubscription?.cancel();
+    for (final connection in _connections.values) {
+      connection.dispose();
+    }
+    _connections.clear();
+    await _stateStreamController.close();
+    await _connectedDevicesStreamController.close();
+    await _errorStreamController.close();
+    await _deviceConnectedController.close();
+    await _deviceLostController.close();
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer_param.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// A labelled numeric input for a single [VisualizerParam]. Reports clamped
 /// values through [onChanged] as the user types.
@@ -21,8 +22,9 @@ class ParamField extends StatefulWidget {
 }
 
 class _ParamFieldState extends State<ParamField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: _format(widget.value));
+  late final TextEditingController _controller = TextEditingController(
+    text: _format(widget.value),
+  );
 
   static String _format(double value) =>
       value == value.roundToDouble() ? value.toInt().toString() : '$value';
@@ -71,11 +73,10 @@ class _ParamFieldState extends State<ParamField> {
     keyboardType: const TextInputType.numberWithOptions(decimal: true),
     inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
     style: const TextStyle(color: Colors.white, fontSize: 14),
-    cursorColor: const Color(0xFFF45866),
+    cursorColor: AppPalette.accent,
     decoration: InputDecoration(
       isDense: true,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       filled: true,
       fillColor: Colors.white10,
       enabledBorder: OutlineInputBorder(
@@ -84,7 +85,7 @@ class _ParamFieldState extends State<ParamField> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFF45866)),
+        borderSide: const BorderSide(color: AppPalette.accent),
       ),
     ),
     onChanged: _handleChanged,

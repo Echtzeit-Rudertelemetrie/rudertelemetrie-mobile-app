@@ -8,9 +8,9 @@ void main() {
   List<int> frame(int fill) => List<int>.filled(frameSize, fill);
 
   List<List<int>> fragmentsOf(List<int> data, int chunk) => [
-        for (var i = 0; i < data.length; i += chunk)
-          data.sublist(i, (i + chunk).clamp(0, data.length)),
-      ];
+    for (var i = 0; i < data.length; i += chunk)
+      data.sublist(i, (i + chunk).clamp(0, data.length)),
+  ];
 
   test('reassembles a 20-byte-fragmented frame (MTU 23)', () {
     final frames = <List<int>>[];

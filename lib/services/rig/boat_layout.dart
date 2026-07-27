@@ -28,17 +28,21 @@ List<OarPlacement> computeBoatLayout({
   for (final key in keys) {
     final slot = slots[key];
     if (slot != null) {
-      placements.add(OarPlacement(oarlockKey: key, seat: slot.seat, side: slot.side));
+      placements.add(
+        OarPlacement(oarlockKey: key, seat: slot.seat, side: slot.side),
+      );
       continue;
     }
     final side = boatClass.isSculling
         ? OarSide.both
         : (genericSeat.isOdd ? OarSide.starboard : OarSide.port);
-    placements.add(OarPlacement(
-      oarlockKey: key,
-      seat: genericSeat.clamp(1, boatClass.seats),
-      side: side,
-    ));
+    placements.add(
+      OarPlacement(
+        oarlockKey: key,
+        seat: genericSeat.clamp(1, boatClass.seats),
+        side: side,
+      ),
+    );
     genericSeat++;
   }
   return placements;

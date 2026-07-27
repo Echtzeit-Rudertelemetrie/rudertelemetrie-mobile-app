@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// Bottom-sheet scaffold that can be resized by dragging and scrolled to reveal
 /// all of its content. [children] fill a scrollable body; [footer] stays pinned
@@ -32,7 +33,7 @@ class SheetScaffold extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Container(
           decoration: const BoxDecoration(
-            color: Color(0xFF0c0e1d),
+            color: AppPalette.background,
             borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
           child: Column(

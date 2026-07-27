@@ -19,6 +19,13 @@ abstract class SessionStore {
   Future<List<SessionSummary>> listSessions();
   Future<void> deleteSession(String id);
 
+  /// Pushes buffered samples to disk, so an app kill loses at most a moment.
+  Future<void> flush();
+
+  /// Indexes session directories left behind by an interrupted recording, and
+  /// discards the ones with no usable data. Returns what was recovered.
+  Future<List<SessionSummary>> recoverOrphans();
+
   /// File paths (csv + json) for the share sheet, existing ones only.
   Future<List<String>> exportPaths(String id);
 
@@ -77,24 +84,35 @@ List<String> _splitCsvRow(String line) {
   return fields;
 }
 
-String _escape(String field) =>
-    field.contains(',') || field.contains('"')
-        ? '"${field.replaceAll('"', '""')}"'
-        : field;
+String _escape(String field) => field.contains(',') || field.contains('"')
+    ? '"${field.replaceAll('"', '""')}"'
+    : field;
 
 /// File-backed [SessionStore] rooted at the app documents directory. Subscribes
 /// to the live [DataSourceRegistry] itself so every registered source is logged,
 /// including ones that appear mid-session (e.g. an oarlock connecting).
 class FileSessionStore implements SessionStore {
   static const _csvHeader = 'elapsed_ms,source,value';
+  static const _flushInterval = Duration(seconds: 5);
 
   final DataSourceRegistry registry;
 
   IOSink? _csvSink;
   SessionInfo? _active;
+  String? _finishedId;
+  Timer? _flushTimer;
   final Map<String, StreamSubscription<Measurement>> _subs = {};
+  Future<void> _queue = Future.value();
 
   FileSessionStore(this.registry);
+
+  /// Runs [op] after every previously queued store mutation has settled, so
+  /// begin/finish/abort can never interleave on the same directory.
+  Future<T> _serial<T>(Future<T> Function() op) {
+    final result = _queue.then((_) => op());
+    _queue = result.then((_) {}, onError: (_) {});
+    return result;
+  }
 
   Future<Directory> _sessionsRoot() async {
     final docs = await getApplicationDocumentsDirectory();
@@ -110,20 +128,43 @@ class FileSessionStore implements SessionStore {
   }
 
   @override
-  Future<void> beginSession(SessionInfo info) async {
-    await abortSession();
+  Future<void> beginSession(SessionInfo info) => _serial(() => _begin(info));
+
+  Future<void> _begin(SessionInfo info) async {
+    await _abort();
     _active = info;
-    final file = File('${(await _sessionDir(info.id)).path}/session.csv');
-    final sink = file.openWrite()..writeln(_csvHeader);
+    if (_finishedId == info.id) _finishedId = null;
+
+    final dir = await _sessionDir(info.id);
+    // Written up front so a session interrupted before `finishSession` is still
+    // self-describing when the next launch sweeps for orphans.
+    await File(
+      '${dir.path}/session.json',
+    ).writeAsString(jsonEncode(info.toJson()));
+    final sink = File('${dir.path}/session.csv').openWrite()
+      ..writeln(_csvHeader);
     _csvSink = sink;
 
+    _flushTimer = Timer.periodic(_flushInterval, (_) => unawaited(flush()));
     registry.addListener(_syncSubscriptions);
     _syncSubscriptions();
   }
 
+  @override
+  Future<void> flush() async {
+    try {
+      await _csvSink?.flush();
+    } catch (_) {
+      // A failed flush is retried by the next tick or by close().
+    }
+  }
+
   void _syncSubscriptions() {
     for (final source in registry.all) {
-      _subs.putIfAbsent(source.name, () => source.data.listen(_logSample(source)));
+      _subs.putIfAbsent(
+        source.name,
+        () => source.data.listen(_logSample(source)),
+      );
     }
   }
 
@@ -132,12 +173,16 @@ class FileSessionStore implements SessionStore {
       final info = _active;
       final sink = _csvSink;
       if (info == null || sink == null) return;
-      final elapsedMs = measurement.timestamp.difference(info.startedAt).inMilliseconds;
+      final elapsedMs = measurement.timestamp
+          .difference(info.startedAt)
+          .inMilliseconds;
       sink.writeln(sessionCsvRow(elapsedMs, source.name, measurement.value));
     };
   }
 
   Future<void> _teardownSubscriptions() async {
+    _flushTimer?.cancel();
+    _flushTimer = null;
     registry.removeListener(_syncSubscriptions);
     for (final sub in _subs.values) {
       await sub.cancel();
@@ -149,20 +194,28 @@ class FileSessionStore implements SessionStore {
   }
 
   @override
-  Future<void> finishSession(SessionSummary summary) async {
+  Future<void> finishSession(SessionSummary summary) =>
+      _serial(() => _finish(summary));
+
+  Future<void> _finish(SessionSummary summary) async {
     if (_active == null) return;
     await _teardownSubscriptions();
     final dir = await _sessionDir(summary.info.id);
     final json = const JsonEncoder.withIndent('  ').convert(summary.toJson());
     await File('${dir.path}/session.json').writeAsString(json);
     await _appendToIndex(summary);
+    _finishedId = summary.info.id;
     _active = null;
   }
 
   @override
-  Future<void> abortSession() async {
+  Future<void> abortSession() => _serial(_abort);
+
+  /// Discards the in-flight session. A session that already reached
+  /// [finishSession] is kept — a late reset must not delete saved data.
+  Future<void> _abort() async {
     final info = _active;
-    if (info == null) return;
+    if (info == null || info.id == _finishedId) return;
     await _teardownSubscriptions();
     final dir = await _sessionDir(info.id);
     if (await dir.exists()) await dir.delete(recursive: true);
@@ -173,35 +226,137 @@ class FileSessionStore implements SessionStore {
       File('${(await _sessionsRoot()).path}/index.json');
 
   Future<void> _appendToIndex(SessionSummary summary) async {
-    final entries = (await listSessions())
-        .where((s) => s.info.id != summary.info.id)
-        .toList()
-      ..add(summary);
+    final entries =
+        (await _list()).where((s) => s.info.id != summary.info.id).toList()
+          ..add(summary);
     entries.sort((a, b) => b.info.startedAt.compareTo(a.info.startedAt));
+    await _writeIndex(entries);
+  }
+
+  Future<void> _writeIndex(List<SessionSummary> entries) async {
     final json = jsonEncode(entries.map((s) => s.toJson()).toList());
     await (await _indexFile()).writeAsString(json);
   }
 
   @override
-  Future<List<SessionSummary>> listSessions() async {
+  Future<List<SessionSummary>> listSessions() => _serial(_list);
+
+  /// Reads the index, skipping entries that fail to parse. An index that cannot
+  /// be decoded at all is moved aside so History opens empty instead of failing.
+  Future<List<SessionSummary>> _list() async {
     final file = await _indexFile();
     if (!await file.exists()) return [];
-    final raw = jsonDecode(await file.readAsString());
-    if (raw is! List) return [];
-    return raw
-        .whereType<Map<String, dynamic>>()
-        .map(SessionSummary.fromJson)
-        .toList();
+    try {
+      final raw = jsonDecode(await file.readAsString());
+      if (raw is! List) throw const FormatException('index is not a list');
+      return [
+        for (final entry in raw)
+          if (entry is Map<String, dynamic>) ?SessionSummary.tryFromJson(entry),
+      ];
+    } catch (_) {
+      await _quarantine(file);
+      return [];
+    }
+  }
+
+  Future<void> _quarantine(File file) async {
+    try {
+      await file.rename('${file.path}.corrupt');
+    } catch (_) {
+      // Losing the broken copy is acceptable; not starting up is not.
+    }
   }
 
   @override
-  Future<void> deleteSession(String id) async {
+  Future<List<SessionSummary>> recoverOrphans() => _serial(_recoverOrphans);
+
+  /// A recording killed mid-outing leaves a directory that nothing lists and
+  /// nothing deletes. Everything on disk but absent from the index is either
+  /// rebuilt from its CSV — it is the user's training — or discarded when there
+  /// is nothing in it.
+  Future<List<SessionSummary>> _recoverOrphans() async {
+    final indexed = (await _list()).toList();
+    final known = indexed.map((s) => s.info.id).toSet();
+    final recovered = <SessionSummary>[];
+
+    for (final dir in await _sessionDirectories()) {
+      final id = dir.path.split(Platform.pathSeparator).last;
+      if (known.contains(id) || id == _active?.id) continue;
+
+      final summary = await _rebuildSummary(dir, id);
+      if (summary == null) {
+        await _deleteQuietly(dir);
+        continue;
+      }
+      recovered.add(summary);
+    }
+
+    if (recovered.isEmpty) return const [];
+    final entries = [...indexed, ...recovered]
+      ..sort((a, b) => b.info.startedAt.compareTo(a.info.startedAt));
+    await _writeIndex(entries);
+    return recovered;
+  }
+
+  Future<List<Directory>> _sessionDirectories() async {
+    try {
+      return (await _sessionsRoot()).listSync().whereType<Directory>().toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<SessionSummary?> _rebuildSummary(Directory dir, String id) async {
+    final info = await _readInfo(dir) ?? SessionInfo.fromDirectoryName(id);
+    if (info == null) return null;
+
+    final csv = File('${dir.path}/session.csv');
+    if (!await csv.exists()) return null;
+    final series = parseSessionCsv(await csv.readAsString());
+    if (series.isEmpty) return null;
+
+    var lastMs = 0;
+    for (final samples in series.values) {
+      if (samples.isNotEmpty && samples.last.elapsedMs > lastMs) {
+        lastMs = samples.last.elapsedMs;
+      }
+    }
+    final distance = series['Distance'];
+    return SessionSummary(
+      info: info,
+      stoppedAt: info.startedAt.add(Duration(milliseconds: lastMs)),
+      distanceMeters: distance == null || distance.isEmpty
+          ? 0
+          : distance.last.value,
+    );
+  }
+
+  Future<SessionInfo?> _readInfo(Directory dir) async {
+    try {
+      final file = File('${dir.path}/session.json');
+      if (!await file.exists()) return null;
+      final raw = jsonDecode(await file.readAsString());
+      return raw is Map<String, dynamic> ? SessionInfo.tryFromJson(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _deleteQuietly(Directory dir) async {
+    try {
+      await dir.delete(recursive: true);
+    } catch (_) {
+      // An undeletable leftover is not worth failing startup over.
+    }
+  }
+
+  @override
+  Future<void> deleteSession(String id) => _serial(() => _delete(id));
+
+  Future<void> _delete(String id) async {
     final dir = Directory('${(await _sessionsRoot()).path}/$id');
     if (await dir.exists()) await dir.delete(recursive: true);
-    final remaining =
-        (await listSessions()).where((s) => s.info.id != id).toList();
-    final json = jsonEncode(remaining.map((s) => s.toJson()).toList());
-    await (await _indexFile()).writeAsString(json);
+    await _writeIndex((await _list()).where((s) => s.info.id != id).toList());
   }
 
   @override

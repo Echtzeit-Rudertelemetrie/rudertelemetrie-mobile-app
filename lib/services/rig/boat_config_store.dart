@@ -24,6 +24,8 @@ abstract class BoatConfigStore {
 }
 
 /// File-backed store writing `boat_config.json` in the app documents directory.
+/// A corrupt or unreadable file is treated as "nothing saved" and moved aside —
+/// a broken rig must never keep the app from starting.
 class FileBoatConfigStore implements BoatConfigStore {
   Future<File> _file() async {
     final docs = await getApplicationDocumentsDirectory();
@@ -32,9 +34,26 @@ class FileBoatConfigStore implements BoatConfigStore {
 
   @override
   Future<BoatConfigData?> load() async {
-    final file = await _file();
-    if (!await file.exists()) return null;
-    final raw = jsonDecode(await file.readAsString());
+    File? file;
+    try {
+      file = await _file();
+      if (!await file.exists()) return null;
+      return _parse(jsonDecode(await file.readAsString()));
+    } catch (_) {
+      if (file != null) await _quarantine(file);
+      return null;
+    }
+  }
+
+  Future<void> _quarantine(File file) async {
+    try {
+      await file.rename('${file.path}.corrupt');
+    } catch (_) {
+      // Losing the broken copy is acceptable; not starting up is not.
+    }
+  }
+
+  BoatConfigData? _parse(dynamic raw) {
     if (raw is! Map) return null;
 
     final rigsRaw = raw['rigs'];
@@ -44,28 +63,34 @@ class FileBoatConfigStore implements BoatConfigStore {
         if (rigsRaw is Map)
           for (final e in rigsRaw.entries)
             if (e.value is Map)
-              e.key.toString():
-                  RigConfig.fromJson((e.value as Map).cast<String, dynamic>()),
+              e.key.toString(): RigConfig.fromJson(
+                (e.value as Map).cast<String, dynamic>(),
+              ),
       },
-      boatClass: BoatClass.values.asNameMap()[raw['boatClass']] ??
-          BoatClass.double_,
+      boatClass:
+          BoatClass.values.asNameMap()[raw['boatClass']] ?? BoatClass.double_,
       slots: {
         if (slotsRaw is Map)
           for (final e in slotsRaw.entries)
             if (e.value is Map)
-              e.key.toString():
-                  SeatSlot.fromJson((e.value as Map).cast<String, dynamic>()),
+              e.key.toString(): SeatSlot.fromJson(
+                (e.value as Map).cast<String, dynamic>(),
+              ),
       },
     );
   }
 
   @override
   Future<void> save(BoatConfigData data) async {
-    final json = jsonEncode({
-      'rigs': {for (final e in data.rigs.entries) e.key: e.value.toJson()},
-      'boatClass': data.boatClass.name,
-      'slots': {for (final e in data.slots.entries) e.key: e.value.toJson()},
-    });
-    await (await _file()).writeAsString(json);
+    try {
+      final json = jsonEncode({
+        'rigs': {for (final e in data.rigs.entries) e.key: e.value.toJson()},
+        'boatClass': data.boatClass.name,
+        'slots': {for (final e in data.slots.entries) e.key: e.value.toJson()},
+      });
+      await (await _file()).writeAsString(json);
+    } catch (_) {
+      // A failed write loses the last edit, not the app.
+    }
   }
 }

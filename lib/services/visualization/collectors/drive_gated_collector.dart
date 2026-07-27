@@ -17,7 +17,8 @@ class DriveGatedCollector extends PointCollector {
   DriveGatedCollector({required this.fOn, required this.fOff});
 
   @override
-  UnitPair Function(UnitPair) get unitTransform => (u) => u;
+  UnitPair Function(UnitPair) get unitTransform =>
+      (u) => u;
 
   @override
   StreamTransformer<XYPoint, List<XYPoint>> get collector =>

@@ -9,8 +9,11 @@ import 'package:rudertelemetrie_mobile_app/services/stroke/stroke_event.dart';
 
 const _key = 'Oarlock 1 (T)';
 
-StrokeEvent _evt(StrokeEventType type, int ms) =>
-    StrokeEvent(type: type, oarlockKey: _key, time: DateTime.fromMillisecondsSinceEpoch(ms));
+StrokeEvent _evt(StrokeEventType type, int ms) => StrokeEvent(
+  type: type,
+  oarlockKey: _key,
+  time: DateTime.fromMillisecondsSinceEpoch(ms),
+);
 
 void main() {
   late PushDataSource base;
@@ -23,7 +26,8 @@ void main() {
 
   tearDown(() => events.close());
 
-  StrokeGatedAggregateSource make(StrokeAggregate mode) => StrokeGatedAggregateSource(
+  StrokeGatedAggregateSource make(StrokeAggregate mode) =>
+      StrokeGatedAggregateSource(
         name: 'agg',
         unit: Unit.W,
         base: base,
@@ -32,38 +36,51 @@ void main() {
         mode: mode,
       );
 
-  void addBase(double value, int ms) =>
-      base.add(Measurement(value: value, timestamp: DateTime.fromMillisecondsSinceEpoch(ms)));
+  void addBase(double value, int ms) => base.add(
+    Measurement(
+      value: value,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(ms),
+    ),
+  );
 
-  test('cycle aggregates: peak, integral, average over previous-finish→finish', () async {
-    final peak = make(StrokeAggregate.peakOverCycle);
-    final integral = make(StrokeAggregate.integralOverCycle);
-    final average = make(StrokeAggregate.averageOverCycle);
-    addTearDown(() { peak.dispose(); integral.dispose(); average.dispose(); });
+  test(
+    'cycle aggregates: peak, integral, average over previous-finish→finish',
+    () async {
+      final peak = make(StrokeAggregate.peakOverCycle);
+      final integral = make(StrokeAggregate.integralOverCycle);
+      final average = make(StrokeAggregate.averageOverCycle);
+      addTearDown(() {
+        peak.dispose();
+        integral.dispose();
+        average.dispose();
+      });
 
-    final peaks = <double>[];
-    final integrals = <double>[];
-    final averages = <double>[];
-    peak.data.listen((m) => peaks.add(m.value));
-    integral.data.listen((m) => integrals.add(m.value));
-    average.data.listen((m) => averages.add(m.value));
+      final peaks = <double>[];
+      final integrals = <double>[];
+      final averages = <double>[];
+      peak.data.listen((m) => peaks.add(m.value));
+      integral.data.listen((m) => integrals.add(m.value));
+      average.data.listen((m) => averages.add(m.value));
 
-    events.add(_evt(StrokeEventType.finish, 0)); // seed previous finish
-    await pumpEventQueue();
+      events.add(_evt(StrokeEventType.finish, 0)); // seed previous finish
+      await pumpEventQueue();
 
-    addBase(100, 0);
-    addBase(300, 500); // peak
-    addBase(100, 1000);
-    await pumpEventQueue();
+      addBase(100, 0);
+      addBase(300, 500); // peak
+      addBase(100, 1000);
+      await pumpEventQueue();
 
-    events.add(_evt(StrokeEventType.finish, 1000)); // close cycle [0, 1000] ms
-    await pumpEventQueue();
+      events.add(
+        _evt(StrokeEventType.finish, 1000),
+      ); // close cycle [0, 1000] ms
+      await pumpEventQueue();
 
-    expect(peaks.single, 300);
-    // trapezoid: 0..0.5s mean 200 ->100 J; 0.5..1s mean 200 ->100 J => 200 J·... (W·s)
-    expect(integrals.single, closeTo(200, 1e-6));
-    expect(averages.single, closeTo(200, 1e-6)); // 200 J over 1 s
-  });
+      expect(peaks.single, 300);
+      // trapezoid: 0..0.5s mean 200 ->100 J; 0.5..1s mean 200 ->100 J => 200 J·... (W·s)
+      expect(integrals.single, closeTo(200, 1e-6));
+      expect(averages.single, closeTo(200, 1e-6)); // 200 J over 1 s
+    },
+  );
 
   test('drive aggregates use catch→finish', () async {
     final peakDrive = make(StrokeAggregate.peakOverDrive);
@@ -90,11 +107,13 @@ void main() {
 
     events.add(_evt(StrokeEventType.finish, 0));
     addBase(100, 500);
-    events.add(StrokeEvent(
-      type: StrokeEventType.finish,
-      oarlockKey: 'Oarlock 2 (T)',
-      time: DateTime.fromMillisecondsSinceEpoch(1000),
-    ));
+    events.add(
+      StrokeEvent(
+        type: StrokeEventType.finish,
+        oarlockKey: 'Oarlock 2 (T)',
+        time: DateTime.fromMillisecondsSinceEpoch(1000),
+      ),
+    );
     await pumpEventQueue();
 
     expect(peaks, isEmpty);

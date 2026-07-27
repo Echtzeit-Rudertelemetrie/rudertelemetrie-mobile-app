@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 class ChartTile extends StatefulWidget {
   final BoundVisualizer visualizer;
@@ -84,9 +85,11 @@ class _ChartTileState extends State<ChartTile>
     return 10 * magnitude;
   }
 
-  String _xLabel(double value) => '${_formatNumber(value)}${widget.visualizer.units.x.name}';
+  String _xLabel(double value) =>
+      '${_formatNumber(value)}${widget.visualizer.units.x.label}';
 
-  String _yLabel(double value) => '${_formatNumber(value)}${widget.visualizer.units.y.name}';
+  String _yLabel(double value) =>
+      '${_formatNumber(value)}${widget.visualizer.units.y.label}';
 
   String _formatNumber(double value) =>
       value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
@@ -126,7 +129,7 @@ class _ChartTileState extends State<ChartTile>
           height: 20,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: Color(0xFFF45866),
+            color: AppPalette.accent,
           ),
         ),
       );
@@ -147,12 +150,18 @@ class _ChartTileState extends State<ChartTile>
               children: [
                 Text(
                   widget.visualizer.name,
-                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: AppTypeScale.caption,
+                  ),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '${widget.visualizer.units.y.name} / ${widget.visualizer.units.x.name}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                  '${widget.visualizer.units.y.label} / ${widget.visualizer.units.x.label}',
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: AppTypeScale.caption,
+                  ),
                 ),
               ],
             ),
@@ -169,7 +178,7 @@ class _ChartTileState extends State<ChartTile>
                   LineChartBarData(
                     spots: spots,
                     isCurved: false,
-                    color: const Color(0xFFF45866),
+                    color: AppPalette.accent,
                     barWidth: 1.5,
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(show: false),
@@ -198,7 +207,7 @@ class _ChartTileState extends State<ChartTile>
                             _yLabel(value),
                             style: const TextStyle(
                               color: Colors.white38,
-                              fontSize: 8,
+                              fontSize: AppTypeScale.caption,
                             ),
                           ),
                         );
@@ -221,7 +230,7 @@ class _ChartTileState extends State<ChartTile>
                             _xLabel(value),
                             style: const TextStyle(
                               color: Colors.white38,
-                              fontSize: 8,
+                              fontSize: AppTypeScale.caption,
                             ),
                           ),
                         );

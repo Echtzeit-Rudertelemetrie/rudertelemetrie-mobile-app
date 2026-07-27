@@ -32,15 +32,27 @@ class ValueVsValueCombinator extends Combinator2 {
       }
 
       sub1 = s1.listen(
-        (m) { latest1 = m; tryEmit(); },
+        (m) {
+          latest1 = m;
+          tryEmit();
+        },
         onError: controller.addError,
-        onDone: () { sub2?.cancel(); controller.close(); },
+        onDone: () {
+          sub2?.cancel();
+          controller.close();
+        },
       );
 
       sub2 = s2.listen(
-        (m) { latest2 = m; tryEmit(); },
+        (m) {
+          latest2 = m;
+          tryEmit();
+        },
         onError: controller.addError,
-        onDone: () { sub1?.cancel(); controller.close(); },
+        onDone: () {
+          sub1?.cancel();
+          controller.close();
+        },
       );
 
       controller.onCancel = () {

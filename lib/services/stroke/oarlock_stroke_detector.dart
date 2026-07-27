@@ -14,8 +14,9 @@ class OarlockStrokeDetector {
   final void Function(StrokeEvent event) onEvent;
   final void Function(OarlockCycle cycle) onCycle;
 
-  final AngleDifferentiator _diff =
-      AngleDifferentiator(StrokeSettings.angleLpfCutoffHz);
+  final AngleDifferentiator _diff = AngleDifferentiator(
+    StrokeSettings.angleLpfCutoffHz,
+  );
 
   _State _state = _State.recovery;
   DateTime? _previousFinish;
@@ -34,16 +35,16 @@ class OarlockStrokeDetector {
   });
 
   double get _fOn => switch (settings.mode) {
-        ThresholdMode.absolute => settings.fOn,
-        ThresholdMode.autoScaled =>
-          _recentPeakForce > 0 ? settings.kOn * _recentPeakForce : settings.fOn,
-      };
+    ThresholdMode.absolute => settings.fOn,
+    ThresholdMode.autoScaled =>
+      _recentPeakForce > 0 ? settings.kOn * _recentPeakForce : settings.fOn,
+  };
 
   double get _fOff => switch (settings.mode) {
-        ThresholdMode.absolute => settings.fOff,
-        ThresholdMode.autoScaled =>
-          _recentPeakForce > 0 ? settings.kOff * _recentPeakForce : settings.fOff,
-      };
+    ThresholdMode.absolute => settings.fOff,
+    ThresholdMode.autoScaled =>
+      _recentPeakForce > 0 ? settings.kOff * _recentPeakForce : settings.fOff,
+  };
 
   void add(double angleDeg, double force, DateTime time) {
     _diff.add(angleDeg, time);
@@ -76,8 +77,7 @@ class OarlockStrokeDetector {
 
     if (force >= _fOff) return;
 
-    final driveSeconds =
-        time.difference(_catchTime!).inMicroseconds / 1e6;
+    final driveSeconds = time.difference(_catchTime!).inMicroseconds / 1e6;
     if (driveSeconds < settings.tauMinDrive) {
       _revertSpuriousCatch(angleDeg, time);
       return;
@@ -102,20 +102,22 @@ class OarlockStrokeDetector {
 
     final previous = _previousFinish;
     if (previous != null) {
-      final strokeSeconds =
-          finish.difference(previous).inMicroseconds / 1e6;
-      final withinRate = strokeSeconds >= settings.tauMinStroke &&
+      final strokeSeconds = finish.difference(previous).inMicroseconds / 1e6;
+      final withinRate =
+          strokeSeconds >= settings.tauMinStroke &&
           strokeSeconds <= settings.idleTimeout;
       if (withinRate) {
-        onCycle(OarlockCycle(
-          oarlockKey: oarlockKey,
-          catchTime: _catchTime!,
-          finishTime: finish,
-          previousFinishTime: previous,
-          reversalTime: _peakAngleTime ?? _catchTime!,
-          catchAngle: _catchAngle,
-          finishAngle: _finishAngle,
-        ));
+        onCycle(
+          OarlockCycle(
+            oarlockKey: oarlockKey,
+            catchTime: _catchTime!,
+            finishTime: finish,
+            previousFinishTime: previous,
+            reversalTime: _peakAngleTime ?? _catchTime!,
+            catchAngle: _catchAngle,
+            finishAngle: _finishAngle,
+          ),
+        );
       }
     }
 

@@ -53,7 +53,8 @@ class PowerSourceRegistrar {
     for (final key in _built.keys.toList()) {
       final pair = oarlocks[key];
       final rig = config.rigFor(key);
-      final stale = pair == null ||
+      final stale =
+          pair == null ||
           rig == null ||
           !rig.isValid ||
           _built[key]!.signature != _signature(rig, speed != null);
@@ -87,23 +88,58 @@ class PowerSourceRegistrar {
     );
 
     final powerSource = power.firstWhere((s) => s.name.startsWith('Power '));
-    final slip =
-        power.where((s) => s.name.startsWith('Blade Slip ')).toList();
+    final slip = power.where((s) => s.name.startsWith('Blade Slip ')).toList();
 
     final aggregates = <DataSource>[
-      _aggregate('Avg Power / Stroke $suffix', Unit.W, powerSource, key, group,
-          StrokeAggregate.averageOverCycle),
-      _aggregate('Peak Power / Stroke $suffix', Unit.W, powerSource, key, group,
-          StrokeAggregate.peakOverCycle),
-      _aggregate('Work / Stroke $suffix', Unit.J, powerSource, key, group,
-          StrokeAggregate.integralOverCycle),
-      _aggregate('Avg Drive Force $suffix', Unit.N, pair.force, key, group,
-          StrokeAggregate.averageOverDrive),
-      _aggregate('Peak Force / Stroke $suffix', Unit.N, pair.force, key, group,
-          StrokeAggregate.peakOverDrive),
+      _aggregate(
+        'Avg Power / Stroke $suffix',
+        Unit.W,
+        powerSource,
+        key,
+        group,
+        StrokeAggregate.averageOverCycle,
+      ),
+      _aggregate(
+        'Peak Power / Stroke $suffix',
+        Unit.W,
+        powerSource,
+        key,
+        group,
+        StrokeAggregate.peakOverCycle,
+      ),
+      _aggregate(
+        'Work / Stroke $suffix',
+        Unit.J,
+        powerSource,
+        key,
+        group,
+        StrokeAggregate.integralOverCycle,
+      ),
+      _aggregate(
+        'Avg Drive Force $suffix',
+        Unit.N,
+        pair.force,
+        key,
+        group,
+        StrokeAggregate.averageOverDrive,
+      ),
+      _aggregate(
+        'Peak Force / Stroke $suffix',
+        Unit.N,
+        pair.force,
+        key,
+        group,
+        StrokeAggregate.peakOverDrive,
+      ),
       if (slip.isNotEmpty)
-        _aggregate('Blade Drift / Stroke $suffix', Unit.m, slip.first, key,
-            group, StrokeAggregate.integralOverDrive),
+        _aggregate(
+          'Blade Drift / Stroke $suffix',
+          Unit.m,
+          slip.first,
+          key,
+          group,
+          StrokeAggregate.integralOverDrive,
+        ),
     ];
 
     final all = [omega, ...power, ...aggregates];
@@ -120,16 +156,15 @@ class PowerSourceRegistrar {
     String oarlockKey,
     String group,
     StrokeAggregate mode,
-  ) =>
-      StrokeGatedAggregateSource(
-        name: name,
-        unit: unit,
-        base: base,
-        events: engine.events,
-        oarlockKey: oarlockKey,
-        mode: mode,
-        group: group,
-      );
+  ) => StrokeGatedAggregateSource(
+    name: name,
+    unit: unit,
+    base: base,
+    events: engine.events,
+    oarlockKey: oarlockKey,
+    mode: mode,
+    group: group,
+  );
 
   Map<String, _SourcePair> _presentOarlocks() {
     final forces = <String, DataSource>{};

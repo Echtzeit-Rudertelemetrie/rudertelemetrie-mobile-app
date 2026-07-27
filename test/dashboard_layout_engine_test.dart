@@ -59,10 +59,7 @@ void main() {
         w('b', 2, 0, 2, 2),
         w('c', 0, 2, 2, 2),
       ];
-      final collisions = engine.getAllCollisions(
-        layout,
-        w('a', 0, 0, 4, 4),
-      );
+      final collisions = engine.getAllCollisions(layout, w('a', 0, 0, 4, 4));
       // b is at y=0,x=2; c is at y=2,x=0 → b should come first
       expect(collisions[0].id, 'b');
       expect(collisions[1].id, 'c');
@@ -132,8 +129,11 @@ void main() {
       final result = engine.moveElement(layout, 'a', 0, 1);
       for (var i = 0; i < result.length - 1; i++) {
         for (var j = i + 1; j < result.length; j++) {
-          expect(engine.collides(result[i], result[j]), isFalse,
-              reason: '${result[i].id} and ${result[j].id} should not collide');
+          expect(
+            engine.collides(result[i], result[j]),
+            isFalse,
+            reason: '${result[i].id} and ${result[j].id} should not collide',
+          );
         }
       }
     });
@@ -244,6 +244,35 @@ void main() {
       final (x, y) = engine.clampPosition(1, 1, 2, 2);
       expect(x, 1);
       expect(y, 1);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Capacity — a full grid must never resolve into overlapping tiles
+  // ---------------------------------------------------------------------------
+  group('full grid', () {
+    /// Every cell of a 4x6 grid occupied by 1x1 tiles.
+    List<WidgetConfig> packed() => [
+      for (var y = 0; y < engine.rows; y++)
+        for (var x = 0; x < engine.cols; x++) w('t_${x}_$y', x, y, 1, 1),
+    ];
+
+    test('reports the newcomer as colliding rather than hiding it', () {
+      final layout = packed();
+      final result = engine.addWidget(layout, w('new', 0, 0, 1, 1));
+      final placed = result.last;
+
+      expect(engine.getAllCollisions(layout, placed), isNotEmpty);
+    });
+
+    test('a grid with one more row places the newcomer cleanly', () {
+      const taller = DashboardLayoutEngine(cols: 4, rows: 7);
+      final layout = packed();
+      final result = taller.addWidget(layout, w('new', 0, 0, 1, 1));
+      final placed = result.last;
+
+      expect(taller.getAllCollisions(layout, placed), isEmpty);
+      expect(placed.y, 6);
     });
   });
 }

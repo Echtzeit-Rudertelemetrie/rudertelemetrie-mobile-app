@@ -9,8 +9,11 @@ class _PackBuilder {
   final ByteData _data = ByteData(BluetoothPacket.packetSize);
 
   _PackBuilder(int id, int sequence) {
-    _data.setUint32(0, ((id & 0x7) << 29) | (sequence & 0x1FFFFFFF),
-        Endian.little);
+    _data.setUint32(
+      0,
+      ((id & 0x7) << 29) | (sequence & 0x1FFFFFFF),
+      Endian.little,
+    );
   }
 
   _PackBuilder u16(int offset, int value) {

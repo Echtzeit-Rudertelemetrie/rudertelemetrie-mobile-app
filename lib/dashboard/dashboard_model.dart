@@ -9,10 +9,16 @@ import 'widget_config.dart';
 /// every edit is written back to it and persisted through [store].
 class DashboardModel extends ChangeNotifier {
   static const int _cols = 4;
-  static const int _rows = 8;
+
+  /// Rows visible without scrolling. The grid grows past this and scrolls, so a
+  /// full dashboard never has to stack tiles on top of each other.
+  static const int viewportRows = 8;
+
+  /// Hard ceiling, so a runaway layout cannot grow without bound.
+  static const int maxRows = 64;
+
   static const String defaultPresetName = 'Default';
 
-  final _engine = const DashboardLayoutEngine(cols: _cols, rows: _rows);
   final DashboardPresetStore? store;
 
   List<DashboardPreset> _presets = [];
@@ -23,7 +29,20 @@ class DashboardModel extends ChangeNotifier {
   DashboardModel({this.store});
 
   int get cols => _cols;
-  int get rows => _rows;
+
+  /// Height of the grid in rows: enough for what is on it, never less than a
+  /// viewport, so there is always somewhere to drag a tile.
+  int get rows {
+    var needed = viewportRows;
+    for (final item in _layout) {
+      if (item.y + item.h > needed) needed = item.y + item.h;
+    }
+    return needed.clamp(viewportRows, maxRows);
+  }
+
+  DashboardLayoutEngine get _engine =>
+      DashboardLayoutEngine(cols: _cols, rows: rows);
+
   bool get editMode => _editMode;
   List<WidgetConfig> get layout => List.unmodifiable(_layout);
 
@@ -60,11 +79,21 @@ class DashboardModel extends ChangeNotifier {
   void resizeWidget(String id, int w, int h) =>
       _commit(_engine.resizeElement(_layout, id, w, h));
 
-  void addWidget(WidgetConfig widget) =>
-      _commit(_engine.addWidget(_layout, widget));
+  /// Places [widget] in the first free slot, growing the grid if the visible
+  /// rows are full. Returns false only when the [maxRows] ceiling leaves no
+  /// room — the caller says so rather than letting the tile land under another.
+  bool addWidget(WidgetConfig widget) {
+    final engine = DashboardLayoutEngine(
+      cols: _cols,
+      rows: (rows + widget.h).clamp(1, maxRows),
+    );
+    final next = engine.addWidget(_layout, widget);
+    if (engine.getAllCollisions(_layout, next.last).isNotEmpty) return false;
+    _commit(next);
+    return true;
+  }
 
-  void removeWidget(String id) =>
-      _commit(_engine.removeWidget(_layout, id));
+  void removeWidget(String id) => _commit(_engine.removeWidget(_layout, id));
 
   /// Replace an existing widget's config in-place (identified by [newConfig.id]).
   ///
@@ -122,7 +151,10 @@ class DashboardModel extends ChangeNotifier {
   // Internals
   // ---------------------------------------------------------------------------
 
-  DashboardPreset _newPreset(String name, {List<WidgetConfig> layout = const []}) {
+  DashboardPreset _newPreset(
+    String name, {
+    List<WidgetConfig> layout = const [],
+  }) {
     final trimmed = name.trim();
     return DashboardPreset(
       id: 'preset_${DateTime.now().microsecondsSinceEpoch}',

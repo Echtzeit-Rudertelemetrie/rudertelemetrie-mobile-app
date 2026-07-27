@@ -5,10 +5,10 @@ import 'package:rudertelemetrie_mobile_app/services/kinematics/gps_kinematics.da
 double _latDegForMeters(double meters) => meters / 111320.0;
 
 GpsFix _fix(double lat, double lon, int ms) => GpsFix(
-      latitude: lat,
-      longitude: lon,
-      time: DateTime.fromMillisecondsSinceEpoch(ms),
-    );
+  latitude: lat,
+  longitude: lon,
+  time: DateTime.fromMillisecondsSinceEpoch(ms),
+);
 
 void main() {
   group('haversineMeters', () {

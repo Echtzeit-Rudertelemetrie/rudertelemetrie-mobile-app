@@ -1,18 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
-
-/// Formats a session duration as `h:mm:ss`.
-String formatElapsed(Duration d) {
-  final minutes = (d.inMinutes % 60).toString().padLeft(2, '0');
-  final seconds = (d.inSeconds % 60).toString().padLeft(2, '0');
-  return '${d.inHours}:$minutes:$seconds';
-}
-
-/// Formats a distance in metres as `m` below 1 km, else `km` with two decimals.
-String formatDistance(double meters) => meters < 1000
-    ? '${meters.round()} m'
-    : '${(meters / 1000).toStringAsFixed(2)} km';
+import 'package:rudertelemetrie_mobile_app/utils/format.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// Record/stop/reset control with live elapsed + distance, for the dashboard
 /// header. Phase 0 is manual-only.
@@ -44,23 +34,38 @@ class SessionControl extends StatelessWidget {
               ),
               Text(
                 formatDistance(session.distanceMeters),
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: AppTypeScale.caption,
+                ),
               ),
             ],
           ),
           const SizedBox(width: 8),
         ],
-        _CircleButton(
-          icon: recording ? Icons.stop : Icons.fiber_manual_record,
-          color: const Color(0xFFF45866),
-          onTap: recording ? session.stop : session.start,
+        // Dimmed when a detected catch would not start anything, so the user
+        // can tell whether auto-start is currently armed.
+        Semantics(
+          label: recording ? 'Stop recording' : 'Start recording',
+          button: true,
+          child: _CircleButton(
+            icon: recording ? Icons.stop : Icons.fiber_manual_record,
+            color: recording || session.isAutoArmed
+                ? AppPalette.accent
+                : AppPalette.accent.withAlpha(110),
+            onTap: recording ? session.stop : session.start,
+          ),
         ),
         if (hasData && !recording) ...[
           const SizedBox(width: 4),
-          _CircleButton(
-            icon: Icons.refresh,
-            color: Colors.white54,
-            onTap: session.reset,
+          Semantics(
+            label: 'Discard recording',
+            button: true,
+            child: _CircleButton(
+              icon: Icons.refresh,
+              color: Colors.white54,
+              onTap: session.reset,
+            ),
           ),
         ],
       ],
@@ -83,8 +88,8 @@ class _CircleButton extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
     onTap: onTap,
     child: Container(
-      width: 36,
-      height: 36,
+      width: kMinTapTarget,
+      height: kMinTapTarget,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: color, width: 1.5),

@@ -62,7 +62,10 @@ class Visualizer1 extends AnyVisualizer {
     required this.buildCollector,
   });
 
-  BoundVisualizer bind(DataSource source, {Map<String, double> params = const {}}) {
+  BoundVisualizer bind(
+    DataSource source, {
+    Map<String, double> params = const {},
+  }) {
     final collector = buildCollector(resolveParams(params));
     var stream = combinator.call(source.data);
     var units = combinator.units(source.unit);

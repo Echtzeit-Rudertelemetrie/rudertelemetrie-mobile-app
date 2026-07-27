@@ -17,13 +17,15 @@ class RigConfig {
   /// Whether the geometry is usable for the force model.
   bool get isValid => innerLever > 0 && scullLength > 0 && outerLever > 0;
 
-  Map<String, dynamic> toJson() =>
-      {'innerLever': innerLever, 'scullLength': scullLength};
+  Map<String, dynamic> toJson() => {
+    'innerLever': innerLever,
+    'scullLength': scullLength,
+  };
 
   static RigConfig fromJson(Map<String, dynamic> json) => RigConfig(
-        innerLever: (json['innerLever'] as num).toDouble(),
-        scullLength: (json['scullLength'] as num).toDouble(),
-      );
+    innerLever: (json['innerLever'] as num).toDouble(),
+    scullLength: (json['scullLength'] as num).toDouble(),
+  );
 }
 
 /// Boat classes (boat-rig-config Part B). `x` = sculling (two oars per seat),
@@ -55,9 +57,9 @@ class SeatSlot {
   Map<String, dynamic> toJson() => {'seat': seat, 'side': side.name};
 
   static SeatSlot fromJson(Map<String, dynamic> json) => SeatSlot(
-        seat: (json['seat'] as num).toInt(),
-        side: OarSide.values.asNameMap()[json['side']] ?? OarSide.both,
-      );
+    seat: (json['seat'] as num).toInt(),
+    side: OarSide.values.asNameMap()[json['side']] ?? OarSide.both,
+  );
 }
 
 /// Per-oarlock rig (Part A) and crew layout (Part B), keyed by the stable
@@ -125,9 +127,43 @@ class BoatConfig extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _persist() => store?.save(BoatConfigData(
-        rigs: Map.of(_rigs),
-        boatClass: _boatClass,
-        slots: Map.of(_slots),
-      ));
+  /// Forgets an oarlock entirely — rig and seat. For a device that will not come
+  /// back, so config does not accumulate for every oarlock ever seen.
+  void removeOarlock(String oarlockKey) {
+    final hadRig = _rigs.remove(oarlockKey) != null;
+    final hadSlot = _slots.remove(oarlockKey) != null;
+    if (!hadRig && !hadSlot) return;
+    _persist();
+    notifyListeners();
+  }
+
+  /// Oarlocks whose seat+side collides with another oarlock's. Two oars cannot
+  /// share a pin, and [computeBoatLayout] trusts the slots — it would happily
+  /// draw them on top of each other.
+  Set<String> get conflictingSlotKeys {
+    final entries = _slots.entries.toList();
+    final conflicts = <String>{};
+    for (var i = 0; i < entries.length; i++) {
+      for (var j = i + 1; j < entries.length; j++) {
+        if (!_overlaps(entries[i].value, entries[j].value)) continue;
+        conflicts
+          ..add(entries[i].key)
+          ..add(entries[j].key);
+      }
+    }
+    return conflicts;
+  }
+
+  /// `both` is a sculler holding an oar on each side, so it overlaps either one.
+  static bool _overlaps(SeatSlot a, SeatSlot b) =>
+      a.seat == b.seat &&
+      (a.side == b.side || a.side == OarSide.both || b.side == OarSide.both);
+
+  void _persist() => store?.save(
+    BoatConfigData(
+      rigs: Map.of(_rigs),
+      boatClass: _boatClass,
+      slots: Map.of(_slots),
+    ),
+  );
 }

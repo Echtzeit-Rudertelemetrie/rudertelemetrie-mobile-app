@@ -29,8 +29,10 @@ class _FakeSource extends DataSource {
   void dispose() {}
 }
 
-Measurement _m(double value, int ms) =>
-    Measurement(value: value, timestamp: DateTime.fromMillisecondsSinceEpoch(ms));
+Measurement _m(double value, int ms) => Measurement(
+  value: value,
+  timestamp: DateTime.fromMillisecondsSinceEpoch(ms),
+);
 
 XYPoint _p({required double x, required double y, required int ms}) =>
     XYPoint(x: x, y: y, timestamp: DateTime.fromMillisecondsSinceEpoch(ms));
@@ -42,30 +44,35 @@ void main() {
     buildCollector: (_) => TimeWindowCollector(const Duration(seconds: 10)),
   );
 
-  test('maps source 1 to X, source 2 to Y with combine-latest pairing', () async {
-    final s1 = _FakeSource(
-      'force',
-      Unit.N,
-      Stream.fromIterable([_m(10, 0), _m(20, 100)]),
-    );
-    final s2 = _FakeSource(
-      'angle',
-      Unit.deg,
-      Stream.fromIterable([_m(1, 50), _m(2, 150)]),
-    );
+  test(
+    'maps source 1 to X, source 2 to Y with combine-latest pairing',
+    () async {
+      final s1 = _FakeSource(
+        'force',
+        Unit.N,
+        Stream.fromIterable([_m(10, 0), _m(20, 100)]),
+      );
+      final s2 = _FakeSource(
+        'angle',
+        Unit.deg,
+        Stream.fromIterable([_m(1, 50), _m(2, 150)]),
+      );
 
-    final bound = visualizer.bind(s1, s2);
+      final bound = visualizer.bind(s1, s2);
 
-    expect(bound.units.x, Unit.N);
-    expect(bound.units.y, Unit.deg);
+      expect(bound.units.x, Unit.N);
+      expect(bound.units.y, Unit.deg);
 
-    final windows = await bound.output.toList();
-    final last = windows.last;
+      final windows = await bound.output.toList();
+      final last = windows.last;
 
-    // Latest of each stream once both have fired: (20 N, 2 deg).
-    expect(last.map((p) => (p.x, p.y)),
-        containsAllInOrder(const [(10.0, 1.0), (20.0, 1.0), (20.0, 2.0)]));
-  });
+      // Latest of each stream once both have fired: (20 N, 2 deg).
+      expect(
+        last.map((p) => (p.x, p.y)),
+        containsAllInOrder(const [(10.0, 1.0), (20.0, 1.0), (20.0, 2.0)]),
+      );
+    },
+  );
 
   test('drops points older than the collector window', () async {
     final s1 = _FakeSource(
@@ -83,14 +90,17 @@ void main() {
     final List<XYPoint> last = (await bound.output.toList()).last;
 
     // Points at t=0 fall outside the 10s window relative to t=20s.
-    expect(last.every((p) => p.timestamp.millisecondsSinceEpoch >= 20000), isTrue);
+    expect(
+      last.every((p) => p.timestamp.millisecondsSinceEpoch >= 20000),
+      isTrue,
+    );
   });
 
   group('SmoothedXyCollector', () {
     SmoothedXyCollector build(Duration maxAge) => SmoothedXyCollector(
-          TimeWindowCollector(const Duration(seconds: 100)),
-          maxAge: maxAge,
-        );
+      TimeWindowCollector(const Duration(seconds: 100)),
+      maxAge: maxAge,
+    );
 
     test('keeps the newest point per x, sorted by x', () async {
       final collector = build(const Duration(seconds: 100));
@@ -100,10 +110,7 @@ void main() {
         _p(x: 2, y: 30, ms: 20), // newer at x=2 → replaces y=10
       ]).transform(collector.collector).toList();
 
-      expect(
-        out.last.map((p) => (p.x, p.y)),
-        const [(1.0, 20.0), (2.0, 30.0)],
-      );
+      expect(out.last.map((p) => (p.x, p.y)), const [(1.0, 20.0), (2.0, 30.0)]);
     });
 
     test('drops points older than maxAge relative to the newest', () async {

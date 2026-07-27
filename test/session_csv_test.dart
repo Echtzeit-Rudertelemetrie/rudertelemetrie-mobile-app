@@ -27,7 +27,9 @@ void main() {
   });
 
   test('skips the header and malformed lines', () {
-    final series = parseSessionCsv('elapsed_ms,source,value\n\nbad,row\n5,X,1.5');
+    final series = parseSessionCsv(
+      'elapsed_ms,source,value\n\nbad,row\n5,X,1.5',
+    );
     expect(series['X']!.single.value, 1.5);
     expect(series.length, 1);
   });

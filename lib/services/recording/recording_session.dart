@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_binder.dart';
 import 'package:rudertelemetrie_mobile_app/services/kinematics/gps_kinematics.dart';
+import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/recording_settings.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_record.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_store.dart';
+import 'package:rudertelemetrie_mobile_app/utils/format.dart';
 
 enum SessionState { idle, recording, stopped }
 
@@ -23,10 +26,11 @@ enum SessionState { idle, recording, stopped }
 class RecordingSession extends ChangeNotifier {
   static const _paceSpeedFloorMps = 0.3;
   static const _tick = Duration(seconds: 1);
-  static const _autoStopIdle = Duration(seconds: 20);
 
   final DataSourceRegistry registry;
   final SessionStore? store;
+  final AppNotifications? notifications;
+  final RecordingSettings settings;
   final GpsKinematics _kinematics = GpsKinematics();
 
   late final PushDataSource _speedKmh;
@@ -42,10 +46,7 @@ class RecordingSession extends ChangeNotifier {
   double _sessionDistanceMeters = 0;
   Measurement? _pendingLat;
 
-  DataSource? _latSource;
-  DataSource? _lonSource;
-  StreamSubscription<Measurement>? _latSub;
-  StreamSubscription<Measurement>? _lonSub;
+  late final SourceBinder _gps;
   Timer? _ticker;
 
   double _speedWeightedSum = 0;
@@ -56,13 +57,23 @@ class RecordingSession extends ChangeNotifier {
   bool _autoArmed = true;
   DateTime? _lastStrokeAt;
 
-  RecordingSession({required this.registry, this.store}) {
+  RecordingSession({
+    required this.registry,
+    this.store,
+    this.notifications,
+    RecordingSettings? settings,
+  }) : settings = settings ?? RecordingSettings() {
     _speedKmh = _register('Speed (km/h)', Unit.kmh);
-    _pace = _register('Pace (/500m)', Unit.s);
+    _pace = _register('Pace (/500m)', Unit.pace);
     _distance = _register('Distance', Unit.m);
     _elapsedSource = _register('Elapsed', Unit.s);
-    registry.addListener(_bindGpsSources);
-    _bindGpsSources();
+    _gps = SourceBinder(registry)
+      ..bind(
+        'lat',
+        matches: byNamePrefix('Latitude'),
+        onData: (m) => _pendingLat = m,
+      )
+      ..bind('lon', matches: byNamePrefix('Longitude'), onData: _onLongitude);
   }
 
   SessionState get state => _state;
@@ -100,7 +111,39 @@ class RecordingSession extends ChangeNotifier {
     _state = SessionState.stopped;
     _ticker?.cancel();
     _ticker = null;
-    unawaited(store?.finishSession(_buildSummary()));
+
+    final summary = _buildSummary();
+    if (summary.duration < settings.minimumDuration) {
+      _discard(summary);
+      return;
+    }
+
+    unawaited(store?.finishSession(summary));
+    if (!manual) {
+      notifications?.info(
+        'Session saved',
+        detail:
+            '${formatElapsed(summary.duration)} · '
+            '${formatDistance(summary.distanceMeters)} — '
+            'stopped after ${settings.autoStopIdle.inSeconds}s without strokes',
+      );
+    }
+    notifyListeners();
+  }
+
+  /// Too short to be training — carrying the boat, testing an oarlock. Saving it
+  /// would put noise in History.
+  void _discard(SessionSummary summary) {
+    unawaited(store?.abortSession());
+    notifications?.info(
+      'Session discarded',
+      detail:
+          'Shorter than the ${settings.minimumDuration.inSeconds}s minimum.',
+    );
+    _state = SessionState.idle;
+    _startedAt = null;
+    _stoppedAt = null;
+    _resetAccumulators();
     notifyListeners();
   }
 
@@ -116,11 +159,16 @@ class RecordingSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether a detected catch would start a session right now. Surfaced in the
+  /// session control so the user can tell what the app is about to do.
+  bool get isAutoArmed => settings.autoStart && _autoArmed && !isRecording;
+
   /// Called by the stroke engine on a detected catch. Auto-starts a session
-  /// unless auto is disarmed by a prior manual stop.
+  /// unless the user turned auto-start off, or a prior manual stop disarmed it.
   void onRowingDetected() {
-    if (isRecording || !_autoArmed) return;
+    if (isRecording || !_autoArmed || !settings.autoStart) return;
     start(mode: StartMode.auto);
+    notifications?.info('Recording started', detail: 'Rowing detected');
   }
 
   /// Called by the stroke engine on each finish; resets the auto-stop idle timer.
@@ -139,10 +187,10 @@ class RecordingSession extends ChangeNotifier {
   }
 
   SessionInfo _currentInfo() => SessionInfo(
-        id: 'session_${_startedAt!.millisecondsSinceEpoch}',
-        startedAt: _startedAt!,
-        startMode: _startMode,
-      );
+    id: 'session_${_startedAt!.millisecondsSinceEpoch}',
+    startedAt: _startedAt!,
+    startMode: _startMode,
+  );
 
   SessionSummary _buildSummary() {
     final seconds = elapsed.inMicroseconds / 1e6;
@@ -158,7 +206,10 @@ class RecordingSession extends ChangeNotifier {
 
   void _onTick() {
     _elapsedSource.add(
-      Measurement(value: elapsed.inSeconds.toDouble(), timestamp: DateTime.now()),
+      Measurement(
+        value: elapsed.inSeconds.toDouble(),
+        timestamp: DateTime.now(),
+      ),
     );
     if (_shouldAutoStop()) {
       _stop(manual: false);
@@ -171,35 +222,15 @@ class RecordingSession extends ChangeNotifier {
     final last = _lastStrokeAt;
     return _startMode == StartMode.auto &&
         last != null &&
-        DateTime.now().difference(last) > _autoStopIdle;
-  }
-
-  void _bindGpsSources() {
-    final lat = _find('Latitude');
-    final lon = _find('Longitude');
-    if (lat != _latSource) {
-      _latSub?.cancel();
-      _latSource = lat;
-      _latSub = lat?.data.listen((m) => _pendingLat = m);
-    }
-    if (lon != _lonSource) {
-      _lonSub?.cancel();
-      _lonSource = lon;
-      _lonSub = lon?.data.listen(_onLongitude);
-    }
-  }
-
-  DataSource? _find(String prefix) {
-    for (final source in registry.all) {
-      if (source.name.startsWith(prefix)) return source;
-    }
-    return null;
+        DateTime.now().difference(last) > settings.autoStopIdle;
   }
 
   void _onLongitude(Measurement lon) {
     final lat = _pendingLat;
     if (lat == null || lat.timestamp != lon.timestamp) return;
-    _onFix(GpsFix(latitude: lat.value, longitude: lon.value, time: lon.timestamp));
+    _onFix(
+      GpsFix(latitude: lat.value, longitude: lon.value, time: lon.timestamp),
+    );
   }
 
   void _onFix(GpsFix fix) {
@@ -211,7 +242,9 @@ class RecordingSession extends ChangeNotifier {
     }
     if (!isRecording || !step.accepted) return;
     _sessionDistanceMeters += step.stepMeters;
-    _distance.add(Measurement(value: _sessionDistanceMeters, timestamp: fix.time));
+    _distance.add(
+      Measurement(value: _sessionDistanceMeters, timestamp: fix.time),
+    );
     _accumulateSpeed(speedKmh, fix.time);
   }
 
@@ -234,9 +267,7 @@ class RecordingSession extends ChangeNotifier {
 
   @override
   void dispose() {
-    registry.removeListener(_bindGpsSources);
-    _latSub?.cancel();
-    _lonSub?.cancel();
+    _gps.dispose();
     _ticker?.cancel();
     for (final source in [_speedKmh, _pace, _distance, _elapsedSource]) {
       registry.unregister(source.name);

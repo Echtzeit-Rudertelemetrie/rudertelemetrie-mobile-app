@@ -1,12 +1,12 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_binder.dart';
 import 'package:rudertelemetrie_mobile_app/services/kinematics/level_reading.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// Spirit-level + surge indicator (widget-level-acceleration spec). Bypasses the
 /// visualizer pipeline and subscribes to the boat `Acceleration X/Y/Z` sources
@@ -23,22 +23,27 @@ class LevelTile extends StatefulWidget {
 
 class _LevelTileState extends State<LevelTile>
     with SingleTickerProviderStateMixin {
-  final LowPass _fx = LowPass(0.4);
-  final LowPass _fy = LowPass(0.4);
-  final LowPass _fz = LowPass(0.4);
-  final List<StreamSubscription<Measurement>> _subs = [];
-  DateTime? _lastX, _lastY, _lastZ;
+  static const _axes = ['X', 'Y', 'Z'];
 
-  double _surge = 0;
-  LevelReading _reading =
-      const LevelReading(roll: 0, pitch: 0, gravity: 9.81);
+  late final SourceBinder _binder;
   late final Ticker _ticker;
+
+  var _filters = _AxisFilters();
+  double _surge = 0;
+  LevelReading _reading = const LevelReading(roll: 0, pitch: 0, gravity: 9.81);
   var _dirty = false;
 
   @override
   void initState() {
     super.initState();
-    _bind();
+    _binder = SourceBinder(widget.registry, onChanged: _onSourcesChanged);
+    for (final axis in _axes) {
+      _binder.bind(
+        axis,
+        matches: byNamePrefix('Acceleration $axis'),
+        onData: (m) => _onSample(axis, m),
+      );
+    }
     _ticker = createTicker((_) {
       if (_dirty) {
         _dirty = false;
@@ -50,53 +55,30 @@ class _LevelTileState extends State<LevelTile>
 
   @override
   void dispose() {
-    for (final s in _subs) {
-      s.cancel();
-    }
+    _binder.dispose();
     _ticker.dispose();
     super.dispose();
   }
 
-  DataSource? _find(String prefix) {
-    for (final s in widget.registry.all) {
-      if (s.name.startsWith(prefix)) return s;
-    }
-    return null;
+  /// A disconnect must return the tile to its empty state, not freeze it on the
+  /// last reading, so the filters start over whenever the axis set changes.
+  void _onSourcesChanged() {
+    if (!mounted) return;
+    setState(() {
+      _filters = _AxisFilters();
+      _surge = 0;
+      _reading = const LevelReading(roll: 0, pitch: 0, gravity: 9.81);
+    });
   }
 
-  void _bind() {
-    final x = _find('Acceleration X');
-    final y = _find('Acceleration Y');
-    final z = _find('Acceleration Z');
-    if (x == null || y == null || z == null) return;
-
-    _subs.add(x.data.listen((m) {
-      _surge = m.value;
-      _fx.add(m.value, _dt(m.timestamp, _lastX));
-      _lastX = m.timestamp;
-      _recompute();
-    }));
-    _subs.add(y.data.listen((m) {
-      _fy.add(m.value, _dt(m.timestamp, _lastY));
-      _lastY = m.timestamp;
-      _recompute();
-    }));
-    _subs.add(z.data.listen((m) {
-      _fz.add(m.value, _dt(m.timestamp, _lastZ));
-      _lastZ = m.timestamp;
-      _recompute();
-    }));
-  }
-
-  double _dt(DateTime now, DateTime? last) =>
-      last == null ? 0 : now.difference(last).inMicroseconds / 1e6;
-
-  void _recompute() {
-    _reading = LevelReading.fromAccel(_fx.value, _fy.value, _fz.value);
+  void _onSample(String axis, Measurement m) {
+    if (axis == 'X') _surge = m.value;
+    _filters.add(axis, m);
+    _reading = _filters.reading;
     _dirty = true;
   }
 
-  bool get _hasSources => _subs.isNotEmpty;
+  bool get _hasSources => _axes.every(_binder.isBound);
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +86,10 @@ class _LevelTileState extends State<LevelTile>
       return const Center(
         child: Text(
           'No boat IMU',
-          style: TextStyle(color: Colors.white38, fontSize: 11),
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: AppTypeScale.caption,
+          ),
         ),
       );
     }
@@ -115,7 +100,10 @@ class _LevelTileState extends State<LevelTile>
           child: Text(
             'Accel not gravity-referenced\n(|g| off) — level unavailable',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.amber, fontSize: 11),
+            style: TextStyle(
+              color: Colors.amber,
+              fontSize: AppTypeScale.caption,
+            ),
           ),
         ),
       );
@@ -128,17 +116,26 @@ class _LevelTileState extends State<LevelTile>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Level',
-                  style: TextStyle(color: Colors.white54, fontSize: 10)),
+              const Text(
+                'Level',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: AppTypeScale.caption,
+                ),
+              ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
                   color: Colors.white12,
                   borderRadius: BorderRadius.circular(3),
                 ),
-                child: const Text('SIM',
-                    style: TextStyle(color: Colors.white38, fontSize: 8)),
+                child: const Text(
+                  'SIM',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: AppTypeScale.caption,
+                  ),
+                ),
               ),
             ],
           ),
@@ -151,7 +148,10 @@ class _LevelTileState extends State<LevelTile>
           Text(
             'roll ${_reading.rollDegrees.toStringAsFixed(0)}°  '
             'pitch ${_reading.pitchDegrees.toStringAsFixed(0)}°',
-            style: const TextStyle(color: Colors.white54, fontSize: 10),
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: AppTypeScale.caption,
+            ),
           ),
         ],
       ),
@@ -159,8 +159,33 @@ class _LevelTileState extends State<LevelTile>
   }
 }
 
+/// One low-pass per acceleration axis, sample-rate independent via the gap
+/// between consecutive timestamps on that axis.
+class _AxisFilters {
+  final Map<String, LowPass> _filters = {
+    for (final axis in ['X', 'Y', 'Z']) axis: LowPass(0.4),
+  };
+  final Map<String, DateTime> _last = {};
+
+  void add(String axis, Measurement m) {
+    _filters[axis]!.add(m.value, _dt(axis, m.timestamp));
+    _last[axis] = m.timestamp;
+  }
+
+  double _dt(String axis, DateTime now) {
+    final last = _last[axis];
+    return last == null ? 0 : now.difference(last).inMicroseconds / 1e6;
+  }
+
+  LevelReading get reading => LevelReading.fromAccel(
+    _filters['X']!.value,
+    _filters['Y']!.value,
+    _filters['Z']!.value,
+  );
+}
+
 class _LevelPainter extends CustomPainter {
-  static const _accent = Color(0xFFF45866);
+  static const _accent = AppPalette.accent;
   static const _maxTiltRad = math.pi / 6; // ±30° maps to the rim
 
   final LevelReading reading;
@@ -179,18 +204,21 @@ class _LevelPainter extends CustomPainter {
       ..color = Colors.white24;
     canvas.drawCircle(center, radius, ring);
     canvas.drawCircle(center, radius / 2, ring..color = Colors.white10);
-    canvas.drawLine(Offset(center.dx - radius, center.dy),
-        Offset(center.dx + radius, center.dy), ring);
-    canvas.drawLine(Offset(center.dx, center.dy - radius),
-        Offset(center.dx, center.dy + radius), ring);
+    canvas.drawLine(
+      Offset(center.dx - radius, center.dy),
+      Offset(center.dx + radius, center.dy),
+      ring,
+    );
+    canvas.drawLine(
+      Offset(center.dx, center.dy - radius),
+      Offset(center.dx, center.dy + radius),
+      ring,
+    );
 
     // Bubble: roll -> x, pitch -> y (bow up = pitch positive moves bubble up).
     final nx = (reading.roll / _maxTiltRad).clamp(-1.0, 1.0);
     final ny = (reading.pitch / _maxTiltRad).clamp(-1.0, 1.0);
-    final bubble = Offset(
-      center.dx + nx * radius,
-      center.dy - ny * radius,
-    );
+    final bubble = Offset(center.dx + nx * radius, center.dy - ny * radius);
     final level = nx.abs() < 0.12 && ny.abs() < 0.12;
     canvas.drawCircle(
       bubble,

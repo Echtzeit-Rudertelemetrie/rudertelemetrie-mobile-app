@@ -14,7 +14,11 @@ class BluetoothStreamHandler {
 
   final Map<String, PushDataSource> _dataSources = {};
 
+  /// Sequence field width in the firmware header (`idAndSeq & 0x1FFFFFFF`).
+  static const _sequenceModulo = 0x20000000;
+
   int? _boatDeviceClockOrigin;
+  final Map<int, int> _oarlockSequenceOrigin = {};
 
   late final PacketReassembler _reassembler = PacketReassembler(_decodeFrame);
 
@@ -44,16 +48,20 @@ class BluetoothStreamHandler {
     final angle = _source('Angle ${packet.sensorId}', Unit.deg, group: group);
 
     for (var i = 0; i < packet.forces.length; i++) {
-      final timestamp = _timestampFor(force, packet.sequenceNumber, i);
+      final timestamp = _oarlockTimestamp(force, packet, i);
 
-      force.add(Measurement(
-        value: convertForceSensorData(packet.forces[i]),
-        timestamp: timestamp,
-      ));
-      angle.add(Measurement(
-        value: convertAngleSensorData(packet.angles[i]),
-        timestamp: timestamp,
-      ));
+      force.add(
+        Measurement(
+          value: convertForceSensorData(packet.forces[i]),
+          timestamp: timestamp,
+        ),
+      );
+      angle.add(
+        Measurement(
+          value: convertAngleSensorData(packet.angles[i]),
+          timestamp: timestamp,
+        ),
+      );
     }
   }
 
@@ -62,22 +70,36 @@ class BluetoothStreamHandler {
     final speed = _source('Speed', Unit.mps, group: group);
     final timestamp = _boatTimestamp(speed, packet.imu.timestampMs);
 
-    speed.add(Measurement(
-      value: packet.gps.speedMps.toDouble(),
-      timestamp: timestamp,
-    ));
+    speed.add(
+      Measurement(value: packet.gps.speedMps.toDouble(), timestamp: timestamp),
+    );
     if (packet.gps.valid) {
-      _source('Latitude', Unit.deg, group: group)
-          .add(Measurement(value: packet.gps.latitude, timestamp: timestamp));
-      _source('Longitude', Unit.deg, group: group)
-          .add(Measurement(value: packet.gps.longitude, timestamp: timestamp));
+      _source(
+        'Latitude',
+        Unit.deg,
+        group: group,
+      ).add(Measurement(value: packet.gps.latitude, timestamp: timestamp));
+      _source(
+        'Longitude',
+        Unit.deg,
+        group: group,
+      ).add(Measurement(value: packet.gps.longitude, timestamp: timestamp));
     }
-    _source('Acceleration X', Unit.mps2, group: group)
-        .add(Measurement(value: packet.imu.accX, timestamp: timestamp));
-    _source('Acceleration Y', Unit.mps2, group: group)
-        .add(Measurement(value: packet.imu.accY, timestamp: timestamp));
-    _source('Acceleration Z', Unit.mps2, group: group)
-        .add(Measurement(value: packet.imu.accZ, timestamp: timestamp));
+    _source(
+      'Acceleration X',
+      Unit.mps2,
+      group: group,
+    ).add(Measurement(value: packet.imu.accX, timestamp: timestamp));
+    _source(
+      'Acceleration Y',
+      Unit.mps2,
+      group: group,
+    ).add(Measurement(value: packet.imu.accY, timestamp: timestamp));
+    _source(
+      'Acceleration Z',
+      Unit.mps2,
+      group: group,
+    ).add(Measurement(value: packet.imu.accZ, timestamp: timestamp));
   }
 
   DateTime _boatTimestamp(PushDataSource source, int deviceMs) {
@@ -85,18 +107,27 @@ class BluetoothStreamHandler {
     return source.startTime.add(Duration(milliseconds: deviceMs - origin));
   }
 
-  DateTime _timestampFor(PushDataSource source, int packetSequenceNumber, int index) {
-    return convertSequenceNumbersToTimestamp(
-      source.startTime,
-      packetSequenceNumber,
-      index,
-    );
+  /// Anchors the oarlock's firmware sequence counter to the source's start time,
+  /// like [_boatTimestamp] does for the boat clock. Without this, a boat that
+  /// has been powered on for a while timestamps every sample far in the future.
+  DateTime _oarlockTimestamp(
+    PushDataSource source,
+    OarlockPacket packet,
+    int index,
+  ) {
+    final origin = _oarlockSequenceOrigin[packet.sensorId] ??=
+        packet.sequenceNumber;
+    final elapsed = (packet.sequenceNumber - origin) % _sequenceModulo;
+    return convertSequenceNumbersToTimestamp(source.startTime, elapsed, index);
   }
 
   PushDataSource _source(String name, Unit unit, {String? group}) {
     return _dataSources.putIfAbsent(name, () {
-      final source =
-          PushDataSource(name: _qualify(name), unit: unit, group: group);
+      final source = PushDataSource(
+        name: _qualify(name),
+        unit: unit,
+        group: group,
+      );
       dataSourceRegistry.register(source);
       return source;
     });

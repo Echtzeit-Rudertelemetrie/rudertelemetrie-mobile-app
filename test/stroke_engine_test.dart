@@ -40,17 +40,20 @@ void main() {
   test('registers the per-stroke sources in the picker', () async {
     await pumpEventQueue();
     final names = registry.all.map((s) => s.name).toSet();
-    expect(names, containsAll(<String>[
-      'Stroke Rate',
-      'Stroke Count',
-      'Drive:Recovery Ratio',
-      'Reversal→Catch Time',
-      'Distance per Stroke',
-      'Catch Angle',
-      'Finish Angle',
-      'Sweep',
-      'Crew Sync (finish)',
-    ]));
+    expect(
+      names,
+      containsAll(<String>[
+        'Stroke Rate',
+        'Stroke Count',
+        'Drive:Recovery Ratio',
+        'Reversal→Catch Time',
+        'Distance per Stroke',
+        'Catch Angle',
+        'Finish Angle',
+        'Sweep',
+        'Crew Sync (finish)',
+      ]),
+    );
   });
 
   test('single oarlock: counts strokes and reports the set rate', () async {
@@ -81,12 +84,13 @@ void main() {
 
     // Both crews row the same cadence; oarlock 2 lags by 100 ms. Feed the two
     // streams interleaved by timestamp, as real sources arrive.
-    final s1 = generateStrokeStream(drives: 4)
-        .map((s) => (s, force1, angle1))
-        .toList();
-    final s2 = generateStrokeStream(drives: 4, startMs: 100)
-        .map((s) => (s, force2, angle2))
-        .toList();
+    final s1 = generateStrokeStream(
+      drives: 4,
+    ).map((s) => (s, force1, angle1)).toList();
+    final s2 = generateStrokeStream(
+      drives: 4,
+      startMs: 100,
+    ).map((s) => (s, force2, angle2)).toList();
     final merged = [...s1, ...s2]..sort((a, b) => a.$1.tMs.compareTo(b.$1.tMs));
     for (final (sample, force, angle) in merged) {
       force.add(Measurement(value: sample.force, timestamp: sample.time));
@@ -96,5 +100,117 @@ void main() {
 
     expect(sync, isNotEmpty);
     expect(sync.last, closeTo(0.1, 0.02));
+  });
+
+  group('partial crews', () {
+    setUp(() {
+      engine.dispose();
+      engine = StrokeEngine(
+        registry: registry,
+        settings: StrokeSettings(),
+        quorumWindow: const Duration(milliseconds: 30),
+      );
+    });
+
+    Future<void> closeQuorum() async {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await pumpEventQueue();
+    }
+
+    test('keeps publishing when one of two oarlocks goes silent', () async {
+      final force1 = register('Force 1 (T)', Unit.N, 'Oarlock 1 (T)');
+      final angle1 = register('Angle 1 (T)', Unit.deg, 'Oarlock 1 (T)');
+      final force2 = register('Force 2 (T)', Unit.N, 'Oarlock 2 (T)');
+      final angle2 = register('Angle 2 (T)', Unit.deg, 'Oarlock 2 (T)');
+      await pumpEventQueue();
+
+      final rates = <double>[];
+      final reporting = <double>[];
+      registry.get('Stroke Rate')!.data.listen((m) => rates.add(m.value));
+      registry
+          .get('Oarlocks Rowing')!
+          .data
+          .listen((m) => reporting.add(m.value));
+
+      // Oarlock 2 rows one stroke, then stops entirely.
+      await feed(force2, angle2, generateStrokeStream(drives: 2));
+      await feed(force1, angle1, generateStrokeStream(drives: 5));
+      await closeQuorum();
+
+      expect(rates, isNotEmpty);
+      expect(reporting.last, 1); // published from the active oarlock alone
+    });
+
+    test('reports no crew sync when only one oarlock contributed', () async {
+      final force1 = register('Force 1 (T)', Unit.N, 'Oarlock 1 (T)');
+      final angle1 = register('Angle 1 (T)', Unit.deg, 'Oarlock 1 (T)');
+      register('Force 2 (T)', Unit.N, 'Oarlock 2 (T)');
+      register('Angle 2 (T)', Unit.deg, 'Oarlock 2 (T)');
+      await pumpEventQueue();
+
+      final sync = <double>[];
+      registry.get('Crew Sync (finish)')!.data.listen((m) => sync.add(m.value));
+
+      await feed(force1, angle1, generateStrokeStream(drives: 3));
+      await closeQuorum();
+
+      expect(sync, isEmpty);
+    });
+
+    test(
+      'returns to full-crew aggregation when the silent oarlock resumes',
+      () async {
+        final force1 = register('Force 1 (T)', Unit.N, 'Oarlock 1 (T)');
+        final angle1 = register('Angle 1 (T)', Unit.deg, 'Oarlock 1 (T)');
+        final force2 = register('Force 2 (T)', Unit.N, 'Oarlock 2 (T)');
+        final angle2 = register('Angle 2 (T)', Unit.deg, 'Oarlock 2 (T)');
+        await pumpEventQueue();
+
+        final reporting = <double>[];
+        registry
+            .get('Oarlocks Rowing')!
+            .data
+            .listen((m) => reporting.add(m.value));
+
+        await feed(force1, angle1, generateStrokeStream(drives: 3));
+        await closeQuorum();
+        expect(reporting.last, 1);
+
+        final resumed = generateStrokeStream(drives: 3, startMs: 20000);
+        final merged = [
+          ...resumed.map((s) => (s, force1, angle1)),
+          ...resumed.map((s) => (s, force2, angle2)),
+        ]..sort((a, b) => a.$1.tMs.compareTo(b.$1.tMs));
+        for (final (sample, force, angle) in merged) {
+          force.add(Measurement(value: sample.force, timestamp: sample.time));
+          angle.add(Measurement(value: sample.angle, timestamp: sample.time));
+        }
+        await pumpEventQueue();
+        await closeQuorum();
+
+        expect(reporting.last, 2);
+      },
+    );
+
+    test(
+      'an oarlock disconnecting mid-stroke does not stall the crew',
+      () async {
+        final force1 = register('Force 1 (T)', Unit.N, 'Oarlock 1 (T)');
+        final angle1 = register('Angle 1 (T)', Unit.deg, 'Oarlock 1 (T)');
+        register('Force 2 (T)', Unit.N, 'Oarlock 2 (T)');
+        register('Angle 2 (T)', Unit.deg, 'Oarlock 2 (T)');
+        await pumpEventQueue();
+
+        final counts = <double>[];
+        registry.get('Stroke Count')!.data.listen((m) => counts.add(m.value));
+
+        await feed(force1, angle1, generateStrokeStream(drives: 3));
+        registry.unregister('Force 2 (T)');
+        registry.unregister('Angle 2 (T)');
+        await pumpEventQueue();
+
+        expect(counts, isNotEmpty);
+      },
+    );
   });
 }

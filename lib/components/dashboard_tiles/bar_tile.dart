@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// One bar per stroke for a per-stroke source. Consumes the same
 /// [BoundVisualizer] pipeline as [ChartTile]; the newest bar is highlighted.
@@ -19,7 +20,7 @@ class BarTile extends StatefulWidget {
 }
 
 class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
-  static const _accent = Color(0xFFF45866);
+  static const _accent = AppPalette.accent;
 
   late final Ticker _ticker;
   StreamSubscription<List<XYPoint>>? _sub;
@@ -79,7 +80,10 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
       return const Center(
         child: Text(
           'Waiting for strokes…',
-          style: TextStyle(color: Colors.white38, fontSize: 11),
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: AppTypeScale.caption,
+          ),
         ),
       );
     }
@@ -94,9 +98,7 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
               toY: _points[i].y,
               width: 6,
               borderRadius: BorderRadius.circular(1),
-              color: i == _points.length - 1
-                  ? _accent
-                  : _accent.withAlpha(120),
+              color: i == _points.length - 1 ? _accent : _accent.withAlpha(120),
             ),
           ],
         ),
@@ -110,8 +112,11 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 2),
             child: Text(
-              '${widget.visualizer.name}  ${widget.visualizer.units.y.name}',
-              style: const TextStyle(color: Colors.white54, fontSize: 10),
+              '${widget.visualizer.name}  ${widget.visualizer.units.y.label}',
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: AppTypeScale.caption,
+              ),
             ),
           ),
           Expanded(
@@ -141,7 +146,7 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
                             _format(value),
                             style: const TextStyle(
                               color: Colors.white38,
-                              fontSize: 8,
+                              fontSize: AppTypeScale.caption,
                             ),
                           ),
                         );
@@ -189,7 +194,10 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
     }
     return Text(
       _points[barIndex].x.toInt().toString(),
-      style: const TextStyle(color: Colors.white38, fontSize: 8),
+      style: const TextStyle(
+        color: Colors.white38,
+        fontSize: AppTypeScale.caption,
+      ),
     );
   }
 

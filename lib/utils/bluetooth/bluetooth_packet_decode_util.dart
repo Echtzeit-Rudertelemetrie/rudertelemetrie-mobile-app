@@ -47,7 +47,11 @@ class OarlockPacket extends BluetoothPacket {
     required this.angles,
   });
 
-  static OarlockPacket _decode(ByteData data, int sensorId, int sequenceNumber) {
+  static OarlockPacket _decode(
+    ByteData data,
+    int sensorId,
+    int sequenceNumber,
+  ) {
     return OarlockPacket._(
       sensorId: sensorId,
       sequenceNumber: sequenceNumber,
@@ -57,9 +61,9 @@ class OarlockPacket extends BluetoothPacket {
   }
 
   static List<int> _readRegion(ByteData data, int offset) => [
-        for (var i = 0; i < BluetoothPacket._samplesPerRegion; i++)
-          data.getUint16(offset + i * 2, Endian.little),
-      ];
+    for (var i = 0; i < BluetoothPacket._samplesPerRegion; i++)
+      data.getUint16(offset + i * 2, Endian.little),
+  ];
 }
 
 class BoatPacket extends BluetoothPacket {

@@ -21,7 +21,8 @@ class CombineLatestSource extends DataSource {
   final Duration tolerance;
   final int _alignedCount;
 
-  final StreamController<Measurement> _controller = StreamController.broadcast();
+  final StreamController<Measurement> _controller =
+      StreamController.broadcast();
   final List<StreamSubscription<Measurement>> _subs = [];
   late final List<Measurement?> _latest;
   DateTime? _lastEmitted;
@@ -37,10 +38,10 @@ class CombineLatestSource extends DataSource {
     String? group,
     int? alignedCount,
     this.tolerance = const Duration(milliseconds: 5),
-  })  : _name = name,
-        _unit = unit,
-        _group = group,
-        _alignedCount = alignedCount ?? sources.length {
+  }) : _name = name,
+       _unit = unit,
+       _group = group,
+       _alignedCount = alignedCount ?? sources.length {
     startTime = DateTime.now();
     _latest = List<Measurement?>.filled(sources.length, null);
     for (var i = 0; i < sources.length; i++) {
@@ -78,10 +79,12 @@ class CombineLatestSource extends DataSource {
 
     if (_lastEmitted == reference) return;
     _lastEmitted = reference;
-    _controller.add(Measurement(
-      value: compute([for (final l in _latest) l!.value]),
-      timestamp: reference,
-    ));
+    _controller.add(
+      Measurement(
+        value: compute([for (final l in _latest) l!.value]),
+        timestamp: reference,
+      ),
+    );
   }
 
   @override

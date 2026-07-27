@@ -4,20 +4,18 @@ import 'package:rudertelemetrie_mobile_app/components/settings/connected_devices
 
 class ConnectedDevicesScreen extends StatelessWidget {
   const ConnectedDevicesScreen({super.key});
-  
+
   @override
   Widget build(BuildContext context) => FScaffold(
     header: FHeader.nested(
       title: const Text("Connected Devices"),
       prefixes: [
         FHeaderAction(
-            icon: const Icon(FIcons.arrowLeft),
-            onPress: () => Navigator.pop(context),
-        )
+          icon: const Icon(FIcons.arrowLeft),
+          onPress: () => Navigator.pop(context),
+        ),
       ],
     ),
-    child: Column(spacing: 10, children: [
-      ConnectedDevicesSettings(),
-    ]),
+    child: Column(spacing: 10, children: [ConnectedDevicesSettings()]),
   );
 }

@@ -17,11 +17,13 @@ class StrokeIndexCombinator extends Combinator1 {
   Stream<XYPoint> call(Stream<Measurement> source) {
     return StreamTransformer<Measurement, XYPoint>.fromBind((stream) {
       var index = 0;
-      return stream.map((m) => XYPoint(
-            x: (index++).toDouble(),
-            y: m.value,
-            timestamp: m.timestamp,
-          ));
+      return stream.map(
+        (m) => XYPoint(
+          x: (index++).toDouble(),
+          y: m.value,
+          timestamp: m.timestamp,
+        ),
+      );
     }).bind(source);
   }
 }

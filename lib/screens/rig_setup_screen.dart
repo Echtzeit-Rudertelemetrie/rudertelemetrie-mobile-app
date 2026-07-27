@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/components/settings/number_input_field.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/oarlocks.dart';
@@ -15,8 +15,10 @@ class RigSetupScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final registry = context.watch<DataSourceProviderModel>().registry;
     final config = context.watch<BoatConfig>();
-    final keys = {...connectedOarlockKeys(registry), ...config.oarlockKeys}.toList()
-      ..sort();
+    final keys = {
+      ...connectedOarlockKeys(registry),
+      ...config.oarlockKeys,
+    }.toList()..sort();
 
     return FScaffold(
       header: FHeader.nested(
@@ -68,7 +70,15 @@ class _OarlockRig extends StatelessWidget {
 
   const _OarlockRig({super.key, required this.oarlockKey, required this.rig});
 
-  void _update(BuildContext context, {double? innerLever, double? scullLength}) {
+  double get innerLever => rig?.innerLever ?? BoatConfig.defaultRig.innerLever;
+  double get scullLength =>
+      rig?.scullLength ?? BoatConfig.defaultRig.scullLength;
+
+  void _update(
+    BuildContext context, {
+    double? innerLever,
+    double? scullLength,
+  }) {
     final current = rig ?? BoatConfig.defaultRig;
     context.read<BoatConfig>().setRig(
       oarlockKey,
@@ -95,22 +105,27 @@ class _OarlockRig extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _RigField(
+              child: NumberInputField(
                 key: ValueKey('$oarlockKey.lin'),
                 label: 'Inner lever l_in',
-                value: rig?.innerLever ?? BoatConfig.defaultRig.innerLever,
-                onChanged: (v) => _update(context, innerLever: v),
+                unit: 'm',
+                value: innerLever,
+                validate: (v) => _validateInnerLever(v, scullLength),
+                onCommitted: (v) => _update(context, innerLever: v),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _RigField(
+              child: NumberInputField(
                 key: ValueKey('$oarlockKey.L'),
                 label: 'Scull length L',
-                value: rig?.scullLength ?? BoatConfig.defaultRig.scullLength,
-                onChanged: (v) => _update(context, scullLength: v),
+                unit: 'm',
+                value: scullLength,
+                validate: (v) => _validateScullLength(v, innerLever),
+                onCommitted: (v) => _update(context, scullLength: v),
               ),
             ),
           ],
@@ -118,85 +133,19 @@ class _OarlockRig extends StatelessWidget {
       ],
     ),
   );
-}
 
-class _RigField extends StatefulWidget {
-  final String label;
-  final double value;
-  final ValueChanged<double> onChanged;
-
-  const _RigField({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  State<_RigField> createState() => _RigFieldState();
-}
-
-class _RigFieldState extends State<_RigField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: _format(widget.value));
-
-  static String _format(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : '$v';
-
-  void _handleChanged(String raw) {
-    final parsed = double.tryParse(raw.replaceAll(',', '.'));
-    if (parsed != null && parsed > 0) widget.onChanged(parsed);
+  /// The outer lever `L − l_in` drives every force and power source; a
+  /// non-positive one makes the rig invalid and unregisters them all, so it is
+  /// rejected here rather than written and silently propagated.
+  static String? _validateInnerLever(double value, double scullLength) {
+    if (value <= 0) return 'Must be greater than 0';
+    if (value >= scullLength) return 'Must be less than L ($scullLength m)';
+    return null;
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  static String? _validateScullLength(double value, double innerLever) {
+    if (value <= 0) return 'Must be greater than 0';
+    if (value <= innerLever) return 'Must exceed l_in ($innerLever m)';
+    return null;
   }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        widget.label,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
-      ),
-      const SizedBox(height: 4),
-      Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-              ],
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              cursorColor: const Color(0xFFF45866),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                filled: true,
-                fillColor: Colors.white10,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.white24),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFF45866)),
-                ),
-              ),
-              onChanged: _handleChanged,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Text('m', style: TextStyle(color: Colors.white54, fontSize: 13)),
-        ],
-      ),
-    ],
-  );
 }

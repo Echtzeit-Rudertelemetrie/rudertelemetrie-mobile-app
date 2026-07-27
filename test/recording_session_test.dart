@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
@@ -5,9 +7,16 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_
 import 'package:rudertelemetrie_mobile_app/services/data_processing/derived/session_reducer_sources.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/recording_settings.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_record.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/session_store.dart';
+
+import 'support/temp_documents.dart';
 
 double _latDegForMeters(double meters) => meters / 111320.0;
+
+RecordingSettings _instantSessions() =>
+    RecordingSettings()..setMinimumDuration(Duration.zero);
 
 void main() {
   late DataSourceRegistry registry;
@@ -17,7 +26,12 @@ void main() {
 
   setUp(() {
     registry = DataSourceRegistry();
-    session = RecordingSession(registry: registry);
+    // The tests drive instant start/stop pairs; the production minimum
+    // duration would discard every one of them.
+    session = RecordingSession(
+      registry: registry,
+      settings: _instantSessions(),
+    );
     lat = PushDataSource(name: 'Latitude', unit: Unit.deg, group: 'Boat');
     lon = PushDataSource(name: 'Longitude', unit: Unit.deg, group: 'Boat');
     registry.register(lat);
@@ -33,12 +47,15 @@ void main() {
 
   test('registers the derived session sources in the picker', () {
     final names = registry.all.map((s) => s.name).toSet();
-    expect(names, containsAll(<String>[
-      'Speed (km/h)',
-      'Pace (/500m)',
-      'Distance',
-      'Elapsed',
-    ]));
+    expect(
+      names,
+      containsAll(<String>[
+        'Speed (km/h)',
+        'Pace (/500m)',
+        'Distance',
+        'Elapsed',
+      ]),
+    );
   });
 
   test('lifecycle: idle -> recording -> stopped -> reset', () {
@@ -104,6 +121,68 @@ void main() {
     });
   });
 
+  group('store lifecycle', () {
+    late Directory docs;
+    late FileSessionStore store;
+    late RecordingSession recorded;
+
+    Directory sessionDir(String id) => Directory('${docs.path}/sessions/$id');
+
+    setUp(() {
+      docs = useTempDocumentsDirectory();
+      store = FileSessionStore(registry);
+      recorded = RecordingSession(
+        registry: registry,
+        store: store,
+        settings: _instantSessions(),
+      );
+    });
+
+    tearDown(() => recorded.dispose());
+
+    test('stop then reset keeps the finished session', () async {
+      recorded.start();
+      final id = 'session_${recorded.startedAt!.millisecondsSinceEpoch}';
+      recorded.stop();
+      recorded.reset();
+      await store.listSessions();
+
+      expect(File('${sessionDir(id).path}/session.csv').existsSync(), isTrue);
+      expect(File('${sessionDir(id).path}/session.json').existsSync(), isTrue);
+      expect((await store.listSessions()).map((s) => s.info.id), [id]);
+    });
+
+    test('stop then start produces two independent sessions', () async {
+      recorded.start();
+      final first = 'session_${recorded.startedAt!.millisecondsSinceEpoch}';
+      recorded.stop();
+      recorded.reset();
+
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      recorded.start();
+      final second = 'session_${recorded.startedAt!.millisecondsSinceEpoch}';
+      recorded.stop();
+
+      expect((await store.listSessions()).map((s) => s.info.id).toSet(), {
+        first,
+        second,
+      });
+      for (final id in [first, second]) {
+        expect(File('${sessionDir(id).path}/session.csv').existsSync(), isTrue);
+      }
+    });
+
+    test('reset without stop discards the session', () async {
+      recorded.start();
+      final id = 'session_${recorded.startedAt!.millisecondsSinceEpoch}';
+      recorded.reset();
+      await store.listSessions();
+
+      expect(sessionDir(id).existsSync(), isFalse);
+      expect(await store.listSessions(), isEmpty);
+    });
+  });
+
   group('reducers', () {
     test('RunningAverageSource is time-weighted since session start', () async {
       session.start();
@@ -117,8 +196,12 @@ void main() {
 
       final t0 = session.startedAt!;
       base.add(Measurement(value: 10, timestamp: t0));
-      base.add(Measurement(value: 20, timestamp: t0.add(const Duration(seconds: 1))));
-      base.add(Measurement(value: 30, timestamp: t0.add(const Duration(seconds: 2))));
+      base.add(
+        Measurement(value: 20, timestamp: t0.add(const Duration(seconds: 1))),
+      );
+      base.add(
+        Measurement(value: 30, timestamp: t0.add(const Duration(seconds: 2))),
+      );
       await pumpEventQueue();
 
       expect(values.last, closeTo(20, 0.01));
@@ -136,8 +219,12 @@ void main() {
 
       final t0 = session.startedAt!;
       base.add(Measurement(value: 5, timestamp: t0));
-      base.add(Measurement(value: 30, timestamp: t0.add(const Duration(seconds: 1))));
-      base.add(Measurement(value: 12, timestamp: t0.add(const Duration(seconds: 2))));
+      base.add(
+        Measurement(value: 30, timestamp: t0.add(const Duration(seconds: 1))),
+      );
+      base.add(
+        Measurement(value: 12, timestamp: t0.add(const Duration(seconds: 2))),
+      );
       await pumpEventQueue();
 
       expect(values.last, 30);

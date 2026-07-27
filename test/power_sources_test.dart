@@ -11,10 +11,26 @@ void main() {
   // ω=2.5 rad/s, v=4.5 m/s, θ=10° ⇒ P_oar≈1070 W, η≈88.6 %, P_prop≈948 W,
   // v_slip≈0.57 m/s.
   test('golden vector: power, propulsion, slip, efficiency', () async {
-    final force = PushDataSource(name: 'Force 1 (T)', unit: Unit.N, group: 'Oarlock 1 (T)');
-    final angle = PushDataSource(name: 'Angle 1 (T)', unit: Unit.deg, group: 'Oarlock 1 (T)');
-    final omega = PushDataSource(name: 'Angular Velocity 1 (T)', unit: Unit.radps, group: 'Oarlock 1 (T)');
-    final speed = PushDataSource(name: 'Speed (km/h)', unit: Unit.kmh, group: 'Session');
+    final force = PushDataSource(
+      name: 'Force 1 (T)',
+      unit: Unit.N,
+      group: 'Oarlock 1 (T)',
+    );
+    final angle = PushDataSource(
+      name: 'Angle 1 (T)',
+      unit: Unit.deg,
+      group: 'Oarlock 1 (T)',
+    );
+    final omega = PushDataSource(
+      name: 'Angular Velocity 1 (T)',
+      unit: Unit.radps,
+      group: 'Oarlock 1 (T)',
+    );
+    final speed = PushDataSource(
+      name: 'Speed (km/h)',
+      unit: Unit.kmh,
+      group: 'Session',
+    );
 
     final sources = buildPowerSources(
       force: force,
@@ -35,7 +51,12 @@ void main() {
       s.data.listen((m) => latest[s.name] = m.value);
     }
 
-    speed.add(Measurement(value: 4.5 * 3.6, timestamp: DateTime.fromMillisecondsSinceEpoch(1))); // loose
+    speed.add(
+      Measurement(
+        value: 4.5 * 3.6,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(1),
+      ),
+    ); // loose
     final t = DateTime.fromMillisecondsSinceEpoch(1000);
     force.add(Measurement(value: 700, timestamp: t));
     angle.add(Measurement(value: 10, timestamp: t));
@@ -49,10 +70,26 @@ void main() {
   });
 
   test('consistency invariant: P_prop ≈ η · P_oar', () async {
-    final force = PushDataSource(name: 'Force 1 (T)', unit: Unit.N, group: 'Oarlock 1 (T)');
-    final angle = PushDataSource(name: 'Angle 1 (T)', unit: Unit.deg, group: 'Oarlock 1 (T)');
-    final omega = PushDataSource(name: 'Angular Velocity 1 (T)', unit: Unit.radps, group: 'Oarlock 1 (T)');
-    final speed = PushDataSource(name: 'Speed (km/h)', unit: Unit.kmh, group: 'Session');
+    final force = PushDataSource(
+      name: 'Force 1 (T)',
+      unit: Unit.N,
+      group: 'Oarlock 1 (T)',
+    );
+    final angle = PushDataSource(
+      name: 'Angle 1 (T)',
+      unit: Unit.deg,
+      group: 'Oarlock 1 (T)',
+    );
+    final omega = PushDataSource(
+      name: 'Angular Velocity 1 (T)',
+      unit: Unit.radps,
+      group: 'Oarlock 1 (T)',
+    );
+    final speed = PushDataSource(
+      name: 'Speed (km/h)',
+      unit: Unit.kmh,
+      group: 'Session',
+    );
     final sources = buildPowerSources(
       force: force,
       angle: angle,
@@ -71,7 +108,12 @@ void main() {
       s.data.listen((m) => latest[s.name] = m.value);
     }
 
-    speed.add(Measurement(value: 4.5 * 3.6, timestamp: DateTime.fromMillisecondsSinceEpoch(1)));
+    speed.add(
+      Measurement(
+        value: 4.5 * 3.6,
+        timestamp: DateTime.fromMillisecondsSinceEpoch(1),
+      ),
+    );
     final t = DateTime.fromMillisecondsSinceEpoch(1000);
     force.add(Measurement(value: 700, timestamp: t));
     angle.add(Measurement(value: 10, timestamp: t));
@@ -85,9 +127,21 @@ void main() {
   });
 
   test('Power omitted-speed still works; propulsion sources skipped', () async {
-    final force = PushDataSource(name: 'Force 1 (T)', unit: Unit.N, group: 'Oarlock 1 (T)');
-    final angle = PushDataSource(name: 'Angle 1 (T)', unit: Unit.deg, group: 'Oarlock 1 (T)');
-    final omega = PushDataSource(name: 'Angular Velocity 1 (T)', unit: Unit.radps, group: 'Oarlock 1 (T)');
+    final force = PushDataSource(
+      name: 'Force 1 (T)',
+      unit: Unit.N,
+      group: 'Oarlock 1 (T)',
+    );
+    final angle = PushDataSource(
+      name: 'Angle 1 (T)',
+      unit: Unit.deg,
+      group: 'Oarlock 1 (T)',
+    );
+    final omega = PushDataSource(
+      name: 'Angular Velocity 1 (T)',
+      unit: Unit.radps,
+      group: 'Oarlock 1 (T)',
+    );
     final sources = buildPowerSources(
       force: force,
       angle: angle,
@@ -103,7 +157,11 @@ void main() {
   });
 
   test('AngularVelocitySource converges to a steady angular rate', () async {
-    final angle = PushDataSource(name: 'Angle 1 (T)', unit: Unit.deg, group: 'Oarlock 1 (T)');
+    final angle = PushDataSource(
+      name: 'Angle 1 (T)',
+      unit: Unit.deg,
+      group: 'Oarlock 1 (T)',
+    );
     final omega = AngularVelocitySource(name: 'ω', angle: angle);
     addTearDown(omega.dispose);
 
@@ -112,10 +170,12 @@ void main() {
 
     // 1°/10 ms = 100°/s = 1.745 rad/s.
     for (var i = 0; i < 120; i++) {
-      angle.add(Measurement(
-        value: i.toDouble(),
-        timestamp: DateTime.fromMillisecondsSinceEpoch(i * 10),
-      ));
+      angle.add(
+        Measurement(
+          value: i.toDouble(),
+          timestamp: DateTime.fromMillisecondsSinceEpoch(i * 10),
+        ),
+      );
     }
     await pumpEventQueue();
 

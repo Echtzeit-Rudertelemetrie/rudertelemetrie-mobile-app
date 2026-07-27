@@ -3,8 +3,11 @@ import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/collectors/drive_gated_collector.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/collectors/per_stroke_bar_collector.dart';
 
-XYPoint _p(double x, double y) =>
-    XYPoint(x: x, y: y, timestamp: DateTime.fromMillisecondsSinceEpoch(x.toInt()));
+XYPoint _p(double x, double y) => XYPoint(
+  x: x,
+  y: y,
+  timestamp: DateTime.fromMillisecondsSinceEpoch(x.toInt()),
+);
 
 void main() {
   group('PerStrokeBarCollector', () {
@@ -24,9 +27,10 @@ void main() {
 
     test('emits growing windows until K is reached', () async {
       final collector = PerStrokeBarCollector(5);
-      final out = await Stream.fromIterable([_p(0, 1), _p(1, 2)])
-          .transform(collector.collector)
-          .toList();
+      final out = await Stream.fromIterable([
+        _p(0, 1),
+        _p(1, 2),
+      ]).transform(collector.collector).toList();
 
       expect(out.map((w) => w.length), [1, 2]);
     });

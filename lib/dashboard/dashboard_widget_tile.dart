@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'dashboard_model.dart';
 import 'widget_config.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// A single positioned tile on the dashboard grid.
 ///
@@ -59,10 +60,10 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1a1d30),
+              color: AppPalette.surface,
               borderRadius: BorderRadius.circular(8),
               border: editMode
-                  ? Border.all(color: const Color(0xFFF45866), width: 1.5)
+                  ? Border.all(color: AppPalette.accent, width: 1.5)
                   : null,
             ),
             child: ClipRRect(
@@ -81,7 +82,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
               onPanStart: _onDragStart,
               onPanUpdate: _onDragUpdate,
               onPanEnd: _onDragEnd,
-              child: const _Handle(icon: Icons.drag_indicator, color: Color(0xFFF45866)),
+              child: Semantics(
+                label: 'Move tile',
+                button: true,
+                child: const _Handle(
+                  icon: Icons.drag_indicator,
+                  color: AppPalette.accent,
+                ),
+              ),
             ),
           ),
 
@@ -91,7 +99,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
             right: 0,
             child: GestureDetector(
               onTap: () => context.read<DashboardModel>().removeWidget(cfg.id),
-              child: const _Handle(icon: Icons.close, color: Colors.redAccent),
+              child: Semantics(
+                label: 'Remove tile',
+                button: true,
+                child: const _Handle(
+                  icon: Icons.close,
+                  color: AppPalette.danger,
+                ),
+              ),
             ),
           ),
 
@@ -103,7 +118,11 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
               onPanStart: _onResizeStart,
               onPanUpdate: _onResizeUpdate,
               onPanEnd: _onResizeEnd,
-              child: const _ResizeHandle(),
+              child: Semantics(
+                label: 'Resize tile',
+                button: true,
+                child: const _ResizeHandle(),
+              ),
             ),
           ),
         ],
@@ -122,8 +141,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     final model = context.read<DashboardModel>();
     final cfg = widget.config;
     widget.onDragUpdate?.call(
-      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(0, model.cols - cfg.w),
-      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(0, model.rows - cfg.h),
+      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(
+        0,
+        model.cols - cfg.w,
+      ),
+      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(
+        0,
+        model.rows - cfg.h,
+      ),
     );
   }
 
@@ -132,8 +157,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     final cfg = widget.config;
     model.moveWidget(
       cfg.id,
-      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(0, model.cols - cfg.w),
-      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(0, model.rows - cfg.h),
+      (cfg.x + _dragAccum.dx / widget.cellWidth).round().clamp(
+        0,
+        model.cols - cfg.w,
+      ),
+      (cfg.y + _dragAccum.dy / widget.cellHeight).round().clamp(
+        0,
+        model.rows - cfg.h,
+      ),
     );
     _dragAccum = Offset.zero;
     widget.onDragEnd?.call();
@@ -152,8 +183,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
     _resizeWAccum += d.delta.dx;
     _resizeHAccum += d.delta.dy;
     widget.onResizeUpdate?.call(
-      (widget.config.w + (_resizeWAccum / widget.cellWidth).round()).clamp(1, 99),
-      (widget.config.h + (_resizeHAccum / widget.cellHeight).round()).clamp(1, 99),
+      (widget.config.w + (_resizeWAccum / widget.cellWidth).round()).clamp(
+        1,
+        99,
+      ),
+      (widget.config.h + (_resizeHAccum / widget.cellHeight).round()).clamp(
+        1,
+        99,
+      ),
     );
   }
 
@@ -199,10 +236,8 @@ class _ResizeHandle extends StatelessWidget {
   const _ResizeHandle();
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: _TrianglePainter(),
-    size: const Size(32, 32),
-  );
+  Widget build(BuildContext context) =>
+      CustomPaint(painter: _TrianglePainter(), size: const Size(32, 32));
 }
 
 class _TrianglePainter extends CustomPainter {
@@ -214,7 +249,7 @@ class _TrianglePainter extends CustomPainter {
         ..lineTo(size.width, size.height)
         ..lineTo(0, size.height)
         ..close(),
-      Paint()..color = const Color(0xFFF45866),
+      Paint()..color = AppPalette.accent,
     );
   }
 

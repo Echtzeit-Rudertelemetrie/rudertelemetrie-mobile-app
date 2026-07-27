@@ -50,15 +50,18 @@ void main() {
       expect(model.layout, isEmpty);
     });
 
-    test('duplicating carries the current layout into the new preset', () async {
-      final model = await _loaded(FakePresetStore());
-      model.addWidget(_tile('a'));
+    test(
+      'duplicating carries the current layout into the new preset',
+      () async {
+        final model = await _loaded(FakePresetStore());
+        model.addWidget(_tile('a'));
 
-      model.createPreset('Race', copyCurrent: true);
+        model.createPreset('Race', copyCurrent: true);
 
-      expect(model.layout.map((w) => w.id), ['a']);
-      expect(model.presets.first.layout.map((w) => w.id), ['a']);
-    });
+        expect(model.layout.map((w) => w.id), ['a']);
+        expect(model.presets.first.layout.map((w) => w.id), ['a']);
+      },
+    );
 
     test('renaming trims and ignores an empty name', () async {
       final model = await _loaded(FakePresetStore());

@@ -42,19 +42,26 @@ class OarlockCycle {
   double get sweep => catchAngle - finishAngle;
 }
 
-/// A crew-aggregated stroke closed once every connected oarlock has finished
-/// (stroke-detection §3/§4).
+/// A crew-aggregated stroke (stroke-detection §3/§4), closed once every bound
+/// oarlock has finished *or* the quorum window expires — a rower who stops must
+/// not freeze the whole crew's metrics.
 class CrewStroke {
   final DateTime finishTime;
 
-  /// Spread of oarlock finish times, `max − min` (Crew Sync).
-  final Duration finishSpread;
+  /// Spread of oarlock finish times, `max − min` (Crew Sync). Null when only one
+  /// oarlock contributed: there is no synchronisation to report.
+  final Duration? finishSpread;
   final Duration stroke;
   final Duration drive;
   final Duration recovery;
   final Duration reversalToCatch;
   final double catchAngle;
   final double finishAngle;
+
+  /// How many oarlocks contributed, out of how many were bound. `contributors <
+  /// expected` means a partial reading.
+  final int contributors;
+  final int expected;
 
   const CrewStroke({
     required this.finishTime,
@@ -65,7 +72,11 @@ class CrewStroke {
     required this.reversalToCatch,
     required this.catchAngle,
     required this.finishAngle,
+    required this.contributors,
+    required this.expected,
   });
+
+  bool get isPartial => contributors < expected;
 
   double get sweep => catchAngle - finishAngle;
   double get strokesPerMinute {
@@ -75,6 +86,8 @@ class CrewStroke {
 
   double get driveRecoveryRatio {
     final driveSeconds = drive.inMicroseconds / 1e6;
-    return driveSeconds > 0 ? recovery.inMicroseconds / drive.inMicroseconds : 0;
+    return driveSeconds > 0
+        ? recovery.inMicroseconds / drive.inMicroseconds
+        : 0;
   }
 }

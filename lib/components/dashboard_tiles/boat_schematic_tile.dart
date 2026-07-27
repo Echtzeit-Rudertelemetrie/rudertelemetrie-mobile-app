@@ -1,15 +1,14 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
-import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
-import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_binder.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_layout.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/oarlocks.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// Boat schematic Tier 2 (widget-boat-schematic): a stylised hull from above
 /// (bow up) with each oar drawn at its live θ, placed by [BoatConfig]. Bypasses
@@ -26,22 +25,21 @@ class BoatSchematicTile extends StatefulWidget {
 
 class _BoatSchematicTileState extends State<BoatSchematicTile>
     with SingleTickerProviderStateMixin {
-  final Map<String, StreamSubscription<Measurement>> _subs = {};
   final Map<String, double> _target = {};
   final Map<String, double> _current = {};
+  late final SourceBinder _binder;
   late final Ticker _ticker;
 
   @override
   void initState() {
     super.initState();
+    _binder = SourceBinder(widget.registry);
     _ticker = createTicker(_onFrame)..start();
   }
 
   @override
   void dispose() {
-    for (final s in _subs.values) {
-      s.cancel();
-    }
+    _binder.dispose();
     _ticker.dispose();
     super.dispose();
   }
@@ -57,18 +55,13 @@ class _BoatSchematicTileState extends State<BoatSchematicTile>
     if (changed && mounted) setState(() {});
   }
 
-  DataSource? _angleFor(String oarlockKey) {
-    for (final s in widget.registry.all) {
-      if (s.group == oarlockKey && s.name.startsWith('Angle ')) return s;
-    }
-    return null;
-  }
-
   void _ensureSubscribed(String oarlockKey) {
-    if (_subs.containsKey(oarlockKey)) return;
-    final source = _angleFor(oarlockKey);
-    if (source == null) return;
-    _subs[oarlockKey] = source.data.listen((m) => _target[oarlockKey] = m.value);
+    if (_binder.isBound(oarlockKey)) return;
+    _binder.bind(
+      oarlockKey,
+      matches: byGroupAndPrefix(oarlockKey, 'Angle '),
+      onData: (m) => _target[oarlockKey] = m.value,
+    );
   }
 
   @override
@@ -86,8 +79,13 @@ class _BoatSchematicTileState extends State<BoatSchematicTile>
 
     if (placements.isEmpty) {
       return const Center(
-        child: Text('No oarlocks connected',
-            style: TextStyle(color: Colors.white38, fontSize: 11)),
+        child: Text(
+          'No oarlocks connected',
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: AppTypeScale.caption,
+          ),
+        ),
       );
     }
 
@@ -99,7 +97,8 @@ class _BoatSchematicTileState extends State<BoatSchematicTile>
           placements: placements,
           angles: {
             for (final p in placements)
-              p.oarlockKey: _current[p.oarlockKey] ?? _target[p.oarlockKey] ?? 0,
+              p.oarlockKey:
+                  _current[p.oarlockKey] ?? _target[p.oarlockKey] ?? 0,
           },
         ),
         size: Size.infinite,
@@ -109,7 +108,7 @@ class _BoatSchematicTileState extends State<BoatSchematicTile>
 }
 
 class _BoatPainter extends CustomPainter {
-  static const _accent = Color(0xFFF45866);
+  static const _accent = AppPalette.accent;
 
   final int seats;
   final List<OarPlacement> placements;
@@ -177,10 +176,10 @@ class _BoatPainter extends CustomPainter {
   }
 
   List<double> _sides(OarSide side) => switch (side) {
-        OarSide.port => const [-1],
-        OarSide.starboard => const [1],
-        OarSide.both => const [-1, 1],
-      };
+    OarSide.port => const [-1],
+    OarSide.starboard => const [1],
+    OarSide.both => const [-1, 1],
+  };
 
   @override
   bool shouldRepaint(_BoatPainter old) => true;

@@ -18,13 +18,20 @@ final _baseAngle = RegExp(r'^Angle \d');
 /// level, and registers the per-stroke derived sources. Also emits a "rowing"
 /// signal used for the recording session's auto-start/stop.
 class StrokeEngine {
+  /// How long to wait for the rest of the crew after the first oarlock closes a
+  /// cycle. Finishes are spread across a real crew, not simultaneous; waiting
+  /// indefinitely for a rower who has stopped freezes every crew metric.
+  static const defaultQuorumWindow = Duration(milliseconds: 1500);
+
   final DataSourceRegistry registry;
   final StrokeSettings settings;
   final RecordingSession? session;
+  final Duration quorumWindow;
 
   final StreamController<StrokeEvent> _events = StreamController.broadcast();
   final Map<String, _OarlockBinding> _bindings = {};
   final Map<String, OarlockCycle> _pending = {};
+  Timer? _quorumTimer;
 
   late final PushDataSource _rate;
   late final PushDataSource _count;
@@ -35,6 +42,7 @@ class StrokeEngine {
   late final PushDataSource _finishAngle;
   late final PushDataSource _sweep;
   late final PushDataSource _crewSync;
+  late final PushDataSource _reporting;
 
   int _strokeCount = 0;
   double? _lastDistanceSnapshot;
@@ -42,7 +50,12 @@ class StrokeEngine {
   bool _scheduled = false;
   bool _disposed = false;
 
-  StrokeEngine({required this.registry, required this.settings, this.session}) {
+  StrokeEngine({
+    required this.registry,
+    required this.settings,
+    this.session,
+    this.quorumWindow = defaultQuorumWindow,
+  }) {
     _rate = _register('Stroke Rate', Unit.spm);
     _count = _register('Stroke Count', Unit.count);
     _ratio = _register('Drive:Recovery Ratio', Unit.ratio);
@@ -52,6 +65,7 @@ class StrokeEngine {
     _finishAngle = _register('Finish Angle', Unit.deg);
     _sweep = _register('Sweep', Unit.deg);
     _crewSync = _register('Crew Sync (finish)', Unit.s);
+    _reporting = _register('Oarlocks Rowing', Unit.count);
 
     _sessionOrigin = session?.startedAt;
     session?.addListener(_onSession);
@@ -104,6 +118,11 @@ class StrokeEngine {
         ),
       );
     });
+
+    // An oarlock that disconnected mid-stroke is no longer worth waiting for.
+    if (_pending.isNotEmpty && _bindings.keys.every(_pending.containsKey)) {
+      _closeCrewStroke();
+    }
   }
 
   Map<String, _SourcePair> _presentOarlocks() {
@@ -133,37 +152,52 @@ class StrokeEngine {
 
   void _onCycle(OarlockCycle cycle) {
     _pending[cycle.oarlockKey] = cycle;
-    final active = _bindings.keys.toSet();
-    if (!active.every(_pending.containsKey)) return;
-
-    final cycles = active.map((key) => _pending[key]!).toList();
-    _pending.clear();
-    _emitCrewStroke(cycles);
+    if (_bindings.keys.every(_pending.containsKey)) {
+      _closeCrewStroke();
+      return;
+    }
+    _quorumTimer ??= Timer(quorumWindow, _closeCrewStroke);
   }
 
-  void _emitCrewStroke(List<OarlockCycle> cycles) {
+  /// Publishes with whoever reported. Called either because the whole crew is
+  /// in, or because the quorum window closed on a silent oarlock.
+  void _closeCrewStroke() {
+    _quorumTimer?.cancel();
+    _quorumTimer = null;
+    if (_pending.isEmpty) return;
+
+    final cycles = _pending.values.toList();
+    _pending.clear();
+    _emitCrewStroke(cycles, expected: _bindings.length);
+  }
+
+  void _emitCrewStroke(List<OarlockCycle> cycles, {required int expected}) {
     final finishes = cycles.map((c) => c.finishTime).toList();
     final crewFinish = settings.crewAggregation == CrewAggregation.max
         ? finishes.reduce((a, b) => a.isAfter(b) ? a : b)
         : _meanTime(finishes);
-    final spread = finishes.reduce((a, b) => a.isAfter(b) ? a : b).difference(
-        finishes.reduce((a, b) => a.isBefore(b) ? a : b));
-
-    final stroke = _meanDuration(cycles.map((c) => c.stroke));
-    final drive = _meanDuration(cycles.map((c) => c.drive));
-    final recovery = _meanDuration(cycles.map((c) => c.recovery));
 
     final crew = CrewStroke(
       finishTime: crewFinish,
-      finishSpread: spread,
-      stroke: stroke,
-      drive: drive,
-      recovery: recovery,
+      finishSpread: _spread(finishes),
+      stroke: _meanDuration(cycles.map((c) => c.stroke)),
+      drive: _meanDuration(cycles.map((c) => c.drive)),
+      recovery: _meanDuration(cycles.map((c) => c.recovery)),
       reversalToCatch: _meanDuration(cycles.map((c) => c.reversalToCatch)),
       catchAngle: _mean(cycles.map((c) => c.catchAngle)),
       finishAngle: _mean(cycles.map((c) => c.finishAngle)),
+      contributors: cycles.length,
+      expected: expected == 0 ? cycles.length : expected,
     );
     _publish(crew);
+  }
+
+  /// Synchronisation is a property of a crew: one oarlock has none to report.
+  Duration? _spread(List<DateTime> finishes) {
+    if (finishes.length < 2) return null;
+    final latest = finishes.reduce((a, b) => a.isAfter(b) ? a : b);
+    final earliest = finishes.reduce((a, b) => a.isBefore(b) ? a : b);
+    return latest.difference(earliest);
   }
 
   void _publish(CrewStroke crew) {
@@ -172,17 +206,24 @@ class StrokeEngine {
     _count.add(Measurement(value: _strokeCount.toDouble(), timestamp: t));
     _rate.add(Measurement(value: crew.strokesPerMinute, timestamp: t));
     _ratio.add(Measurement(value: crew.driveRecoveryRatio, timestamp: t));
-    _reversalToCatch.add(Measurement(
-      value: crew.reversalToCatch.inMicroseconds / 1e6,
-      timestamp: t,
-    ));
+    _reversalToCatch.add(
+      Measurement(
+        value: crew.reversalToCatch.inMicroseconds / 1e6,
+        timestamp: t,
+      ),
+    );
     _catchAngle.add(Measurement(value: crew.catchAngle, timestamp: t));
     _finishAngle.add(Measurement(value: crew.finishAngle, timestamp: t));
     _sweep.add(Measurement(value: crew.sweep, timestamp: t));
-    _crewSync.add(Measurement(
-      value: crew.finishSpread.inMicroseconds / 1e6,
-      timestamp: t,
-    ));
+    _reporting.add(
+      Measurement(value: crew.contributors.toDouble(), timestamp: t),
+    );
+    final spread = crew.finishSpread;
+    if (spread != null) {
+      _crewSync.add(
+        Measurement(value: spread.inMicroseconds / 1e6, timestamp: t),
+      );
+    }
     _publishDistance(t);
   }
 
@@ -200,13 +241,14 @@ class StrokeEngine {
       values.reduce((a, b) => a + b) / values.length;
 
   Duration _meanDuration(Iterable<Duration> values) => Duration(
-        microseconds:
-            (values.map((d) => d.inMicroseconds).reduce((a, b) => a + b) /
-                    values.length)
-                .round(),
-      );
+    microseconds:
+        (values.map((d) => d.inMicroseconds).reduce((a, b) => a + b) /
+                values.length)
+            .round(),
+  );
 
-  DateTime _meanTime(List<DateTime> times) => DateTime.fromMicrosecondsSinceEpoch(
+  DateTime _meanTime(List<DateTime> times) =>
+      DateTime.fromMicrosecondsSinceEpoch(
         (times.map((t) => t.microsecondsSinceEpoch).reduce((a, b) => a + b) /
                 times.length)
             .round(),
@@ -220,6 +262,8 @@ class StrokeEngine {
 
   void dispose() {
     _disposed = true;
+    _quorumTimer?.cancel();
+    _quorumTimer = null;
     session?.removeListener(_onSession);
     registry.removeListener(_schedule);
     settings.removeListener(_schedule);
@@ -228,8 +272,16 @@ class StrokeEngine {
     }
     _bindings.clear();
     for (final source in [
-      _rate, _count, _ratio, _reversalToCatch, _distance,
-      _catchAngle, _finishAngle, _sweep, _crewSync,
+      _rate,
+      _count,
+      _ratio,
+      _reversalToCatch,
+      _distance,
+      _catchAngle,
+      _finishAngle,
+      _sweep,
+      _crewSync,
+      _reporting,
     ]) {
       registry.unregister(source.name);
       source.dispose();

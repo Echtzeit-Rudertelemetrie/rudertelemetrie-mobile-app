@@ -37,7 +37,8 @@ class StrokeGatedAggregateSource extends DataSource {
   final String oarlockKey;
   final StrokeAggregate mode;
 
-  final StreamController<Measurement> _controller = StreamController.broadcast();
+  final StreamController<Measurement> _controller =
+      StreamController.broadcast();
   final List<_Sample> _buffer = [];
   late final StreamSubscription<Measurement> _baseSub;
   late final StreamSubscription<StrokeEvent> _eventSub;
@@ -56,9 +57,9 @@ class StrokeGatedAggregateSource extends DataSource {
     required this.oarlockKey,
     required this.mode,
     String? group,
-  })  : _name = name,
-        _unit = unit,
-        _group = group {
+  }) : _name = name,
+       _unit = unit,
+       _group = group {
     startTime = DateTime.now();
     _baseSub = base.data.listen(_onSample);
     _eventSub = events.listen(_onEvent);
@@ -118,14 +119,11 @@ class StrokeGatedAggregateSource extends DataSource {
     if (window.isEmpty) return null;
 
     return switch (mode) {
-      StrokeAggregate.peakOverDrive ||
-      StrokeAggregate.peakOverCycle =>
+      StrokeAggregate.peakOverDrive || StrokeAggregate.peakOverCycle =>
         window.map((s) => s.value).reduce((a, b) => a > b ? a : b),
       StrokeAggregate.integralOverDrive ||
-      StrokeAggregate.integralOverCycle =>
-        _integral(window),
-      StrokeAggregate.averageOverDrive ||
-      StrokeAggregate.averageOverCycle =>
+      StrokeAggregate.integralOverCycle => _integral(window),
+      StrokeAggregate.averageOverDrive || StrokeAggregate.averageOverCycle =>
         _integral(window) / (finish.difference(start).inMicroseconds / 1e6),
     };
   }

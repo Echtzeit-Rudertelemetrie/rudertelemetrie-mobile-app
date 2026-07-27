@@ -9,6 +9,7 @@ import 'dashboard_model.dart';
 import 'param_field.dart';
 import 'sheet_scaffold.dart';
 import 'widget_config.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 class StreamSelectorSheet extends StatefulWidget {
   final WidgetConfig config;
@@ -30,8 +31,8 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
     super.initState();
     _type = widget.config.data['type'] as String? ?? 'value';
     _visualizerKey = widget.config.data['visualizerKey'] as String?;
-    final stored =
-        (widget.config.data['sourceKeys'] as List<dynamic>?)?.cast<String>();
+    final stored = (widget.config.data['sourceKeys'] as List<dynamic>?)
+        ?.cast<String>();
     _sourceKeys = stored != null ? List<String?>.from(stored) : [];
     _params = _readStoredParams(widget.config.data['params']);
   }
@@ -76,7 +77,9 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
 
   AnyVisualizer? get _selectedVisualizer {
     if (_visualizerKey == null) return null;
-    return context.read<VisualizerProviderModel>().registry.get(_visualizerKey!);
+    return context.read<VisualizerProviderModel>().registry.get(
+      _visualizerKey!,
+    );
   }
 
   void _selectVisualizer(AnyVisualizer v) {
@@ -106,9 +109,7 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
       footer: SizedBox(
         width: double.infinity,
         child: FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFF45866),
-          ),
+          style: FilledButton.styleFrom(backgroundColor: AppPalette.accent),
           onPressed: () {
             context.read<DashboardModel>().updateWidget(
               widget.config.copyWith(
@@ -157,11 +158,13 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
           style: TextStyle(color: Colors.white54, fontSize: 12),
         ),
         const SizedBox(height: 4),
-        ...visualizers.map((v) => _VisualizerOption(
-              visualizer: v,
-              selected: _visualizerKey == v.name,
-              onTap: () => _selectVisualizer(v),
-            )),
+        ...visualizers.map(
+          (v) => _VisualizerOption(
+            visualizer: v,
+            selected: _visualizerKey == v.name,
+            onTap: () => _selectVisualizer(v),
+          ),
+        ),
         const SizedBox(height: 16),
 
         if (_selectedVisualizer?.params.isNotEmpty ?? false) ...[
@@ -170,12 +173,14 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 4),
-          ..._selectedVisualizer!.params.map((p) => ParamField(
-                key: ValueKey('param_${p.key}'),
-                param: p,
-                value: _params[p.key] ?? p.defaultValue,
-                onChanged: (v) => _params[p.key] = v,
-              )),
+          ..._selectedVisualizer!.params.map(
+            (p) => ParamField(
+              key: ValueKey('param_${p.key}'),
+              param: p,
+              value: _params[p.key] ?? p.defaultValue,
+              onChanged: (v) => _params[p.key] = v,
+            ),
+          ),
           const SizedBox(height: 16),
         ],
 
@@ -194,19 +199,22 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
               ),
             )
           else
-            ..._groupSources(dataSources).entries.map((group) => _SourceGroup(
-                  key: ValueKey('src${i}_${group.key}'),
-                  title: group.key,
-                  children: group.value
-                      .map((ds) => _SourceOption(
-                            dataSource: ds,
-                            selected: i < _sourceKeys.length &&
-                                _sourceKeys[i] == ds.name,
-                            onTap: () =>
-                                setState(() => _sourceKeys[i] = ds.name),
-                          ))
-                      .toList(),
-                )),
+            ..._groupSources(dataSources).entries.map(
+              (group) => _SourceGroup(
+                key: ValueKey('src${i}_${group.key}'),
+                title: group.key,
+                children: group.value
+                    .map(
+                      (ds) => _SourceOption(
+                        dataSource: ds,
+                        selected:
+                            i < _sourceKeys.length && _sourceKeys[i] == ds.name,
+                        onTap: () => setState(() => _sourceKeys[i] = ds.name),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
           const SizedBox(height: 12),
         ],
       ],
@@ -243,7 +251,10 @@ class _VisualizerOption extends StatelessWidget {
               ),
               Text(
                 '${visualizer.sourceCount} source${visualizer.sourceCount == 1 ? '' : 's'}',
-                style: const TextStyle(color: Colors.white38, fontSize: 11),
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: AppTypeScale.caption,
+                ),
               ),
             ],
           ),
@@ -257,11 +268,7 @@ class _SourceGroup extends StatefulWidget {
   final String title;
   final List<Widget> children;
 
-  const _SourceGroup({
-    super.key,
-    required this.title,
-    required this.children,
-  });
+  const _SourceGroup({super.key, required this.title, required this.children});
 
   @override
   State<_SourceGroup> createState() => _SourceGroupState();
@@ -343,8 +350,11 @@ class _SourceOption extends StatelessWidget {
                 style: const TextStyle(color: Colors.white, fontSize: 14),
               ),
               Text(
-                dataSource.unit.name,
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                dataSource.unit.label,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: AppTypeScale.caption,
+                ),
               ),
             ],
           ),
@@ -365,13 +375,13 @@ class _Radio extends StatelessWidget {
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       border: Border.all(
-        color: selected ? const Color(0xFFF45866) : Colors.white38,
+        color: selected ? AppPalette.accent : Colors.white38,
         width: 2,
       ),
     ),
     child: selected
         ? const Center(
-            child: CircleAvatar(radius: 5, backgroundColor: Color(0xFFF45866)),
+            child: CircleAvatar(radius: 5, backgroundColor: AppPalette.accent),
           )
         : null,
   );
@@ -397,7 +407,7 @@ class _TypeButton extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFFF45866) : Colors.white10,
+        color: selected ? AppPalette.accent : Colors.white10,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

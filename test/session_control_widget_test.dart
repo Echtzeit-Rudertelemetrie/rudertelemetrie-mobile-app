@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/components/recording/session_control.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/notifications_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/recording_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/recording_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/session_store_provider.dart';
 
@@ -12,11 +14,18 @@ void main() {
   // created lazily during SessionControl's build (while a sibling watches the
   // registry), Flutter throws "setState() called during build". The provider is
   // eager (lazy: false) to prevent this.
-  testWidgets('SessionControl mounts without a build-phase registry error',
-      (tester) async {
+  testWidgets('SessionControl mounts without a build-phase registry error', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MultiProvider(
-        providers: [dataSourceProvider, sessionStoreProvider, recordingProvider],
+        providers: [
+          notificationsProvider,
+          recordingSettingsProvider,
+          dataSourceProvider,
+          sessionStoreProvider,
+          recordingProvider,
+        ],
         child: MaterialApp(
           home: Builder(
             builder: (context) {

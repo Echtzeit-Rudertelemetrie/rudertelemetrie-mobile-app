@@ -20,21 +20,25 @@ List<OarlockCycle> runDetector(List<StrokeSample> samples) {
 }
 
 void main() {
-  test('detects N-1 cycles from N clean drives, with expected SPM and ratio', () {
-    final cycles = runDetector(generateStrokeStream(drives: 5));
+  test(
+    'detects N-1 cycles from N clean drives, with expected SPM and ratio',
+    () {
+      final cycles = runDetector(generateStrokeStream(drives: 5));
 
-    expect(cycles.length, 4); // 5 finishes seed one, then 4 full cycles
-    for (final c in cycles) {
-      expect(c.strokesPerMinuteApprox, closeTo(30, 1)); // 2.0 s period
-      expect(c.driveRecoveryRatioApprox, closeTo(1.5, 0.1)); // 1.2 / 0.8
-      expect(c.sweep, closeTo(60, 2)); // +30 .. -30
-    }
-  });
+      expect(cycles.length, 4); // 5 finishes seed one, then 4 full cycles
+      for (final c in cycles) {
+        expect(c.strokesPerMinuteApprox, closeTo(30, 1)); // 2.0 s period
+        expect(c.driveRecoveryRatioApprox, closeTo(1.5, 0.1)); // 1.2 / 0.8
+        expect(c.sweep, closeTo(60, 2)); // +30 .. -30
+      }
+    },
+  );
 
   test('rejects a sub-τ_min force blip in the recovery (no extra cycle)', () {
     final baseline = runDetector(generateStrokeStream(drives: 5));
-    final withBlip =
-        runDetector(generateStrokeStream(drives: 5, blipInRecovery: [2]));
+    final withBlip = runDetector(
+      generateStrokeStream(drives: 5, blipInRecovery: [2]),
+    );
 
     expect(withBlip.length, baseline.length);
   });

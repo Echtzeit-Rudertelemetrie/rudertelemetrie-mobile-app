@@ -14,9 +14,11 @@ class AngularVelocitySource extends DataSource {
   final String? _group;
   final DataSource angle;
 
-  final AngleDifferentiator _diff =
-      AngleDifferentiator(StrokeSettings.angleLpfCutoffHz);
-  final StreamController<Measurement> _controller = StreamController.broadcast();
+  final AngleDifferentiator _diff = AngleDifferentiator(
+    StrokeSettings.angleLpfCutoffHz,
+  );
+  final StreamController<Measurement> _controller =
+      StreamController.broadcast();
   late final StreamSubscription<Measurement> _sub;
 
   @override
@@ -26,8 +28,8 @@ class AngularVelocitySource extends DataSource {
     required String name,
     required this.angle,
     String? group,
-  })  : _name = name,
-        _group = group {
+  }) : _name = name,
+       _group = group {
     startTime = DateTime.now();
     _sub = angle.data.listen((m) {
       final omega = _diff.add(m.value, m.timestamp);

@@ -14,7 +14,8 @@ class TimeWindowCollector extends PointCollector {
   TimeWindowCollector(this.duration);
 
   @override
-  UnitPair Function(UnitPair) get unitTransform => (u) => u;
+  UnitPair Function(UnitPair) get unitTransform =>
+      (u) => u;
 
   @override
   StreamTransformer<XYPoint, List<XYPoint>> get collector =>
@@ -23,8 +24,7 @@ class TimeWindowCollector extends PointCollector {
         return stream.map((point) {
           buffer.addLast(point);
           final cutoff = point.timestamp.subtract(duration);
-          while (buffer.isNotEmpty &&
-              buffer.first.timestamp.isBefore(cutoff)) {
+          while (buffer.isNotEmpty && buffer.first.timestamp.isBefore(cutoff)) {
             buffer.removeFirst();
           }
           return List.unmodifiable(buffer);

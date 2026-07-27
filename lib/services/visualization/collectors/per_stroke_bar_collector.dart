@@ -14,7 +14,8 @@ class PerStrokeBarCollector extends PointCollector {
   PerStrokeBarCollector(this.window);
 
   @override
-  UnitPair Function(UnitPair) get unitTransform => (u) => u;
+  UnitPair Function(UnitPair) get unitTransform =>
+      (u) => u;
 
   @override
   StreamTransformer<XYPoint, List<XYPoint>> get collector =>

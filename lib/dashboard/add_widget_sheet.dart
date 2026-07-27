@@ -4,6 +4,7 @@ import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/derived/session_reducer_sources.dart';
+import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
@@ -11,6 +12,7 @@ import 'dashboard_model.dart';
 import 'param_field.dart';
 import 'sheet_scaffold.dart';
 import 'widget_config.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 class AddWidgetSheet extends StatefulWidget {
   const AddWidgetSheet({super.key});
@@ -38,7 +40,9 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
 
   AnyVisualizer? get _selectedVisualizer {
     if (_visualizerKey == null) return null;
-    return context.read<VisualizerProviderModel>().registry.get(_visualizerKey!);
+    return context.read<VisualizerProviderModel>().registry.get(
+      _visualizerKey!,
+    );
   }
 
   bool get _canAdd =>
@@ -66,7 +70,7 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
 
   void _add(BuildContext context, String type, int w, int h) {
     final id = 'w_${DateTime.now().millisecondsSinceEpoch}';
-    context.read<DashboardModel>().addWidget(
+    final placed = context.read<DashboardModel>().addWidget(
       WidgetConfig(
         id: id,
         x: 0,
@@ -81,13 +85,33 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
         },
       ),
     );
+    _reportPlacement(context, placed);
+  }
+
+  /// The dashboard grows and scrolls, so only the hard row ceiling can refuse a
+  /// tile — and when it does, the user hears about it instead of watching the
+  /// tile disappear under another.
+  void _reportPlacement(BuildContext context, bool placed) {
+    if (!placed) {
+      context.read<AppNotifications>().alert(
+        'Dashboard full',
+        detail: 'Remove a widget or create a new preset.',
+      );
+      return;
+    }
     Navigator.pop(context);
   }
 
   /// Instrument tiles (gauge/level) bypass the visualizer pipeline and just
   /// carry their source keys.
-  void _addSimple(BuildContext context, String type, List<String> keys, int w, int h) {
-    context.read<DashboardModel>().addWidget(
+  void _addSimple(
+    BuildContext context,
+    String type,
+    List<String> keys,
+    int w,
+    int h,
+  ) {
+    final placed = context.read<DashboardModel>().addWidget(
       WidgetConfig(
         id: 'w_${DateTime.now().millisecondsSinceEpoch}',
         x: 0,
@@ -97,7 +121,7 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
         data: {'type': type, 'sourceKeys': keys},
       ),
     );
-    Navigator.pop(context);
+    _reportPlacement(context, placed);
   }
 
   void _addGauge(BuildContext context) {
@@ -116,7 +140,11 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     final base = registry.get(keys.first);
     if (base == null) return keys;
 
-    final reduced = reducedSource(base, _reduction, context.read<RecordingSession>());
+    final reduced = reducedSource(
+      base,
+      _reduction,
+      context.read<RecordingSession>(),
+    );
     if (reduced == null) return keys;
     final existing = registry.get(reduced.name);
     if (existing != null) {
@@ -222,11 +250,13 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
           style: TextStyle(color: Colors.white54, fontSize: 12),
         ),
         const SizedBox(height: 4),
-        ...visualizers.map((v) => _VisualizerOption(
-              visualizer: v,
-              selected: _visualizerKey == v.name,
-              onTap: () => _selectVisualizer(v),
-            )),
+        ...visualizers.map(
+          (v) => _VisualizerOption(
+            visualizer: v,
+            selected: _visualizerKey == v.name,
+            onTap: () => _selectVisualizer(v),
+          ),
+        ),
         const SizedBox(height: 16),
 
         if (_selectedVisualizer?.params.isNotEmpty ?? false) ...[
@@ -235,12 +265,14 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 4),
-          ..._selectedVisualizer!.params.map((p) => ParamField(
-                key: ValueKey('param_${p.key}'),
-                param: p,
-                value: _params[p.key] ?? p.defaultValue,
-                onChanged: (v) => _params[p.key] = v,
-              )),
+          ..._selectedVisualizer!.params.map(
+            (p) => ParamField(
+              key: ValueKey('param_${p.key}'),
+              param: p,
+              value: _params[p.key] ?? p.defaultValue,
+              onChanged: (v) => _params[p.key] = v,
+            ),
+          ),
           const SizedBox(height: 16),
         ],
 
@@ -259,18 +291,21 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
               ),
             )
           else
-            ..._groupSources(dataSources).entries.map((group) => _SourceGroup(
-                  key: ValueKey('src${i}_${group.key}'),
-                  title: group.key,
-                  children: group.value
-                      .map((ds) => _SourceOption(
-                            dataSource: ds,
-                            selected: _sourceKeys[i] == ds.name,
-                            onTap: () =>
-                                setState(() => _sourceKeys[i] = ds.name),
-                          ))
-                      .toList(),
-                )),
+            ..._groupSources(dataSources).entries.map(
+              (group) => _SourceGroup(
+                key: ValueKey('src${i}_${group.key}'),
+                title: group.key,
+                children: group.value
+                    .map(
+                      (ds) => _SourceOption(
+                        dataSource: ds,
+                        selected: _sourceKeys[i] == ds.name,
+                        onTap: () => setState(() => _sourceKeys[i] = ds.name),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
           const SizedBox(height: 12),
         ],
 
@@ -313,12 +348,13 @@ class _ReductionSelector extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(0xFFF45866)
-                    .withAlpha(selected == entry.key ? 40 : 0),
+                color: AppPalette.accent.withAlpha(
+                  selected == entry.key ? 40 : 0,
+                ),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: selected == entry.key
-                      ? const Color(0xFFF45866)
+                      ? AppPalette.accent
                       : Colors.white24,
                 ),
               ),
@@ -327,7 +363,7 @@ class _ReductionSelector extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: selected == entry.key
-                      ? const Color(0xFFF45866)
+                      ? AppPalette.accent
                       : Colors.white70,
                   fontSize: 12,
                 ),
@@ -370,7 +406,10 @@ class _VisualizerOption extends StatelessWidget {
               ),
               Text(
                 '${visualizer.sourceCount} source${visualizer.sourceCount == 1 ? '' : 's'}',
-                style: const TextStyle(color: Colors.white38, fontSize: 11),
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: AppTypeScale.caption,
+                ),
               ),
             ],
           ),
@@ -384,11 +423,7 @@ class _SourceGroup extends StatefulWidget {
   final String title;
   final List<Widget> children;
 
-  const _SourceGroup({
-    super.key,
-    required this.title,
-    required this.children,
-  });
+  const _SourceGroup({super.key, required this.title, required this.children});
 
   @override
   State<_SourceGroup> createState() => _SourceGroupState();
@@ -470,8 +505,11 @@ class _SourceOption extends StatelessWidget {
                 style: const TextStyle(color: Colors.white, fontSize: 14),
               ),
               Text(
-                dataSource.unit.name,
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                dataSource.unit.label,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: AppTypeScale.caption,
+                ),
               ),
             ],
           ),
@@ -492,13 +530,13 @@ class _Radio extends StatelessWidget {
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       border: Border.all(
-        color: selected ? const Color(0xFFF45866) : Colors.white38,
+        color: selected ? AppPalette.accent : Colors.white38,
         width: 2,
       ),
     ),
     child: selected
         ? const Center(
-            child: CircleAvatar(radius: 5, backgroundColor: Color(0xFFF45866)),
+            child: CircleAvatar(radius: 5, backgroundColor: AppPalette.accent),
           )
         : null,
   );
@@ -523,10 +561,10 @@ class _AddButton extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF45866).withAlpha(enabled ? 30 : 10),
+        color: AppPalette.accent.withAlpha(enabled ? 30 : 10),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: const Color(0xFFF45866).withAlpha(enabled ? 80 : 30),
+          color: AppPalette.accent.withAlpha(enabled ? 80 : 30),
         ),
       ),
       child: Row(
@@ -535,13 +573,13 @@ class _AddButton extends StatelessWidget {
           Icon(
             icon,
             size: 14,
-            color: Color(0xFFF45866).withAlpha(enabled ? 255 : 100),
+            color: AppPalette.accent.withAlpha(enabled ? 255 : 100),
           ),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
-              color: Color(0xFFF45866).withAlpha(enabled ? 255 : 100),
+              color: AppPalette.accent.withAlpha(enabled ? 255 : 100),
               fontSize: 12,
             ),
           ),

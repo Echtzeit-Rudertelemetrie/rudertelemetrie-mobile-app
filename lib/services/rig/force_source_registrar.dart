@@ -42,7 +42,8 @@ class ForceSourceRegistrar {
     for (final key in _built.keys.toList()) {
       final pair = oarlocks[key];
       final rig = config.rigFor(key);
-      final stale = pair == null ||
+      final stale =
+          pair == null ||
           rig == null ||
           !rig.isValid ||
           _built[key]!.signature != _signature(rig);

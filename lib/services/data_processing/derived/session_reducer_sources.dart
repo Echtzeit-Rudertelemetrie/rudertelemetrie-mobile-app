@@ -15,7 +15,8 @@ abstract class SessionReducerSource extends DataSource {
   final DataSource base;
   final RecordingSession session;
 
-  final StreamController<Measurement> _controller = StreamController.broadcast();
+  final StreamController<Measurement> _controller =
+      StreamController.broadcast();
   StreamSubscription<Measurement>? _sub;
   DateTime? _origin;
 

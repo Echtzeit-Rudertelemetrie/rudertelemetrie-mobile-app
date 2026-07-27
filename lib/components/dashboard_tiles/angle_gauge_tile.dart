@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// Live scull-angle dial (boat-schematic Tier 1). Bypasses the visualizer
 /// pipeline and subscribes to an `Angle N` source directly, showing the current
@@ -61,9 +62,12 @@ class _AngleGaugeTileState extends State<AngleGaugeTile>
     _finishAngle = null;
     _sub = widget.source.data.listen((m) {
       _angle = m.value;
-      _catchAngle = _catchAngle == null ? m.value : math.max(_catchAngle!, m.value);
-      _finishAngle =
-          _finishAngle == null ? m.value : math.min(_finishAngle!, m.value);
+      _catchAngle = _catchAngle == null
+          ? m.value
+          : math.max(_catchAngle!, m.value);
+      _finishAngle = _finishAngle == null
+          ? m.value
+          : math.min(_finishAngle!, m.value);
       _dirty = true;
     });
   }
@@ -77,7 +81,10 @@ class _AngleGaugeTileState extends State<AngleGaugeTile>
           widget.source.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white54, fontSize: 10),
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: AppTypeScale.caption,
+          ),
         ),
         Expanded(
           child: CustomPaint(
@@ -103,7 +110,7 @@ class _AngleGaugeTileState extends State<AngleGaugeTile>
 }
 
 class _GaugePainter extends CustomPainter {
-  static const _accent = Color(0xFFF45866);
+  static const _accent = AppPalette.accent;
 
   /// Half-span of the dial: ±[_span]° maps to the arc edges.
   static const double _span = 90;

@@ -1,6 +1,8 @@
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/recording_settings.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_store.dart';
 
 final recordingProvider = ChangeNotifierProvider<RecordingSession>(
@@ -12,5 +14,7 @@ final recordingProvider = ChangeNotifierProvider<RecordingSession>(
   create: (context) => RecordingSession(
     registry: context.read<DataSourceProviderModel>().registry,
     store: context.read<SessionStore>(),
+    notifications: context.read<AppNotifications>(),
+    settings: context.read<RecordingSettings>(),
   ),
 );

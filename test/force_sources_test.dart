@@ -9,8 +9,16 @@ import 'package:rudertelemetrie_mobile_app/services/rig/force_sources.dart';
 void main() {
   // PO worked example (force-power-model §5): F_D=700, l_in=0.88, L=2.88, θ=10°.
   test('golden vector: handle/blade/effective/lateral force', () async {
-    final force = PushDataSource(name: 'Force 1 (T)', unit: Unit.N, group: 'Oarlock 1 (T)');
-    final angle = PushDataSource(name: 'Angle 1 (T)', unit: Unit.deg, group: 'Oarlock 1 (T)');
+    final force = PushDataSource(
+      name: 'Force 1 (T)',
+      unit: Unit.N,
+      group: 'Oarlock 1 (T)',
+    );
+    final angle = PushDataSource(
+      name: 'Angle 1 (T)',
+      unit: Unit.deg,
+      group: 'Oarlock 1 (T)',
+    );
     final sources = buildForceSources(
       force: force,
       angle: angle,
@@ -40,8 +48,16 @@ void main() {
   });
 
   test('sources appear in the "Force & Power" group', () {
-    final force = PushDataSource(name: 'Force 1 (T)', unit: Unit.N, group: 'Oarlock 1 (T)');
-    final angle = PushDataSource(name: 'Angle 1 (T)', unit: Unit.deg, group: 'Oarlock 1 (T)');
+    final force = PushDataSource(
+      name: 'Force 1 (T)',
+      unit: Unit.N,
+      group: 'Oarlock 1 (T)',
+    );
+    final angle = PushDataSource(
+      name: 'Angle 1 (T)',
+      unit: Unit.deg,
+      group: 'Oarlock 1 (T)',
+    );
     final sources = buildForceSources(
       force: force,
       angle: angle,
@@ -54,10 +70,9 @@ void main() {
       }
     });
 
-    expect(
-      sources.map((DataSource s) => s.group).toSet(),
-      {'Force & Power (Oarlock 1 (T))'},
-    );
+    expect(sources.map((DataSource s) => s.group).toSet(), {
+      'Force & Power (Oarlock 1 (T))',
+    });
     expect(
       sources.map((s) => s.name),
       containsAll(<String>[
