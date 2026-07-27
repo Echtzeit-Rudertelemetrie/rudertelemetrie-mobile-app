@@ -59,6 +59,11 @@ void main() {
   });
 
   group('loss spikes', () {
+    /// Driven off the constant rather than a literal: the threshold is a
+    /// tuning knob, and these tests are about crossing it, not about its value.
+    const threshold = TelemetryQualityMonitor.spikeThreshold;
+    const half = threshold ~/ 2;
+
     late List<int> spikes;
     late TelemetryQualityMonitor spiking;
     late Map<String, int> sequence;
@@ -93,40 +98,42 @@ void main() {
     });
 
     test('reports once the window total crosses the threshold', () {
-      lose(4, 0);
+      lose(half, 0);
       expect(spikes, isEmpty);
 
-      lose(4, 2000);
-      expect(spikes, [8]);
+      lose(threshold - half, 2000);
+      expect(spikes, [threshold]);
     });
 
     test('a single large burst reports immediately', () {
-      lose(20, 0);
-      expect(spikes, [20]);
+      lose(threshold, 0);
+      expect(spikes, [threshold]);
     });
 
     test('losses older than the window do not accumulate into a spike', () {
-      lose(7, 0);
-      lose(1, 20000);
+      // Either burst alone stays under the threshold; together they would cross
+      // it, so a spike here would mean the window never expired the first.
+      lose(threshold - 1, 0);
+      lose(threshold - 1, 20000);
 
       expect(spikes, isEmpty);
     });
 
     test('does not repeat inside the cooldown, but reports a later spike', () {
-      lose(20, 0);
-      lose(20, 5000);
-      expect(spikes, [20]); // second burst falls inside the cooldown
+      lose(threshold, 0);
+      lose(threshold, 5000);
+      expect(spikes, [threshold]); // second burst falls inside the cooldown
 
-      lose(20, 60000);
-      expect(spikes, [20, 20]);
+      lose(threshold, 60000);
+      expect(spikes, [threshold, threshold]);
     });
 
     test('sums losses across oarlocks — the boat is what matters', () {
-      lose(4, 0, device: 'left');
+      lose(half, 0, device: 'left');
       expect(spikes, isEmpty);
 
-      lose(4, 100, device: 'right');
-      expect(spikes, [8]);
+      lose(threshold - half, 100, device: 'right');
+      expect(spikes, [threshold]);
     });
   });
 }

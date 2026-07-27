@@ -30,9 +30,9 @@ class TelemetryQualityMonitor extends ChangeNotifier {
 
   /// A spike is a burst of loss, not a stray packet. At one packet per
   /// [BluetoothPacket.samplesPerRegion] × [BluetoothPacket.sampleIntervalMs]
-  /// (80 ms), losing this many inside [spikeWindow] is over half a second of
-  /// missing telemetry — worth interrupting the rower for. Anything less is
-  /// noise the pipeline already absorbs.
+  /// (80 ms), losing this many inside [spikeWindow] is more than a second and a
+  /// half of missing telemetry — worth interrupting the rower for. Anything
+  /// less is noise the pipeline already absorbs.
   static const spikeWindow = Duration(seconds: 10);
   static const spikeThreshold = 20;
 
