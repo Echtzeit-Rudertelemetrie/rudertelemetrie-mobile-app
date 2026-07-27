@@ -70,6 +70,10 @@ abstract class SessionReducerSource extends DataSource {
   @override
   bool get derived => true;
 
+  /// One reduced value comes out per sample in, so the base's cadence carries.
+  @override
+  bool get perStroke => base.perStroke;
+
   @override
   SourceInfo get info => SourceInfo(
     label: '${_reductionPrefixes[reduction]} ${base.info.label}',

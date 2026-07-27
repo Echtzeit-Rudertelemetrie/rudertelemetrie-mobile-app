@@ -290,6 +290,7 @@ class StrokeEngine {
       unit: unit,
       group: 'Stroke',
       idleHint: 'No strokes detected yet — one value per stroke.',
+      perStroke: true,
     );
     registry.registerDeferred(source);
     return source;

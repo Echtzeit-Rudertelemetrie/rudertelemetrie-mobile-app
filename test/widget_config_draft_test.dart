@@ -63,10 +63,7 @@ void main() {
     final second = store();
 
     expect(second['sourceKeys'], ['Avg Force (EE01)']);
-    expect(
-      registry.all.where((s) => s.name == 'Avg Force (EE01)').length,
-      1,
-    );
+    expect(registry.all.where((s) => s.name == 'Avg Force (EE01)').length, 1);
   });
 
   /// A reducer is a live object, not a saved one: after a restart the preset

@@ -24,6 +24,9 @@ class PushDataSource extends DataSource {
   final String? idleHint;
 
   @override
+  final bool perStroke;
+
+  @override
   late final DateTime startTime;
 
   PushDataSource({
@@ -31,6 +34,7 @@ class PushDataSource extends DataSource {
     required this.unit,
     this.group,
     this.idleHint,
+    this.perStroke = false,
   }) {
     startTime = DateTime.now();
   }

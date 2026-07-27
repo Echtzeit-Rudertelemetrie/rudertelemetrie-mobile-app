@@ -56,6 +56,21 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
     return context.read<VisualizerProviderModel>().registry.get(key);
   }
 
+  List<AnyVisualizer> get _visualizers =>
+      context.read<VisualizerProviderModel>().registry.all;
+
+  /// Switching the display type can strand the visualizer — a chart's force
+  /// curve is not something a bar tile can draw. Move to one the new type can,
+  /// rather than leaving a selection that is no longer on offer.
+  void _selectKind(TileKind kind) {
+    setState(() {
+      _kind = kind;
+      final options = kind.visualizersFrom(_visualizers);
+      if (options.any((v) => v.name == _draft.visualizerKey)) return;
+      if (options.isNotEmpty) _draft.selectVisualizer(options.first);
+    });
+  }
+
   void _apply() {
     context.read<DashboardModel>().updateWidget(
       widget.config.copyWith(
@@ -98,14 +113,15 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
                 label: kind.label,
                 icon: kind.icon,
                 selected: _kind == kind,
-                onTap: () => setState(() => _kind = kind),
+                onTap: () => _selectKind(kind),
               ),
           ],
         ),
         const SizedBox(height: 16),
         WidgetConfigFields(
+          kind: _kind,
           draft: _draft,
-          visualizers: context.read<VisualizerProviderModel>().registry.all,
+          visualizers: _visualizers,
           selected: _selectedVisualizer,
           dataSources: context.watch<DataSourceProviderModel>().registry.all,
           onChanged: () => setState(() {}),

@@ -23,6 +23,11 @@ abstract class DataSource {
   /// an option on another source, not an entry of their own.
   bool get derived => false;
 
+  /// True when this source emits exactly one measurement per completed stroke.
+  /// Anything that indexes samples by stroke number needs one of these; given a
+  /// 100 Hz stream it would count samples and call them strokes.
+  bool get perStroke => false;
+
   /// Why this source can stay silent even though its inputs are healthy — it
   /// only emits once some condition is met. Tiles show it in place of an empty
   /// chart, which is otherwise indistinguishable from a broken binding. Null

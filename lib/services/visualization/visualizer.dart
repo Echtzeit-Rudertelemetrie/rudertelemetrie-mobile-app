@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_requirement.dart';
 
 import 'combinator.dart';
 import 'point_collector.dart';
@@ -18,10 +19,17 @@ enum SourceSelectionMode { individual, forceAnglePair }
 /// it can draw, so the sheet can offer only the visualizers that suit the tile
 /// the user picked — without the pipeline knowing tiles exist.
 enum VisualizerShape {
-  /// A value against elapsed time, advancing continuously.
+  /// A value against elapsed time, advancing continuously. The newest point is
+  /// always the newest sample, which is what makes this the only shape a plain
+  /// numeric readout can use.
   series,
 
-  /// One value against another, tracing a curve.
+  /// A value against elapsed time, but gated — the trace starts and restarts on
+  /// a condition, so it holds nothing until that condition is first met.
+  segmentedSeries,
+
+  /// One value against another, tracing a curve. The newest point's y belongs
+  /// to a pair, and means nothing read on its own.
   xy,
 
   /// One point per completed stroke.
@@ -126,6 +134,12 @@ sealed class AnyVisualizer {
   String get description;
 
   VisualizerShape get shape;
+
+  /// What its sources have to be. Indexing by stroke number only means
+  /// something when the source itself emits per stroke.
+  SourceRequirement get sourceRequirement => shape == VisualizerShape.perStroke
+      ? SourceRequirement.perStroke
+      : SourceRequirement.any;
 
   /// Numeric settings this visualizer exposes for per-widget configuration.
   List<VisualizerParam> get params;

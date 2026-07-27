@@ -65,22 +65,25 @@ void main() {
     expect(lines, anyElement(contains('gap of 900 ms')));
   });
 
-  test('counts a repeated fix once, so the summary shows the true fix rate', () {
-    for (var i = 0; i < 64; i++) {
-      // 12.5 Hz packets carrying a position that only moves once per second.
-      final at = start.add(Duration(milliseconds: i * 80));
-      log.record(
-        _boatPacket(sequence: i + 1, latitude: 47.123456 + (i ~/ 13) * 4e-5),
-        at,
-      );
-    }
+  test(
+    'counts a repeated fix once, so the summary shows the true fix rate',
+    () {
+      for (var i = 0; i < 64; i++) {
+        // 12.5 Hz packets carrying a position that only moves once per second.
+        final at = start.add(Duration(milliseconds: i * 80));
+        log.record(
+          _boatPacket(sequence: i + 1, latitude: 47.123456 + (i ~/ 13) * 4e-5),
+          at,
+        );
+      }
 
-    final summary = lines.last;
-    expect(summary, contains('64 packets/5.0s'));
-    expect(summary, contains('12.7 Hz'));
-    expect(summary, contains('position updates 5'));
-    expect(summary, contains('sats 8'));
-  });
+      final summary = lines.last;
+      expect(summary, contains('64 packets/5.0s'));
+      expect(summary, contains('12.7 Hz'));
+      expect(summary, contains('position updates 5'));
+      expect(summary, contains('sats 8'));
+    },
+  );
 
   test('counts packets missing from the sequence', () {
     log.record(_boatPacket(sequence: 1), start);

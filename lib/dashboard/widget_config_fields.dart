@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/derived/session_reducer_sources.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_requirement.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 import 'force_angle_picker.dart';
 import 'param_field.dart';
 import 'source_picker.dart';
+import 'tile_kind.dart';
 import 'widget_config_draft.dart';
 
 /// The visualizer / settings / sources / reduction editor, shared by the add
 /// and configure sheets so both offer the same options.
 ///
+/// Every section is filtered to what [kind] can actually render: a tile is only
+/// offered the visualizers it can draw, and a visualizer only the sources it can
+/// read. What is left is what will work.
+///
 /// Edits land in [draft] directly; [onChanged] is the host sheet's `setState`.
 class WidgetConfigFields extends StatelessWidget {
+  final TileKind kind;
   final WidgetConfigDraft draft;
   final List<AnyVisualizer> visualizers;
   final AnyVisualizer? selected;
@@ -22,6 +29,7 @@ class WidgetConfigFields extends StatelessWidget {
 
   const WidgetConfigFields({
     super.key,
+    required this.kind,
     required this.draft,
     required this.visualizers,
     required this.selected,
@@ -38,9 +46,23 @@ class WidgetConfigFields extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
+      ..._visualizers(),
+      ..._settings(),
+      ..._sources(),
+      ..._reduction(),
+    ],
+  );
+
+  /// Hidden when the tile leaves no choice: a list of one is a decision the
+  /// user does not get to make, and the caller has already made it for them.
+  List<Widget> _visualizers() {
+    final options = kind.visualizersFrom(visualizers);
+    if (options.length < 2) return const [];
+
+    return [
       const _SectionLabel('Visualizer'),
       const SizedBox(height: 4),
-      ...visualizers.map(
+      ...options.map(
         (v) => _VisualizerOption(
           visualizer: v,
           selected: draft.visualizerKey == v.name,
@@ -48,13 +70,11 @@ class WidgetConfigFields extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 16),
-      ..._settings(),
-      ..._sources(),
-      ..._reduction(),
-    ],
-  );
+    ];
+  }
 
   List<Widget> _settings() {
+    if (kind.readsLatestPointOnly) return const [];
     final params = selected?.params ?? const [];
     if (params.isEmpty) return const [];
 
@@ -102,6 +122,7 @@ class WidgetConfigFields extends StatelessWidget {
   Widget _sourcePicker(int index) => SourcePicker(
     slot: 'src$index',
     sources: dataSources,
+    requirement: selected?.sourceRequirement ?? SourceRequirement.any,
     selectedKey: index < draft.sourceKeys.length
         ? draft.sourceKeys[index]
         : null,

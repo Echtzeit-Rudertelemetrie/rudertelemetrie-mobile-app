@@ -10,6 +10,7 @@ import 'package:rudertelemetrie_mobile_app/dashboard/widget_config.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_requirement.dart';
 import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
 
@@ -20,8 +21,25 @@ void main() {
   setUp(() {
     dashboard = DashboardModel();
     sources = DataSourceProviderModel();
+    // One of each kind the pickers filter on: a plain sample stream, an oar
+    // angle, and a per-stroke value.
     sources.registry.register(
       PushDataSource(name: 'Force (EE01)', unit: Unit.N, group: 'Oarlock EE01'),
+    );
+    sources.registry.register(
+      PushDataSource(
+        name: 'Angle (EE01)',
+        unit: Unit.deg,
+        group: 'Oarlock EE01',
+      ),
+    );
+    sources.registry.register(
+      PushDataSource(
+        name: 'Stroke Rate',
+        unit: Unit.spm,
+        group: 'Stroke',
+        perStroke: true,
+      ),
     );
   });
 
@@ -99,13 +117,18 @@ void main() {
       expect(dashboard.layout, isEmpty);
     });
 
-    testWidgets('the gauge asks for a source and nothing else', (tester) async {
+    testWidgets('the gauge asks for an oar angle and nothing else', (
+      tester,
+    ) async {
       await tester.pumpWidget(host(const AddWidgetSheet()));
       await tapField(tester, 'Gauge');
 
       expect(find.text('Visualizer'), findsNothing);
       expect(find.text('Reduction'), findsNothing);
-      expect(find.text('Force'), findsOneWidget);
+      expect(find.text('Angle'), findsOneWidget);
+      // A dial drawn around catch and finish has nothing to do with newtons.
+      expect(find.text('Force'), findsNothing);
+      expect(find.text('Stroke Rate'), findsNothing);
     });
 
     testWidgets('going back returns to the kind list, keeping nothing', (
@@ -154,14 +177,73 @@ void main() {
     ) async {
       await tester.pumpWidget(host(const AddWidgetSheet()));
       await tapField(tester, 'Gauge');
-      await tapField(tester, 'Force');
+      await tapField(tester, 'Angle');
       await tapField(tester, 'Add Gauge');
 
       expect(dashboard.layout.single.data['type'], 'gauge');
-      expect(dashboard.layout.single.data['sourceKeys'], ['Force (EE01)']);
+      expect(dashboard.layout.single.data['sourceKeys'], ['Angle (EE01)']);
       expect(
         dashboard.layout.single.data.containsKey('visualizerKey'),
         isFalse,
+      );
+    });
+  });
+
+  group('only what makes sense is offered', () {
+    testWidgets('a value tile asks no visualizer question at all', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Value');
+
+      // Only Time Window survives the filter, so there is nothing to choose —
+      // and its window is invisible in a tile showing one number.
+      expect(find.text('Visualizer'), findsNothing);
+      expect(find.text('Settings'), findsNothing);
+      expect(find.text('Time window'), findsNothing);
+      expect(find.text('Data source'), findsOneWidget);
+      expect(find.text('Reduction'), findsOneWidget);
+    });
+
+    testWidgets('a chart still offers the full range of visualizers', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Chart');
+
+      expect(find.text('Visualizer'), findsOneWidget);
+      for (final name in [
+        'Time Window',
+        'Since Threshold',
+        'X vs Y (Window)',
+        'Per-Stroke Bars',
+      ]) {
+        expect(find.text(name), findsOneWidget, reason: name);
+      }
+    });
+
+    testWidgets('a bar tile offers only per-stroke sources', (tester) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Bar');
+
+      // Per-Stroke Bars is the only shape a bar draws, and indexing by stroke
+      // number is meaningless on a 100 Hz stream.
+      expect(find.text('Visualizer'), findsNothing);
+      expect(find.text('Stroke Rate'), findsOneWidget);
+      expect(find.text('Force'), findsNothing);
+      expect(find.text('Angle'), findsNothing);
+    });
+
+    testWidgets('says why a list is empty rather than showing nothing', (
+      tester,
+    ) async {
+      sources.registry.unregister('Stroke Rate');
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Bar');
+
+      expect(
+        find.text(SourceRequirement.perStroke.emptyMessage),
+        findsOneWidget,
       );
     });
   });
@@ -200,10 +282,14 @@ void main() {
 
       await tester.tap(find.text('Bar'));
       await tester.pump();
-      await tester.tap(find.text('Apply'));
-      await tester.pump();
+      // Time Window cannot feed a bar tile, so the switch re-homes the
+      // visualizer — which drops a source the new one cannot read.
+      await tapField(tester, 'Stroke Rate');
+      await tapField(tester, 'Apply');
 
       expect(dashboard.layout.single.data['type'], 'bar');
+      expect(dashboard.layout.single.data['visualizerKey'], 'Per-Stroke Bars');
+      expect(dashboard.layout.single.data['sourceKeys'], ['Stroke Rate']);
     });
   });
 }

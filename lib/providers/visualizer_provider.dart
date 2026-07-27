@@ -20,7 +20,8 @@ class VisualizerProviderModel extends ChangeNotifier {
     registry.register(
       Visualizer1(
         name: 'Time Window',
-        description: 'The last few seconds of a value, scrolling as it arrives.',
+        description:
+            'The last few seconds of a value, scrolling as it arrives.',
         shape: VisualizerShape.series,
         combinator: TimeElapsedCombinator(Unit.s),
         params: const [
@@ -42,7 +43,7 @@ class VisualizerProviderModel extends ChangeNotifier {
         name: 'Since Threshold',
         description:
             'Restarts the trace each time the value crosses a level — one stroke per sweep.',
-        shape: VisualizerShape.series,
+        shape: VisualizerShape.segmentedSeries,
         combinator: TimeElapsedCombinator(Unit.s),
         params: const [
           VisualizerParam(

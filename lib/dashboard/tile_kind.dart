@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_requirement.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 /// What still has to be chosen once a tile kind is picked.
@@ -27,6 +28,7 @@ enum TileKind {
     input: TileInput.visualizer,
     shapes: {
       VisualizerShape.series,
+      VisualizerShape.segmentedSeries,
       VisualizerShape.xy,
       VisualizerShape.perStroke,
     },
@@ -37,7 +39,8 @@ enum TileKind {
     icon: Icons.pin,
     description: 'The latest reading, as one large number.',
     input: TileInput.visualizer,
-    shapes: {VisualizerShape.series, VisualizerShape.perStroke},
+    shapes: {VisualizerShape.series},
+    readsLatestPointOnly: true,
   ),
   bar(
     key: 'bar',
@@ -53,6 +56,7 @@ enum TileKind {
     icon: Icons.speed,
     description: 'A dial showing one oar angle live, with catch and finish.',
     input: TileInput.source,
+    sourceRequirement: SourceRequirement.oarAngle,
   ),
   level(
     key: 'level',
@@ -86,6 +90,16 @@ enum TileKind {
   /// visualizer at all.
   final Set<VisualizerShape> shapes;
 
+  /// What this tile needs of a source it binds directly. Only meaningful for
+  /// [TileInput.source]; a visualizer tile takes its requirement from the
+  /// visualizer instead.
+  final SourceRequirement sourceRequirement;
+
+  /// True when the tile draws nothing but the newest point. How the pipeline
+  /// windows or gates history is then invisible, so the sheet does not ask
+  /// about it — there is no answer that changes what shows up.
+  final bool readsLatestPointOnly;
+
   const TileKind({
     required this.key,
     required this.label,
@@ -93,10 +107,16 @@ enum TileKind {
     required this.description,
     required this.input,
     this.shapes = const {},
+    this.sourceRequirement = SourceRequirement.any,
+    this.readsLatestPointOnly = false,
   });
 
   static TileKind? fromKey(String? key) =>
       values.where((kind) => kind.key == key).firstOrNull;
 
   bool suits(AnyVisualizer visualizer) => shapes.contains(visualizer.shape);
+
+  /// The visualizers this tile can actually draw, in registry order.
+  List<AnyVisualizer> visualizersFrom(List<AnyVisualizer> all) =>
+      all.where(suits).toList();
 }

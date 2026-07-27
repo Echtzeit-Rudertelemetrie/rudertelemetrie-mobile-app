@@ -53,20 +53,23 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
         });
       case TileInput.visualizer:
         setState(() {
-          _prepareVisualizer();
+          _prepareVisualizer(kind);
           _kind = kind;
         });
     }
   }
 
-  /// A visualizer tile opens on the first visualizer rather than on nothing, so
-  /// the step has something to show. A pick the user already made survives a
-  /// trip back to step one.
-  void _prepareVisualizer() {
-    if (_draft.visualizerKey != null) return;
-    final visualizers = context.read<VisualizerProviderModel>().registry.all;
-    if (visualizers.isNotEmpty) _draft.selectVisualizer(visualizers.first);
+  /// A visualizer tile opens on one this kind can actually draw, rather than on
+  /// nothing. A pick the user already made survives a trip back to step one, as
+  /// long as the kind they came back with can still draw it.
+  void _prepareVisualizer(TileKind kind) {
+    final options = kind.visualizersFrom(_visualizers);
+    if (options.any((v) => v.name == _draft.visualizerKey)) return;
+    if (options.isNotEmpty) _draft.selectVisualizer(options.first);
   }
+
+  List<AnyVisualizer> get _visualizers =>
+      context.read<VisualizerProviderModel>().registry.all;
 
   void _addTile(BuildContext context, TileKind kind) {
     switch (kind.input) {
@@ -167,14 +170,16 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     if (kind.input == TileInput.source) {
       return SourcePicker(
         sources: dataSources,
+        requirement: kind.sourceRequirement,
         selectedKey: _draft.sourceKeys.firstOrNull,
         onSelected: (key) => setState(() => _draft.sourceKeys[0] = key),
       );
     }
 
     return WidgetConfigFields(
+      kind: kind,
       draft: _draft,
-      visualizers: context.read<VisualizerProviderModel>().registry.all,
+      visualizers: _visualizers,
       selected: _selectedVisualizer,
       dataSources: dataSources,
       onChanged: () => setState(() {}),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_requirement.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 import 'force_angle_picker.dart';
@@ -89,6 +90,9 @@ class SourcePicker extends StatelessWidget {
   final String? selectedKey;
   final ValueChanged<String> onSelected;
 
+  /// Narrows the list to the sources this slot can actually use.
+  final SourceRequirement requirement;
+
   /// Keeps the collapse state of two pickers shown at once (the X and the Y
   /// axis of a two-source visualizer) from being shared.
   final String slot;
@@ -98,6 +102,7 @@ class SourcePicker extends StatelessWidget {
     required this.sources,
     required this.selectedKey,
     required this.onSelected,
+    this.requirement = SourceRequirement.any,
     this.slot = '',
   });
 
@@ -105,11 +110,11 @@ class SourcePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final groups = _grouped();
     if (groups.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          'No streams available.',
-          style: TextStyle(color: AppPalette.disabledLabel),
+          requirement.emptyMessage,
+          style: const TextStyle(color: AppPalette.disabledLabel),
         ),
       );
     }
@@ -139,7 +144,7 @@ class SourcePicker extends StatelessWidget {
   Map<String, List<DataSource>> _grouped() {
     final grouped = <String, List<DataSource>>{};
     for (final source in sources) {
-      if (source.derived) continue;
+      if (source.derived || !requirement.accepts(source)) continue;
       (grouped[source.group ?? 'Other'] ??= []).add(source);
     }
     return grouped;
