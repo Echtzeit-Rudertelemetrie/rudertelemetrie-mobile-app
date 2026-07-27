@@ -49,6 +49,7 @@ class StrokeEngine {
   DateTime? _sessionOrigin;
   bool _scheduled = false;
   bool _disposed = false;
+  bool _paused = false;
 
   StrokeEngine({
     required this.registry,
@@ -75,6 +76,34 @@ class StrokeEngine {
   }
 
   Stream<StrokeEvent> get events => _events.stream;
+
+  bool get isPaused => _paused;
+
+  /// Suspends segmentation while a load cell is being calibrated. Hanging a
+  /// known weight on a sensor otherwise reads as an enormous stroke: it would
+  /// poison the auto-scaled peak, add a phantom to the count, and — through
+  /// `onRowingDetected` — start a recording.
+  ///
+  /// The whole engine pauses rather than just the oarlock being calibrated,
+  /// because one silent detector leaves crew aggregation waiting on it until the
+  /// quorum window closes on a stroke nobody rowed.
+  void pause() {
+    if (_paused) return;
+    _paused = true;
+    _pending.clear();
+    _quorumTimer?.cancel();
+    _quorumTimer = null;
+  }
+
+  /// Detectors restart from scratch: the force reference they were segmenting
+  /// against has moved, and the gap is not a recovery.
+  void resume() {
+    if (!_paused) return;
+    _paused = false;
+    for (final binding in _bindings.values) {
+      binding.detector.reset();
+    }
+  }
 
   void _onSession() {
     if (session!.startedAt != _sessionOrigin) {
@@ -110,6 +139,7 @@ class StrokeEngine {
       _bindings[key] = _OarlockBinding(
         force: pair.force,
         angle: pair.angle,
+        isPaused: () => _paused,
         detector: OarlockStrokeDetector(
           oarlockKey: key,
           settings: settings,
@@ -307,6 +337,7 @@ class _OarlockBinding {
   final DataSource force;
   final DataSource angle;
   final OarlockStrokeDetector detector;
+  final bool Function() isPaused;
 
   late final StreamSubscription<Measurement> _forceSub;
   late final StreamSubscription<Measurement> _angleSub;
@@ -317,6 +348,7 @@ class _OarlockBinding {
     required this.force,
     required this.angle,
     required this.detector,
+    required this.isPaused,
   }) {
     _forceSub = force.data.listen((m) {
       _pendingForce = m;
@@ -336,7 +368,9 @@ class _OarlockBinding {
     final a = _pendingAngle;
     if (f == null || a == null) return;
     if (f.timestamp == a.timestamp) {
-      detector.add(a.value, f.value, f.timestamp);
+      // Fusion keeps running while paused so alignment survives the gap; only
+      // the segmentation is suspended.
+      if (!isPaused()) detector.add(a.value, f.value, f.timestamp);
       _pendingForce = null;
       _pendingAngle = null;
     } else if (f.timestamp.isBefore(a.timestamp)) {

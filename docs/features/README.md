@@ -9,7 +9,7 @@ referenced only where the wire format or a firmware constant matters.
   `StrokeEngine`, `RecordingSession`, `BoatConfig`) that most features hang off, mapped
   onto the code that exists today. **Read this first.**
 - [`math/`](math/) — full mathematics, standalone: stroke detection, force/power,
-  kinematics.
+  force calibration, kinematics.
 - [`specs/`](specs/) — per-feature implementation specs. Each links to its math and states
   importance, complexity, dependencies, pipeline changes, UI, edge cases, tests.
 
@@ -33,6 +33,10 @@ deprioritised). Complexity is engineering effort against the current architectur
   - **Rig inputs** (`l_in`, `L`) — hard prerequisite for all force/power (the angle needs
     no app config; it self-calibrates in firmware).
     → [`specs/boat-rig-config.md`](specs/boat-rig-config.md) Part A
+  - **Force calibration & zero tracking** — the other hard prerequisite for force/power.
+    Without it every force and power value is proportional-but-arbitrary, and sensor drift
+    walks the signal across the absolute stroke thresholds on its own.
+    → [`specs/force-calibration.md`](specs/force-calibration.md)
 - Live **scull/boat angle** visualisation (at minimum per-scull gauges). →
   [`specs/widget-boat-schematic.md`](specs/widget-boat-schematic.md) Tier 1
 - Per-stroke force/angle curve (upgrade of an existing feature). →
@@ -58,7 +62,7 @@ deprioritised). Complexity is engineering effort against the current architectur
 | Complexity | Items |
 |-----------|-------|
 | **Trivial / Low** | speed km/h, pace/500m, elapsed time, distance/km, generic running averages & session peaks; handle/blade/effective/lateral force (algebra); rig number inputs; per-stroke force/angle curve upgrade |
-| **Medium** | instantaneous power, blade drift & efficiency (need `ω`); per-stroke aggregates; per-stroke bar chart; spirit-level widget; expose GPS lat/lon; per-scull angle gauges (Tier 1) |
+| **Medium** | instantaneous power, blade drift & efficiency (need `ω`); per-stroke aggregates; per-stroke bar chart; spirit-level widget; expose GPS lat/lon; per-scull angle gauges (Tier 1); force calibration & zero tracking |
 | **High** | stroke phase detection engine (Anrollen/Umkehr/Setzen + crew sync); boat schematic top-view; map view (tiles/offline/dependency); full boat+crew setup with graphics |
 
 ### Foundations that unlock the most (build first)
@@ -84,6 +88,10 @@ whole cluster of essential values. See the dependency graph in
    spirit-level widget, session **history screen**.
 6. **Phase 5 — nice-to-have visuals:** boat schematic Tier 2, **map view (cached offline
    region)**, boat/crew setup with graphics.
+7. **Phase 6 — real force units:** two-point **force calibration** per oarlock + continuous
+   zero tracking, and the drift-immune catch criterion that has to come with it. Turns every
+   force/power number from Phases 1–3 from proportional into physical.
+   → [`specs/force-calibration.md`](specs/force-calibration.md)
 
 ### Key product decisions
 
@@ -99,8 +107,11 @@ Fixed properties of the current setup, used as context throughout the specs:
 - **Angle:** signed **±180°** (`angle_deg = code/65535·360 − 180`), from the per-oarlock
   ICM-20948 orientation EKF, which **zeroes and calibrates itself in firmware** — the app
   consumes `θ` directly and does no angle calibration. (stroke-detection §1.1)
-- **Force:** perpendicular to the shaft (load cell on the pin), **0–1000 N** full scale;
-  standard `F·cos θ` projection applies. (force-power §1)
+- **Force:** perpendicular to the shaft (load cell on the pin); standard `F·cos θ`
+  projection applies (force-power §1). The raw `uint16` carries **no known scale** — the
+  0–1000 N mapping in `force_conversion_util.dart` is a firmware convention, not a
+  measurement, and the cell's zero drifts upward over minutes. Both are the app's problem
+  to solve. (force-calibration §0)
 - **Sample rate:** **100 Hz** per oarlock (ForceReader/AngleReader at 10 ms); sets the
   angle LPF and `ω` step. (stroke-detection §1.2)
 - **GPS:** position is `lat/lon × 1e6` degrees (~0.11 m); firmware speed is integer m/s, so

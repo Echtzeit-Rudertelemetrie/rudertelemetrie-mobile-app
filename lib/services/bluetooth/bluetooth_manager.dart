@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:rudertelemetrie_mobile_app/models/telemetry_quality.dart';
 import 'package:rudertelemetrie_mobile_app/services/bluetooth/bluetooth_stream_handler.dart';
+import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
 
@@ -68,6 +69,7 @@ class BluetoothManager {
   bool _dataSetupFailed = false;
 
   DataSourceRegistry? _dataSourceRegistry;
+  ForceCalibrations? _forceCalibrations;
 
   final Map<String, _DeviceConnection> _connections = {};
 
@@ -97,8 +99,12 @@ class BluetoothManager {
 
   Stream<ConnectedDevice> get onDeviceLost => _deviceLostController.stream;
 
-  Future<void> initialize(DataSourceRegistry dataSourceRegistry) async {
+  Future<void> initialize(
+    DataSourceRegistry dataSourceRegistry, {
+    ForceCalibrations? forceCalibrations,
+  }) async {
     _dataSourceRegistry = dataSourceRegistry;
+    _forceCalibrations = forceCalibrations;
     await checkStatus();
     await _syncScanning();
   }
@@ -258,6 +264,7 @@ class BluetoothManager {
     final handler = BluetoothStreamHandler(
       dataSourceRegistry: registry,
       deviceId: deviceId,
+      calibrations: _forceCalibrations,
       onOarlockPacket: (sequence) =>
           telemetryQuality.recordPacket(deviceId, sequence),
       onInvalidPacket: () => telemetryQuality.recordInvalidPacket(deviceId),

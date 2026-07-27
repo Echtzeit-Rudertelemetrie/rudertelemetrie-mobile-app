@@ -199,6 +199,29 @@ class _DayHeaderRow extends StatelessWidget {
   );
 }
 
+/// At least one oarlock was still on the nominal firmware scale, so this
+/// session's force and power are proportional to the real thing rather than
+/// measurements of it. Saying so beats presenting arbitrary units as newtons.
+class _ProvisionalBadge extends StatelessWidget {
+  const _ProvisionalBadge();
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Force was not calibrated — force and power are relative only.',
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.amber.withAlpha(40),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Text(
+        'uncalibrated',
+        style: TextStyle(color: Colors.amber, fontSize: 10),
+      ),
+    ),
+  );
+}
+
 class _SessionRow extends StatelessWidget {
   final SessionSummary summary;
   final VoidCallback onOpen;
@@ -219,9 +242,20 @@ class _SessionRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '${_two(started.hour)}:${_two(started.minute)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  Row(
+                    children: [
+                      Text(
+                        '${_two(started.hour)}:${_two(started.minute)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (summary.isProvisional) ...[
+                        const SizedBox(width: 6),
+                        const _ProvisionalBadge(),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(

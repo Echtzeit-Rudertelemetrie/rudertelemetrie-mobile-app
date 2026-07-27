@@ -80,6 +80,27 @@ class StrokeSettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
+            const _Label('Catch rise rate'),
+            NumberInputField(
+              key: const ValueKey('forceRateOn'),
+              label: 'Minimum dF/dt for a catch',
+              unit: 'N/s',
+              value: settings.forceRateOn,
+              validate: _validateForceRate,
+              onCommitted: settings.setForceRateOn,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Applies in both modes. Sensor drift is thousands of times slower '
+              'than a catch, so this is what stops a drifted signal from '
+              'crossing the catch force on its own. Lower it only if gentle '
+              'paddling goes undetected.',
+              style: TextStyle(
+                color: Colors.white38,
+                fontSize: AppTypeScale.caption,
+              ),
+            ),
+            const SizedBox(height: 16),
             const _Label('Crew aggregation'),
             _Segmented<CrewAggregation>(
               value: settings.crewAggregation,
@@ -103,6 +124,10 @@ String? _validateCatchForce(double value, double finishForce) {
   if (value <= finishForce) return 'Must exceed F_off ($finishForce N)';
   return null;
 }
+
+/// Zero would disable the gate entirely and hand drift the catch back.
+String? _validateForceRate(double value) =>
+    value <= 0 ? 'Must be greater than 0' : null;
 
 String? _validateFinishForce(double value, double catchForce) {
   if (value < 0) return 'Cannot be negative';

@@ -1,45 +1,21 @@
 import 'dart:math' as math;
 
+import 'package:rudertelemetrie_mobile_app/services/stroke/low_pass_differentiator.dart';
+
 /// Smoothed angular velocity `ω` (rad/s) from a noisy degree-angle stream
-/// (stroke-detection §1.2): a 1st-order IIR low-pass followed by a backward
-/// difference on the filtered signal. Causal, so it works sample-by-sample on a
-/// live stream.
+/// (stroke-detection §1.2).
 class AngleDifferentiator {
-  final double cutoffHz;
+  static const _degreesToRadians = math.pi / 180;
 
-  double? _filtered;
-  DateTime? _lastTime;
-  double _lastOmega = 0;
+  final LowPassDifferentiator _differentiator;
 
-  AngleDifferentiator(this.cutoffHz);
+  AngleDifferentiator(double cutoffHz)
+    : _differentiator = LowPassDifferentiator(cutoffHz);
 
-  double get filteredAngle => _filtered ?? 0;
+  double get filteredAngle => _differentiator.filtered;
 
-  double add(double angleDeg, DateTime time) {
-    final previousFiltered = _filtered;
-    final previousTime = _lastTime;
-    if (previousFiltered == null || previousTime == null) {
-      _filtered = angleDeg;
-      _lastTime = time;
-      return 0;
-    }
+  double add(double angleDeg, DateTime time) =>
+      _degreesToRadians * _differentiator.add(angleDeg, time);
 
-    final dt = time.difference(previousTime).inMicroseconds / 1e6;
-    if (dt <= 0) return _lastOmega;
-
-    final rc = 1 / (2 * math.pi * cutoffHz);
-    final alpha = dt / (rc + dt);
-    final filtered = previousFiltered + alpha * (angleDeg - previousFiltered);
-
-    _filtered = filtered;
-    _lastTime = time;
-    _lastOmega = (math.pi / 180) * (filtered - previousFiltered) / dt;
-    return _lastOmega;
-  }
-
-  void reset() {
-    _filtered = null;
-    _lastTime = null;
-    _lastOmega = 0;
-  }
+  void reset() => _differentiator.reset();
 }

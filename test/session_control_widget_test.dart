@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/components/recording/session_control.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/force_calibration_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/notifications_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/recording_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/recording_provider.dart';
@@ -24,6 +25,7 @@ void main() {
           recordingSettingsProvider,
           dataSourceProvider,
           sessionStoreProvider,
+          forceCalibrationsProvider,
           recordingProvider,
         ],
         child: MaterialApp(

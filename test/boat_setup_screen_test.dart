@@ -5,21 +5,29 @@ import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/screens/boat_setup_screen.dart';
+import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibration.dart';
+import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
 
-Widget _screen(DataSourceProviderModel sources, BoatConfig config) =>
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<DataSourceProviderModel>.value(value: sources),
-        ChangeNotifierProvider<BoatConfig>.value(value: config),
-      ],
-      child: MaterialApp(
-        builder: (_, child) =>
-            FTheme(data: FThemes.neutral.dark.desktop, child: child!),
-        home: const BoatSetupScreen(),
-      ),
-    );
+Widget _screen(
+  DataSourceProviderModel sources,
+  BoatConfig config, {
+  ForceCalibrations? calibrations,
+}) => MultiProvider(
+  providers: [
+    ChangeNotifierProvider<DataSourceProviderModel>.value(value: sources),
+    ChangeNotifierProvider<BoatConfig>.value(value: config),
+    ChangeNotifierProvider<ForceCalibrations>.value(
+      value: calibrations ?? ForceCalibrations(),
+    ),
+  ],
+  child: MaterialApp(
+    builder: (_, child) =>
+        FTheme(data: FThemes.neutral.dark.desktop, child: child!),
+    home: const BoatSetupScreen(),
+  ),
+);
 
 void main() {
   late DataSourceProviderModel sources;
@@ -100,6 +108,42 @@ void main() {
 
     expect(config.rigFor('Oarlock 9'), isNull);
     expect(config.slotFor('Oarlock 9'), isNull);
+  });
+
+  testWidgets('removing an oarlock forgets its force calibration too', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final calibrations = ForceCalibrations();
+    addTearDown(calibrations.dispose);
+    calibrations.setCalibration(
+      'Oarlock 9',
+      ForceCalibration.fit(
+        zeroRaw: 1000,
+        loadedRaw: 11000,
+        massKg: 20,
+        at: DateTime(2026, 7, 27),
+      )!,
+    );
+    config.setRig('Oarlock 9', BoatConfig.defaultRig);
+    config.assignSlot('Oarlock 9', const SeatSlot(seat: 1, side: OarSide.both));
+
+    await tester.pumpWidget(
+      _screen(sources, config, calibrations: calibrations),
+    );
+    await tester.pump();
+
+    expect(find.textContaining('Oarlock 9 (not connected)'), findsOneWidget);
+    await tester.tap(find.text('Remove'));
+    await tester.pump();
+
+    // Left behind, the calibration would be silently reapplied to whatever
+    // oarlock next claimed that key.
+    expect(calibrations.calibrationFor('Oarlock 9').isCalibrated, isFalse);
+    expect(calibrations.knownKeys, isNot(contains('Oarlock 9')));
   });
 
   group('conflict detection', () {

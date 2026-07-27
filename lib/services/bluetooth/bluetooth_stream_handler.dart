@@ -5,16 +5,21 @@ import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibration.dart';
+import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/packet_reassembler.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/angle_conversion_util.dart';
-import 'package:rudertelemetrie_mobile_app/utils/sensor_data/force_conversion_util.dart';
 
 class BluetoothStreamHandler {
   final DataSourceRegistry dataSourceRegistry;
   final String deviceId;
   final void Function(int sequenceNumber)? onOarlockPacket;
   final void Function()? onInvalidPacket;
+
+  /// Optional so a headless or test handler can stream without config; without
+  /// it every oarlock reads on the nominal firmware scale.
+  final ForceCalibrations? calibrations;
 
   final Map<String, PushDataSource> _dataSources = {};
   final Map<int, _OarlockStream> _oarlocks = {};
@@ -28,6 +33,7 @@ class BluetoothStreamHandler {
     required this.deviceId,
     this.onOarlockPacket,
     this.onInvalidPacket,
+    this.calibrations,
   });
 
   void onData(List<int> value) {
@@ -64,6 +70,8 @@ class BluetoothStreamHandler {
     return _oarlocks.putIfAbsent(sensorId, () {
       final group = 'Oarlock $sensorId ($_deviceTag)';
       return _OarlockStream(
+        oarlockKey: group,
+        calibrations: calibrations,
         force: _source('Force $sensorId', Unit.N, group: group),
         angle: _source('Angle $sensorId', Unit.deg, group: group),
       );
@@ -164,6 +172,8 @@ class _OarlockStream {
   /// Sequence gap treated as a late retry rather than a sender restart.
   static const _maxLatePackets = 64;
 
+  final String oarlockKey;
+  final ForceCalibrations? calibrations;
   final PushDataSource force;
   final PushDataSource angle;
 
@@ -175,7 +185,12 @@ class _OarlockStream {
   int _emitted = 0;
   Timer? _timer;
 
-  _OarlockStream({required this.force, required this.angle});
+  _OarlockStream({
+    required this.oarlockKey,
+    required this.calibrations,
+    required this.force,
+    required this.angle,
+  });
 
   /// Returns the forward sequence advance, 1 after a sender restart, or null
   /// for a duplicate / slightly late retry. This keeps timestamps monotonic
@@ -218,7 +233,7 @@ class _OarlockStream {
       _pending.add(
         _OarlockSample(
           force: Measurement(
-            value: convertForceSensorData(packet.forces[i]),
+            value: _newtons(packet.forces[i], timestamp),
             timestamp: timestamp,
           ),
           angle: Measurement(
@@ -231,6 +246,12 @@ class _OarlockStream {
     _nextTimestamp = start.add(_packetDuration);
     _start();
   }
+
+  /// Calibration is applied here rather than downstream so that `Force N` stays
+  /// the one force source per oarlock — saved dashboards bind to it by name.
+  double _newtons(int raw, DateTime timestamp) =>
+      calibrations?.newtons(oarlockKey, raw, timestamp) ??
+      ForceCalibration.uncalibrated.newtons(raw);
 
   /// Leaves a gap for packets lost in transit, so a dropped packet shows as a
   /// gap in the trace rather than compressing time.

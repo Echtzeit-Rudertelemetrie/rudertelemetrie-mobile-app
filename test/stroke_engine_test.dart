@@ -102,6 +102,92 @@ void main() {
     expect(sync.last, closeTo(0.1, 0.02));
   });
 
+  group('paused for calibration', () {
+    test('publishes nothing while paused', () async {
+      final force = register('Force 1 (T)', Unit.N, 'Oarlock 1 (T)');
+      final angle = register('Angle 1 (T)', Unit.deg, 'Oarlock 1 (T)');
+      await pumpEventQueue();
+
+      final counts = <double>[];
+      registry.get('Stroke Count')!.data.listen((m) => counts.add(m.value));
+
+      engine.pause();
+      // A hanging weight looks exactly like this: a large, sustained force.
+      await feed(force, angle, generateStrokeStream(drives: 5));
+
+      expect(engine.isPaused, isTrue);
+      expect(counts, isEmpty);
+    });
+
+    test('resumes segmenting after the calibration ends', () async {
+      final force = register('Force 1 (T)', Unit.N, 'Oarlock 1 (T)');
+      final angle = register('Angle 1 (T)', Unit.deg, 'Oarlock 1 (T)');
+      await pumpEventQueue();
+
+      final counts = <double>[];
+      registry.get('Stroke Count')!.data.listen((m) => counts.add(m.value));
+
+      engine.pause();
+      await feed(force, angle, generateStrokeStream(drives: 3));
+      engine.resume();
+      await feed(force, angle, generateStrokeStream(drives: 5, startMs: 30000));
+
+      expect(engine.isPaused, isFalse);
+      expect(counts.last, 4);
+    });
+
+    test(
+      'does not carry a pre-pause finish into the first stroke after',
+      () async {
+        final force = register('Force 1 (T)', Unit.N, 'Oarlock 1 (T)');
+        final angle = register('Angle 1 (T)', Unit.deg, 'Oarlock 1 (T)');
+        await pumpEventQueue();
+
+        final rates = <double>[];
+        registry.get('Stroke Rate')!.data.listen((m) => rates.add(m.value));
+
+        await feed(force, angle, generateStrokeStream(drives: 2));
+        engine.pause();
+        engine.resume();
+        // Resuming half a minute later must not report a 2 spm "stroke" spanning
+        // the gap.
+        await feed(
+          force,
+          angle,
+          generateStrokeStream(drives: 4, startMs: 30000),
+        );
+
+        expect(rates, isNotEmpty);
+        expect(rates.every((r) => r > 10), isTrue, reason: '$rates');
+      },
+    );
+
+    test('drops a half-collected crew stroke on pause', () async {
+      engine.dispose();
+      engine = StrokeEngine(
+        registry: registry,
+        settings: StrokeSettings(),
+        quorumWindow: const Duration(milliseconds: 30),
+      );
+      final force1 = register('Force 1 (T)', Unit.N, 'Oarlock 1 (T)');
+      final angle1 = register('Angle 1 (T)', Unit.deg, 'Oarlock 1 (T)');
+      register('Force 2 (T)', Unit.N, 'Oarlock 2 (T)');
+      register('Angle 2 (T)', Unit.deg, 'Oarlock 2 (T)');
+      await pumpEventQueue();
+
+      final counts = <double>[];
+      registry.get('Stroke Count')!.data.listen((m) => counts.add(m.value));
+
+      // Oarlock 1 closes a cycle, so the crew stroke is pending on oarlock 2.
+      await feed(force1, angle1, generateStrokeStream(drives: 3));
+      engine.pause();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      await pumpEventQueue();
+
+      expect(counts, isEmpty);
+    });
+  });
+
   group('partial crews', () {
     setUp(() {
       engine.dispose();

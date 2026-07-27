@@ -1,26 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/angle_conversion_util.dart';
-import 'package:rudertelemetrie_mobile_app/utils/sensor_data/force_conversion_util.dart';
 
 // Inverse of the firmware encoding in rowing_boat SimData::dolle.
-int _encodeForce(double newtons) => (newtons / 1000.0 * 65535).round();
 int _encodeAngle(double degrees) => ((degrees + 180.0) / 360.0 * 65535).round();
 
+// Force scaling moved to force_calibration_test.dart: the raw force count has no
+// fixed physical meaning any more, only a per-oarlock calibrated one.
+
 void main() {
-  group('force scaling (0..1000 N full scale)', () {
-    test('zero maps to 0 N', () {
-      expect(convertForceSensorData(0), closeTo(0, 1e-6));
-    });
-
-    test('full scale maps to 1000 N', () {
-      expect(convertForceSensorData(65535), closeTo(1000, 1e-6));
-    });
-
-    test('round-trips a firmware-encoded force value', () {
-      expect(convertForceSensorData(_encodeForce(600)), closeTo(600, 0.02));
-    });
-  });
-
   group('angle scaling (-180..+180 degrees full scale)', () {
     test('zero maps to -180 degrees', () {
       expect(convertAngleSensorData(0), closeTo(-180, 1e-6));

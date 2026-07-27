@@ -10,6 +10,7 @@ import 'package:rudertelemetrie_mobile_app/providers/recording_settings_provider
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/boat_config_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/force_calibration_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/force_sources_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/power_sources_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/recording_provider.dart';
@@ -29,10 +30,12 @@ void main() {
         sessionStoreProvider,
         recordingSettingsProvider,
         boatConfigProvider,
+        forceCalibrationsProvider,
         recordingProvider,
         forceSourcesProvider,
         strokeSettingsProvider,
         strokeEngineProvider,
+        forceCalibrationSessionProvider,
         powerSourcesProvider,
         visualizerProvider,
         bluetoothProvider,

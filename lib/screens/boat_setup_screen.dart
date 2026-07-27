@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/oarlocks.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
@@ -174,7 +175,11 @@ class _OarlockAssignment extends StatelessWidget {
         const SizedBox(width: 12),
         _TextAction(
           label: 'Remove',
-          onTap: () => context.read<BoatConfig>().removeOarlock(oarlockKey),
+          onTap: () => forgetOarlock(
+            oarlockKey,
+            config: context.read<BoatConfig>(),
+            calibrations: context.read<ForceCalibrations>(),
+          ),
         ),
       ],
     ],

@@ -1,3 +1,4 @@
+import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
 
@@ -10,6 +11,23 @@ Set<String> connectedOarlockKeys(DataSourceRegistry registry) => {
   for (final source in registry.all)
     if (_baseForce.hasMatch(source.name) && source.group != null) source.group!,
 };
+
+/// Forgets an oarlock everywhere it is remembered: rig, seat, and force
+/// calibration.
+///
+/// Geometry and sensor calibration live in separate stores because they have
+/// independent lifetimes — a rig survives recalibrating a cell, and a
+/// calibration survives re-rigging a boat. That makes "remove this oarlock" a
+/// single intent spanning both, and one that has to be named in one place or
+/// the half nobody remembered outlives the device forever.
+void forgetOarlock(
+  String oarlockKey, {
+  required BoatConfig config,
+  required ForceCalibrations calibrations,
+}) {
+  config.removeOarlock(oarlockKey);
+  calibrations.removeCalibration(oarlockKey);
+}
 
 /// Connected oarlocks whose rig is missing or unusable. Their force and power
 /// sources are not registered, which is otherwise indistinguishable from a

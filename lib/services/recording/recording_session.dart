@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
+import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/source_binder.dart';
@@ -31,6 +32,11 @@ class RecordingSession extends ChangeNotifier {
   final SessionStore? store;
   final AppNotifications? notifications;
   final RecordingSettings settings;
+
+  /// Optional so a headless session can record without calibration config; its
+  /// absence simply leaves the force provenance out of the summary.
+  final ForceCalibrations? calibrations;
+
   final GpsKinematics _kinematics = GpsKinematics();
 
   late final PushDataSource _speedKmh;
@@ -57,10 +63,13 @@ class RecordingSession extends ChangeNotifier {
   bool _autoArmed = true;
   DateTime? _lastStrokeAt;
 
+  final Map<String, List<double>> _zeroTrace = {};
+
   RecordingSession({
     required this.registry,
     this.store,
     this.notifications,
+    this.calibrations,
     RecordingSettings? settings,
   }) : settings = settings ?? RecordingSettings() {
     _speedKmh = _register('Speed (km/h)', Unit.kmh);
@@ -178,6 +187,7 @@ class RecordingSession extends ChangeNotifier {
 
   void _resetAccumulators() {
     _kinematics.reset();
+    _zeroTrace.clear();
     _sessionDistanceMeters = 0;
     _pendingLat = null;
     _speedWeightedSum = 0;
@@ -201,10 +211,25 @@ class RecordingSession extends ChangeNotifier {
       distanceMeters: _sessionDistanceMeters,
       averages: {'Speed (km/h)': avgSpeed},
       peaks: {'Speed (km/h)': _peakSpeedKmh},
+      forceCalibrations: calibrations?.snapshot() ?? const {},
+      zeroTrace: {
+        for (final entry in _zeroTrace.entries) entry.key: List.of(entry.value),
+      },
     );
   }
 
+  /// One sample per tick, so the trace's index is its second since the session
+  /// started — no timestamps needed for a signal bounded to a few N/s.
+  void _sampleZeroOffsets() {
+    final tracked = calibrations;
+    if (tracked == null) return;
+    for (final key in tracked.knownKeys) {
+      _zeroTrace.putIfAbsent(key, () => []).add(tracked.offsetFor(key));
+    }
+  }
+
   void _onTick() {
+    _sampleZeroOffsets();
     _elapsedSource.add(
       Measurement(
         value: elapsed.inSeconds.toDouble(),
