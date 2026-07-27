@@ -14,6 +14,12 @@ sealed class BluetoothPacket {
   static const samplesPerRegion = 8;
   static const packetSize = 4 + samplesPerRegion * 2 * 2;
 
+  /// Spacing between consecutive samples within the firmware's sample stream.
+  static const sampleIntervalMs = 10;
+
+  /// Wrap-around of the 28-bit sequence field.
+  static const sequenceModulo = 1 << 28;
+
   static const _forceRegionOffset = 4;
   static const _angleRegionOffset = _forceRegionOffset + samplesPerRegion * 2;
 

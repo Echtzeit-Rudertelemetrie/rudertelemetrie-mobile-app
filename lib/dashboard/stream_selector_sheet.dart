@@ -4,12 +4,13 @@ import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
-import 'package:rudertelemetrie_mobile_app/services/visualization/force_angle_source_pair.dart';
 
 import 'dashboard_model.dart';
+import 'force_angle_picker.dart';
 import 'param_field.dart';
 import 'sheet_scaffold.dart';
 import 'widget_config.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 class StreamSelectorSheet extends StatefulWidget {
   final WidgetConfig config;
@@ -103,7 +104,6 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
     final visualizers = context.read<VisualizerProviderModel>().registry.all;
     final dataSources = context.watch<DataSourceProviderModel>().registry.all;
     final sourceCount = _selectedVisualizer?.sourceCount ?? 0;
-    final forceAnglePairs = forceAngleSourcePairs(dataSources);
     final selectsForceAnglePair =
         _selectedVisualizer?.sourceSelectionMode ==
         SourceSelectionMode.forceAnglePair;
@@ -113,9 +113,7 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
       footer: SizedBox(
         width: double.infinity,
         child: FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFF45866),
-          ),
+          style: FilledButton.styleFrom(backgroundColor: AppPalette.accent),
           onPressed: () {
             context.read<DashboardModel>().updateWidget(
               widget.config.copyWith(
@@ -190,36 +188,13 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
           const SizedBox(height: 16),
         ],
 
-        if (selectsForceAnglePair) ...[
-          const Text(
-            'Oarlock (X: angle, Y: force)',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          if (forceAnglePairs.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'No oarlock with force and angle data available.',
-                style: TextStyle(color: Colors.white38),
-              ),
-            )
-          else
-            ...forceAnglePairs.map(
-              (pair) => _SourceOption(
-                dataSource: pair.angle,
-                label: pair.label,
-                selected:
-                    _sourceKeys.length == 2 &&
-                    _sourceKeys[0] == pair.angle.name &&
-                    _sourceKeys[1] == pair.force.name,
-                onTap: () => setState(() {
-                  _sourceKeys = pair.sourceKeys;
-                }),
-              ),
-            ),
-          const SizedBox(height: 12),
-        ] else
+        if (selectsForceAnglePair)
+          ForceAnglePicker(
+            sources: dataSources,
+            selectedKeys: _sourceKeys,
+            onChanged: (keys) => setState(() => _sourceKeys = [...keys]),
+          )
+        else
           for (int i = 0; i < sourceCount; i++) ...[
             Text(
               sourceCount == 1
@@ -281,7 +256,7 @@ class _VisualizerOption extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          _Radio(selected: selected),
+          SelectionRadio(selected: selected),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,7 +267,10 @@ class _VisualizerOption extends StatelessWidget {
               ),
               Text(
                 '${visualizer.sourceCount} source${visualizer.sourceCount == 1 ? '' : 's'}',
-                style: const TextStyle(color: Colors.white38, fontSize: 11),
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: AppTypeScale.caption,
+                ),
               ),
             ],
           ),
@@ -362,13 +340,11 @@ class _SourceGroupState extends State<_SourceGroup> {
 
 class _SourceOption extends StatelessWidget {
   final DataSource dataSource;
-  final String? label;
   final bool selected;
   final VoidCallback onTap;
 
   const _SourceOption({
     required this.dataSource,
-    this.label,
     required this.selected,
     required this.onTap,
   });
@@ -380,47 +356,27 @@ class _SourceOption extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          _Radio(selected: selected),
+          SelectionRadio(selected: selected),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                label ?? dataSource.name,
+                dataSource.name,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
               ),
               Text(
-                dataSource.unit.name,
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                dataSource.unit.label,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: AppTypeScale.caption,
+                ),
               ),
             ],
           ),
         ],
       ),
     ),
-  );
-}
-
-class _Radio extends StatelessWidget {
-  final bool selected;
-  const _Radio({required this.selected});
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 20,
-    height: 20,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(
-        color: selected ? const Color(0xFFF45866) : Colors.white38,
-        width: 2,
-      ),
-    ),
-    child: selected
-        ? const Center(
-            child: CircleAvatar(radius: 5, backgroundColor: Color(0xFFF45866)),
-          )
-        : null,
   );
 }
 
@@ -444,7 +400,7 @@ class _TypeButton extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFFF45866) : Colors.white10,
+        color: selected ? AppPalette.accent : Colors.white10,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

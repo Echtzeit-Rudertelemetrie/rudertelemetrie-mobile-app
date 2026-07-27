@@ -6,6 +6,12 @@ class BluetoothProviderModel extends ChangeNotifier {
   final BluetoothManager _manager = BluetoothManager();
 
   BluetoothManager get manager => _manager;
+
+  @override
+  void dispose() {
+    _manager.dispose();
+    super.dispose();
+  }
 }
 
 ChangeNotifierProvider<BluetoothProviderModel> bluetoothProvider =

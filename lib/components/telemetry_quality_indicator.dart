@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/models/telemetry_quality.dart';
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 class TelemetryQualityIndicator extends StatelessWidget {
   const TelemetryQualityIndicator({super.key});
@@ -42,6 +43,7 @@ class TelemetryQualityIndicator extends StatelessWidget {
                     appearance.label,
                     style: TextStyle(
                       color: appearance.color,
+                      fontSize: AppTypeScale.label,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -57,37 +59,37 @@ class TelemetryQualityIndicator extends StatelessWidget {
   _QualityAppearance _appearanceFor(TelemetryQuality quality) {
     return switch (quality.level) {
       TelemetryQualityLevel.waiting => const _QualityAppearance(
-        color: Colors.blueGrey,
+        color: AppPalette.faintLabel,
         icon: Icons.sensors,
-        label: 'Warte auf Kraft- und Winkeldaten',
+        label: 'Waiting for force and angle data',
       ),
       TelemetryQualityLevel.live => const _QualityAppearance(
-        color: Color(0xFF55D68B),
+        color: AppPalette.ok,
         icon: Icons.check_circle_outline,
-        label: 'Sensordaten live',
+        label: 'Sensor data live',
       ),
       TelemetryQualityLevel.delayed => _QualityAppearance(
-        color: const Color(0xFFFFB84D),
+        color: AppPalette.warning,
         icon: Icons.warning_amber_rounded,
         label: _delayLabel(quality),
       ),
       TelemetryQualityLevel.interrupted => _QualityAppearance(
-        color: const Color(0xFFF45866),
+        color: AppPalette.danger,
         icon: Icons.signal_wifi_statusbar_connected_no_internet_4,
-        label: 'Keine Sensordaten seit ${_formatSilence(quality.silence)}',
+        label: 'No sensor data for ${_formatSilence(quality.silence)}',
       ),
     };
   }
 
   String _delayLabel(TelemetryQuality quality) {
-    if (quality.missingPackets > 0) {
-      final count = quality.missingPackets;
-      return 'Paketverlust: $count ${count == 1 ? 'Paket fehlt' : 'Pakete fehlen'}';
+    final missing = quality.missingPackets;
+    if (missing > 0) {
+      return 'Packet loss: $missing ${missing == 1 ? 'packet' : 'packets'} missing';
     }
     if (quality.invalidPackets > 0) {
-      return 'Unvollständige Sensordaten empfangen';
+      return 'Incomplete sensor data received';
     }
-    return 'Sensordaten verzögert (${_formatSilence(quality.silence)})';
+    return 'Sensor data delayed (${_formatSilence(quality.silence)})';
   }
 
   String _formatSilence(Duration? silence) {

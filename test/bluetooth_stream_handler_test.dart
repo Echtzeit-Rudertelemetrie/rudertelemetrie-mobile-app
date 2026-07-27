@@ -1,81 +1,176 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
 import 'package:rudertelemetrie_mobile_app/services/bluetooth/bluetooth_stream_handler.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
 
-void main() {
-  test('registers one force and angle stream without protocol sensor IDs', () {
-    final registry = DataSourceRegistry();
-    final handler = BluetoothStreamHandler(
-      dataSourceRegistry: registry,
-      deviceId: 'AA:BB:CC:D4:79',
-    );
-    final packet = ByteData(BluetoothPacket.packetSize)
-      ..setUint32(0, 1 << 28, Endian.little);
+const _samples = BluetoothPacket.samplesPerRegion;
+const _sampleMs = BluetoothPacket.sampleIntervalMs;
+const _packetMs = _samples * _sampleMs;
 
-    handler.onData(packet.buffer.asUint8List());
+/// One oarlock `MeasurementPack` with constant force/angle samples.
+List<int> _oarlockFrame(int sensorId, int sequence) {
+  final data = ByteData(BluetoothPacket.packetSize);
+  data.setUint32(
+    0,
+    ((sensorId & 0xF) << 28) | (sequence & 0x0FFFFFFF),
+    Endian.little,
+  );
+  for (var i = 0; i < _samples; i++) {
+    data.setUint16(4 + i * 2, 1000, Endian.little);
+    data.setUint16(4 + (_samples + i) * 2, 2000, Endian.little);
+  }
+  return data.buffer.asUint8List();
+}
+
+/// Long enough for the pacing timer to pay out everything queued so far.
+Future<void> _drainPlayback(int packets) =>
+    Future<void>.delayed(Duration(milliseconds: packets * _packetMs + 150));
+
+void main() {
+  late DataSourceRegistry registry;
+  late BluetoothStreamHandler handler;
+  late List<int> accepted;
+
+  setUp(() {
+    registry = DataSourceRegistry();
+    accepted = [];
+    handler = BluetoothStreamHandler(
+      dataSourceRegistry: registry,
+      deviceId: 'AA:BB:CC:DD:EE:01',
+      onOarlockPacket: accepted.add,
+    );
+  });
+
+  tearDown(() => handler.dispose());
+
+  DataSource sourceStartingWith(String prefix) =>
+      registry.all.firstWhere((s) => s.name.startsWith(prefix));
+
+  List<int> offsetsOf(List<Measurement> samples, DataSource source) => samples
+      .map((m) => m.timestamp.difference(source.startTime).inMilliseconds)
+      .toList();
+
+  List<Measurement> listen(DataSource source) {
+    final received = <Measurement>[];
+    final sub = source.data.listen(received.add);
+    addTearDown(sub.cancel);
+    return received;
+  }
+
+  test('registers a force and angle stream per oarlock', () {
+    handler.onData(_oarlockFrame(1, 0));
+    handler.onData(_oarlockFrame(2, 0));
 
     expect(
       registry.all.map((source) => source.name),
-      unorderedEquals(['Force (D479)', 'Angle (D479)']),
+      unorderedEquals([
+        'Force 1 (EE01)',
+        'Angle 1 (EE01)',
+        'Force 2 (EE01)',
+        'Angle 2 (EE01)',
+      ]),
     );
-
-    handler.dispose();
-  });
-
-  test('paces the 8 samples across the packet duration', () async {
-    final registry = DataSourceRegistry();
-    final handler = BluetoothStreamHandler(
-      dataSourceRegistry: registry,
-      deviceId: 'device',
-    );
-    final packet = ByteData(BluetoothPacket.packetSize)
-      ..setUint32(0, 1 << 28, Endian.little);
-
-    handler.onData(packet.buffer.asUint8List());
-    final force = registry.get('Force (vice)')!;
-    final received = <Object>[];
-    final subscription = force.data.listen(received.add);
-
-    expect(received, isEmpty);
-
-    await Future<void>.delayed(const Duration(milliseconds: 40));
-    expect(received.length, inInclusiveRange(1, 7));
-
-    await Future<void>.delayed(const Duration(milliseconds: 70));
-    expect(received, hasLength(8));
-
-    await subscription.cancel();
-    handler.dispose();
   });
 
   test(
-    'drops duplicate packets and keeps timestamps monotonic after restart',
+    'pays out a packet across the packet duration instead of at once',
     () async {
-      final registry = DataSourceRegistry();
-      final sequences = <int>[];
-      final handler = BluetoothStreamHandler(
-        dataSourceRegistry: registry,
-        deviceId: 'test-device',
-        onOarlockPacket: sequences.add,
-      );
+      handler.onData(_oarlockFrame(1, 0));
+      final received = listen(sourceStartingWith('Force 1'));
 
-      List<int> packet(int sequence) {
-        final data = ByteData(BluetoothPacket.packetSize)
-          ..setUint32(0, (1 << 28) | sequence, Endian.little);
-        return data.buffer.asUint8List();
-      }
+      expect(received, isEmpty);
 
-      handler.onData(packet(1000));
-      handler.onData(packet(1000)); // radio retry
-      handler.onData(packet(1001));
-      handler.onData(packet(999)); // late packet
-      handler.onData(packet(1)); // sender reboot
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(received.length, inInclusiveRange(1, _samples - 1));
 
-      expect(sequences, [1000, 1001, 1]);
-      handler.dispose();
+      await _drainPlayback(1);
+      expect(received, hasLength(_samples));
     },
   );
+
+  test(
+    'anchors a large starting sequence number to the source start time',
+    () async {
+      handler.onData(_oarlockFrame(1, 1000000));
+      final force = sourceStartingWith('Force 1');
+      final received = listen(force);
+
+      handler.onData(_oarlockFrame(1, 1000001));
+      await _drainPlayback(2);
+
+      expect(offsetsOf(received, force), [
+        for (var i = 0; i < 2 * _samples; i++) i * _sampleMs,
+      ]);
+    },
+  );
+
+  test('leaves a gap in place of packets lost in transit', () async {
+    handler.onData(_oarlockFrame(1, 10));
+    final force = sourceStartingWith('Force 1');
+    final received = listen(force);
+
+    handler.onData(_oarlockFrame(1, 13)); // packets 11 and 12 never arrived
+    await _drainPlayback(2);
+
+    expect(offsetsOf(received, force).last, 3 * _packetMs + 7 * _sampleMs);
+  });
+
+  test('each oarlock is anchored independently', () async {
+    handler.onData(_oarlockFrame(1, 500000));
+    handler.onData(_oarlockFrame(2, 900000));
+    final first = sourceStartingWith('Force 1');
+    final second = sourceStartingWith('Force 2');
+    final firstSamples = listen(first);
+    final secondSamples = listen(second);
+
+    handler.onData(_oarlockFrame(1, 500001));
+    handler.onData(_oarlockFrame(2, 900001));
+    await _drainPlayback(2);
+
+    expect(offsetsOf(firstSamples, first).first, 0);
+    expect(offsetsOf(secondSamples, second).first, 0);
+    expect(offsetsOf(firstSamples, first).last, _packetMs + 7 * _sampleMs);
+    expect(offsetsOf(secondSamples, second).last, _packetMs + 7 * _sampleMs);
+  });
+
+  test('a sequence counter wrapping past 28 bits keeps advancing', () async {
+    handler.onData(_oarlockFrame(1, BluetoothPacket.sequenceModulo - 1));
+    final force = sourceStartingWith('Force 1');
+    final received = listen(force);
+
+    handler.onData(_oarlockFrame(1, 0)); // wrapped
+    await _drainPlayback(2);
+
+    expect(offsetsOf(received, force).last, _packetMs + 7 * _sampleMs);
+    expect(accepted, [BluetoothPacket.sequenceModulo - 1, 0]);
+  });
+
+  test('drops duplicates and late retries, and survives a sender restart', () {
+    handler.onData(_oarlockFrame(1, 1000));
+    handler.onData(_oarlockFrame(1, 1000)); // radio retry
+    handler.onData(_oarlockFrame(1, 1001));
+    handler.onData(_oarlockFrame(1, 999)); // late packet
+    handler.onData(_oarlockFrame(1, 1)); // sender reboot
+
+    expect(accepted, [1000, 1001, 1]);
+  });
+
+  test('reports a notification that is not a whole packet', () {
+    var invalid = 0;
+    final strict = BluetoothStreamHandler(
+      dataSourceRegistry: registry,
+      deviceId: 'device',
+      onInvalidPacket: () => invalid++,
+    );
+    addTearDown(strict.dispose);
+
+    strict.onData(_oarlockFrame(1, 0).sublist(0, 10));
+
+    expect(invalid, 1);
+    expect(registry.all, isEmpty);
+  });
 }

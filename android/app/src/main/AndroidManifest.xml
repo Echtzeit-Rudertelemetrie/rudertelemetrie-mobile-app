@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for fetching OpenStreetMap tiles for the map view. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="rudertelemetrie_mobile_app"
         android:name="${applicationName}"

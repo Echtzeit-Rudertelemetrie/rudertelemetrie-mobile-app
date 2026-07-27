@@ -3,18 +3,30 @@ import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
+import 'package:rudertelemetrie_mobile_app/screens/rig_setup_screen.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
-import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
+import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
+import 'package:rudertelemetrie_mobile_app/services/rig/oarlocks.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/force_angle_source_pair.dart';
+import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
+import '../components/recording/session_control.dart';
+import '../components/telemetry_quality_indicator.dart';
 import '../dashboard/add_widget_sheet.dart';
-import '../components/dashboart_tiles/chart_tile.dart';
+import '../components/dashboard_tiles/angle_gauge_tile.dart';
+import '../components/dashboard_tiles/bar_tile.dart';
+import '../components/dashboard_tiles/boat_schematic_tile.dart';
+import '../components/dashboard_tiles/chart_tile.dart';
+import '../components/dashboard_tiles/level_tile.dart';
+import '../components/dashboard_tiles/map_tile.dart';
 import '../dashboard/dashboard_grid.dart';
 import '../dashboard/dashboard_model.dart';
+import '../dashboard/preset_sheet.dart';
 import '../dashboard/stream_selector_sheet.dart';
-import '../components/dashboart_tiles/value_tile.dart';
-import '../components/telemetry_quality_indicator.dart';
+import '../components/dashboard_tiles/value_tile.dart';
+import '../dashboard/visualizer_binding_cache.dart';
 import '../dashboard/widget_config.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,17 +36,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  /// Cache of bound visualizers keyed by config id + visualizer/source selection.
-  /// Prevents rebinding (and resubscription) on every DashboardModel rebuild.
-  final Map<String, BoundVisualizer> _boundCache = {};
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Clear stale cache entries whenever the dashboard model notifies.
-    // Safe — entries are rebuilt lazily on the next build pass.
-    _boundCache.clear();
-  }
+  final _bindings = VisualizerBindingCache();
 
   @override
   Widget build(BuildContext context) {
@@ -42,13 +44,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final editMode = model.editMode;
     // Rebind tiles when data sources appear/disappear (e.g. a device connects).
     context.watch<DataSourceProviderModel>();
+    _bindings.retainOnly({for (final config in model.layout) config.id});
 
     return FScaffold(
       header: FHeader(
-        title: const Text('Dashboard'),
+        title: _PresetTitle(
+          name: model.activePreset?.name ?? 'Dashboard',
+          onTap: () => _showPresetSheet(context, model),
+        ),
         suffixes: [
+          const SessionControl(),
           FHeaderAction(
             icon: Icon(editMode ? FIcons.check : FIcons.pencil),
+            semanticsLabel: editMode ? 'Finish editing' : 'Edit dashboard',
             onPress: model.toggleEditMode,
           ),
         ],
@@ -59,6 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Column(
             children: [
               const TelemetryQualityIndicator(),
+              const _RigBanner(),
               Expanded(
                 child: DashboardGrid(
                   widgetBuilder: (context, config) =>
@@ -72,8 +81,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               right: 16,
               bottom: 24,
               child: FloatingActionButton(
-                backgroundColor: const Color(0xFFF45866),
-                foregroundColor: Colors.white,
+                backgroundColor: AppPalette.accent,
+                foregroundColor: AppPalette.label,
+                tooltip: 'Add widget',
                 onPressed: () => _showAddSheet(context, model),
                 child: const Icon(Icons.add),
               ),
@@ -91,19 +101,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final type = config.data['type'] as String?;
     final params = _readParams(config.data['params']);
 
-    final cacheKey =
-        '${config.id}_${visualizerKey}_${sourceKeys.join(',')}_${_paramsSignature(params)}';
-    final bound =
-        _boundCache[cacheKey] ??
-        () {
-          final b = _bind(context, visualizerKey, sourceKeys, params);
-          if (b != null) _boundCache[cacheKey] = b;
-          return b;
-        }();
+    // Instrument tiles bypass the visualizer pipeline and read sources directly.
+    if (type == 'gauge' ||
+        type == 'level' ||
+        type == 'schematic' ||
+        type == 'track') {
+      return _buildInstrument(context, type!, sourceKeys);
+    }
+
+    final visualizer = visualizerKey == null
+        ? null
+        : context.read<VisualizerProviderModel>().registry.get(visualizerKey);
+    final sources = _resolveSources(context, visualizer, sourceKeys);
+    final bound = _bindings.bind(
+      config.id,
+      bindingSignature(
+        visualizerKey: visualizerKey,
+        sourceKeys: sourceKeys,
+        sources: sources,
+        params: params,
+      ),
+      () => _bind(visualizer, sources, params),
+    );
 
     final content = switch ((type, bound)) {
       ('chart', final BoundVisualizer b) => ChartTile(visualizer: b),
       ('value', final BoundVisualizer b) => ValueTile(visualizer: b),
+      ('bar', final BoundVisualizer b) => BarTile(visualizer: b),
       _ => const _NoStreamPlaceholder(),
     };
 
@@ -114,28 +138,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  BoundVisualizer? _bind(
+  Widget _buildInstrument(
     BuildContext context,
-    String? visualizerKey,
+    String type,
     List<String> sourceKeys,
+  ) {
+    final registry = context.read<DataSourceProviderModel>().registry;
+    switch (type) {
+      case 'level':
+        return LevelTile(registry: registry);
+      case 'schematic':
+        return BoatSchematicTile(registry: registry);
+      case 'track':
+        return MapTile(registry: registry);
+    }
+    final source = sourceKeys.isEmpty ? null : registry.get(sourceKeys.first);
+    return source == null
+        ? const _NoStreamPlaceholder()
+        : AngleGaugeTile(source: source);
+  }
+
+  /// Force/angle visualizers store one oarlock's two keys but must survive the
+  /// pair being renamed or re-registered, so they re-resolve through the group
+  /// instead of trusting the stored names.
+  List<DataSource> _resolveSources(
+    BuildContext context,
+    AnyVisualizer? visualizer,
+    List<String> keys,
+  ) {
+    final registry = context.read<DataSourceProviderModel>().registry;
+    if (visualizer?.sourceSelectionMode == SourceSelectionMode.forceAnglePair) {
+      final pair = resolveForceAngleSourcePair(registry.all, keys);
+      return pair == null ? const [] : [pair.angle, pair.force];
+    }
+    return keys.map(registry.get).whereType<DataSource>().toList();
+  }
+
+  BoundVisualizer? _bind(
+    AnyVisualizer? visualizer,
+    List<DataSource> sources,
     Map<String, double> params,
   ) {
-    if (visualizerKey == null) return null;
-
-    final visualizer = context.read<VisualizerProviderModel>().registry.get(
-      visualizerKey,
-    );
     if (visualizer == null) return null;
-
-    final sourceRegistry = context.read<DataSourceProviderModel>().registry;
-    var sources = sourceKeys
-        .map((k) => sourceRegistry.get(k))
-        .whereType<DataSource>()
-        .toList();
-    if (visualizer.sourceSelectionMode == SourceSelectionMode.forceAnglePair) {
-      final pair = resolveForceAngleSourcePair(sourceRegistry.all, sourceKeys);
-      sources = pair == null ? [] : [pair.angle, pair.force];
-    }
 
     return switch (visualizer) {
       Visualizer1 v when sources.isNotEmpty => v.bind(
@@ -160,11 +204,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return params;
   }
 
-  String _paramsSignature(Map<String, double> params) {
-    final keys = params.keys.toList()..sort();
-    return keys.map((k) => '$k=${params[k]}').join(',');
-  }
-
   void _showStreamSelector(BuildContext context, WidgetConfig config) {
     showModalBottomSheet(
       context: context,
@@ -177,6 +216,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _showPresetSheet(BuildContext context, DashboardModel model) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ChangeNotifierProvider.value(
+        value: model,
+        child: const PresetSheet(),
+      ),
+    );
+  }
+
   void _showAddSheet(BuildContext context, DashboardModel model) {
     showModalBottomSheet(
       context: context,
@@ -185,6 +236,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (_) => ChangeNotifierProvider.value(
         value: model,
         child: const AddWidgetSheet(),
+      ),
+    );
+  }
+}
+
+/// Dashboard title doubling as the preset switcher.
+class _PresetTitle extends StatelessWidget {
+  final String name;
+  final VoidCallback onTap;
+
+  const _PresetTitle({required this.name, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Dashboard preset: $name. Tap to switch.',
+    button: true,
+    child: GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(child: Text(name, overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 4),
+          const Icon(FIcons.chevronDown, size: 16),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Says out loud what an unconfigured rig costs, instead of letting the force
+/// and power tiles sit blank with no explanation.
+class _RigBanner extends StatelessWidget {
+  const _RigBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final registry = context.watch<DataSourceProviderModel>().registry;
+    final config = context.watch<BoatConfig>();
+    final pending = oarlocksNeedingRig(registry, config);
+    if (pending.isEmpty) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const RigSetupScreen()),
+      ),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        color: Colors.amber.withAlpha(40),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(FIcons.triangleAlert, color: Colors.amber, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Rig incomplete for ${pending.join(', ')} — force and power '
+                'sources unavailable. Tap to set it up.',
+                style: const TextStyle(color: Colors.amber, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

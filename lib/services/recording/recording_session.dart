@@ -1,0 +1,278 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
+import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_binder.dart';
+import 'package:rudertelemetrie_mobile_app/services/kinematics/gps_kinematics.dart';
+import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/recording_settings.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/session_record.dart';
+import 'package:rudertelemetrie_mobile_app/services/recording/session_store.dart';
+import 'package:rudertelemetrie_mobile_app/utils/format.dart';
+
+enum SessionState { idle, recording, stopped }
+
+/// Owns the single recording origin and lifecycle (idle → recording → stopped),
+/// the session clock, position-derived speed/distance, and the derived
+/// `Speed (km/h)`/`Pace`/`Distance`/`Elapsed` sources.
+///
+/// Start/stop is auto + manual (recording-session spec): the stroke engine calls
+/// [onRowingDetected]/[onStrokeActivity] to auto-start on detected rowing and
+/// auto-stop after [_autoStopIdle] of no strokes. A manual [stop] always wins
+/// and disarms auto-restart until [reset] re-arms it.
+class RecordingSession extends ChangeNotifier {
+  static const _paceSpeedFloorMps = 0.3;
+  static const _tick = Duration(seconds: 1);
+
+  final DataSourceRegistry registry;
+  final SessionStore? store;
+  final AppNotifications? notifications;
+  final RecordingSettings settings;
+  final GpsKinematics _kinematics = GpsKinematics();
+
+  late final PushDataSource _speedKmh;
+  late final PushDataSource _pace;
+  late final PushDataSource _distance;
+  late final PushDataSource _elapsedSource;
+
+  SessionState _state = SessionState.idle;
+  StartMode _startMode = StartMode.manual;
+  DateTime? _startedAt;
+  DateTime? _stoppedAt;
+
+  double _sessionDistanceMeters = 0;
+  Measurement? _pendingLat;
+
+  late final SourceBinder _gps;
+  Timer? _ticker;
+
+  double _speedWeightedSum = 0;
+  double _peakSpeedKmh = 0;
+  DateTime? _lastSpeedTime;
+  double? _lastSpeedKmh;
+
+  bool _autoArmed = true;
+  DateTime? _lastStrokeAt;
+
+  RecordingSession({
+    required this.registry,
+    this.store,
+    this.notifications,
+    RecordingSettings? settings,
+  }) : settings = settings ?? RecordingSettings() {
+    _speedKmh = _register('Speed (km/h)', Unit.kmh);
+    _pace = _register('Pace (/500m)', Unit.pace);
+    _distance = _register('Distance', Unit.m);
+    _elapsedSource = _register('Elapsed', Unit.s);
+    _gps = SourceBinder(registry)
+      ..bind(
+        'lat',
+        matches: byNamePrefix('Latitude'),
+        onData: (m) => _pendingLat = m,
+      )
+      ..bind('lon', matches: byNamePrefix('Longitude'), onData: _onLongitude);
+  }
+
+  SessionState get state => _state;
+  StartMode get startMode => _startMode;
+  bool get isRecording => _state == SessionState.recording;
+  DateTime? get startedAt => _startedAt;
+  double get speedMps => _kinematics.speedMps;
+  double get distanceMeters => _sessionDistanceMeters;
+
+  Duration get elapsed {
+    final start = _startedAt;
+    if (start == null) return Duration.zero;
+    return (_stoppedAt ?? DateTime.now()).difference(start);
+  }
+
+  void start({StartMode mode = StartMode.manual}) {
+    if (isRecording) return;
+    _startMode = mode;
+    _startedAt = DateTime.now();
+    _stoppedAt = null;
+    _lastStrokeAt = _startedAt;
+    _state = SessionState.recording;
+    _resetAccumulators();
+    _ticker = Timer.periodic(_tick, (_) => _onTick());
+    unawaited(store?.beginSession(_currentInfo()));
+    notifyListeners();
+  }
+
+  void stop() => _stop(manual: true);
+
+  void _stop({required bool manual}) {
+    if (!isRecording) return;
+    if (manual) _autoArmed = false;
+    _stoppedAt = DateTime.now();
+    _state = SessionState.stopped;
+    _ticker?.cancel();
+    _ticker = null;
+
+    final summary = _buildSummary();
+    if (summary.duration < settings.minimumDuration) {
+      _discard(summary);
+      return;
+    }
+
+    unawaited(store?.finishSession(summary));
+    if (!manual) {
+      notifications?.info(
+        'Session saved',
+        detail:
+            '${formatElapsed(summary.duration)} · '
+            '${formatDistance(summary.distanceMeters)} — '
+            'stopped after ${settings.autoStopIdle.inSeconds}s without strokes',
+      );
+    }
+    notifyListeners();
+  }
+
+  /// Too short to be training — carrying the boat, testing an oarlock. Saving it
+  /// would put noise in History.
+  void _discard(SessionSummary summary) {
+    unawaited(store?.abortSession());
+    notifications?.info(
+      'Session discarded',
+      detail:
+          'Shorter than the ${settings.minimumDuration.inSeconds}s minimum.',
+    );
+    _state = SessionState.idle;
+    _startedAt = null;
+    _stoppedAt = null;
+    _resetAccumulators();
+    notifyListeners();
+  }
+
+  void reset() {
+    _ticker?.cancel();
+    _ticker = null;
+    _state = SessionState.idle;
+    _startedAt = null;
+    _stoppedAt = null;
+    _autoArmed = true;
+    _resetAccumulators();
+    unawaited(store?.abortSession());
+    notifyListeners();
+  }
+
+  /// Whether a detected catch would start a session right now. Surfaced in the
+  /// session control so the user can tell what the app is about to do.
+  bool get isAutoArmed => settings.autoStart && _autoArmed && !isRecording;
+
+  /// Called by the stroke engine on a detected catch. Auto-starts a session
+  /// unless the user turned auto-start off, or a prior manual stop disarmed it.
+  void onRowingDetected() {
+    if (isRecording || !_autoArmed || !settings.autoStart) return;
+    start(mode: StartMode.auto);
+    notifications?.info('Recording started', detail: 'Rowing detected');
+  }
+
+  /// Called by the stroke engine on each finish; resets the auto-stop idle timer.
+  void onStrokeActivity() {
+    if (isRecording) _lastStrokeAt = DateTime.now();
+  }
+
+  void _resetAccumulators() {
+    _kinematics.reset();
+    _sessionDistanceMeters = 0;
+    _pendingLat = null;
+    _speedWeightedSum = 0;
+    _peakSpeedKmh = 0;
+    _lastSpeedTime = null;
+    _lastSpeedKmh = null;
+  }
+
+  SessionInfo _currentInfo() => SessionInfo(
+    id: 'session_${_startedAt!.millisecondsSinceEpoch}',
+    startedAt: _startedAt!,
+    startMode: _startMode,
+  );
+
+  SessionSummary _buildSummary() {
+    final seconds = elapsed.inMicroseconds / 1e6;
+    final avgSpeed = seconds > 0 ? _speedWeightedSum / seconds : 0.0;
+    return SessionSummary(
+      info: _currentInfo(),
+      stoppedAt: _stoppedAt!,
+      distanceMeters: _sessionDistanceMeters,
+      averages: {'Speed (km/h)': avgSpeed},
+      peaks: {'Speed (km/h)': _peakSpeedKmh},
+    );
+  }
+
+  void _onTick() {
+    _elapsedSource.add(
+      Measurement(
+        value: elapsed.inSeconds.toDouble(),
+        timestamp: DateTime.now(),
+      ),
+    );
+    if (_shouldAutoStop()) {
+      _stop(manual: false);
+      return;
+    }
+    notifyListeners();
+  }
+
+  bool _shouldAutoStop() {
+    final last = _lastStrokeAt;
+    return _startMode == StartMode.auto &&
+        last != null &&
+        DateTime.now().difference(last) > settings.autoStopIdle;
+  }
+
+  void _onLongitude(Measurement lon) {
+    final lat = _pendingLat;
+    if (lat == null || lat.timestamp != lon.timestamp) return;
+    _onFix(
+      GpsFix(latitude: lat.value, longitude: lon.value, time: lon.timestamp),
+    );
+  }
+
+  void _onFix(GpsFix fix) {
+    final step = _kinematics.add(fix);
+    final speedKmh = step.speedMps * 3.6;
+    _speedKmh.add(Measurement(value: speedKmh, timestamp: fix.time));
+    if (step.speedMps >= _paceSpeedFloorMps) {
+      _pace.add(Measurement(value: 500 / step.speedMps, timestamp: fix.time));
+    }
+    if (!isRecording || !step.accepted) return;
+    _sessionDistanceMeters += step.stepMeters;
+    _distance.add(
+      Measurement(value: _sessionDistanceMeters, timestamp: fix.time),
+    );
+    _accumulateSpeed(speedKmh, fix.time);
+  }
+
+  void _accumulateSpeed(double speedKmh, DateTime time) {
+    if (speedKmh > _peakSpeedKmh) _peakSpeedKmh = speedKmh;
+    final last = _lastSpeedTime;
+    if (last != null) {
+      final dt = time.difference(last).inMicroseconds / 1e6;
+      _speedWeightedSum += 0.5 * (speedKmh + (_lastSpeedKmh ?? speedKmh)) * dt;
+    }
+    _lastSpeedTime = time;
+    _lastSpeedKmh = speedKmh;
+  }
+
+  PushDataSource _register(String name, Unit unit) {
+    final source = PushDataSource(name: name, unit: unit, group: 'Session');
+    registry.registerDeferred(source);
+    return source;
+  }
+
+  @override
+  void dispose() {
+    _gps.dispose();
+    _ticker?.cancel();
+    for (final source in [_speedKmh, _pace, _distance, _elapsedSource]) {
+      registry.unregister(source.name);
+      source.dispose();
+    }
+    super.dispose();
+  }
+}

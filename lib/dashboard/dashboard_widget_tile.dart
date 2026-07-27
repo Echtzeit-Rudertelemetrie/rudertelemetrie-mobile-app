@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'dashboard_model.dart';
 import 'widget_config.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// A single positioned tile on the dashboard grid.
 ///
@@ -59,10 +60,10 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF1a1d30),
+              color: AppPalette.surface,
               borderRadius: BorderRadius.circular(8),
               border: editMode
-                  ? Border.all(color: const Color(0xFFF45866), width: 1.5)
+                  ? Border.all(color: AppPalette.accent, width: 1.5)
                   : null,
             ),
             child: ClipRRect(
@@ -81,9 +82,13 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
               onPanStart: _onDragStart,
               onPanUpdate: _onDragUpdate,
               onPanEnd: _onDragEnd,
-              child: const _Handle(
-                icon: Icons.drag_indicator,
-                color: Color(0xFFF45866),
+              child: Semantics(
+                label: 'Move tile',
+                button: true,
+                child: const _Handle(
+                  icon: Icons.drag_indicator,
+                  color: AppPalette.accent,
+                ),
               ),
             ),
           ),
@@ -94,7 +99,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
             right: 0,
             child: GestureDetector(
               onTap: () => context.read<DashboardModel>().removeWidget(cfg.id),
-              child: const _Handle(icon: Icons.close, color: Colors.redAccent),
+              child: Semantics(
+                label: 'Remove tile',
+                button: true,
+                child: const _Handle(
+                  icon: Icons.close,
+                  color: AppPalette.danger,
+                ),
+              ),
             ),
           ),
 
@@ -106,7 +118,11 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
               onPanStart: _onResizeStart,
               onPanUpdate: _onResizeUpdate,
               onPanEnd: _onResizeEnd,
-              child: const _ResizeHandle(),
+              child: Semantics(
+                label: 'Resize tile',
+                button: true,
+                child: const _ResizeHandle(),
+              ),
             ),
           ),
         ],
@@ -233,7 +249,7 @@ class _TrianglePainter extends CustomPainter {
         ..lineTo(size.width, size.height)
         ..lineTo(0, size.height)
         ..close(),
-      Paint()..color = const Color(0xFFF45866),
+      Paint()..color = AppPalette.accent,
     );
   }
 

@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/angle_conversion_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/force_conversion_util.dart';
 
-// Inverse of the production sender encoding in rowing_boat DataSender.
+// Inverse of the firmware encoding in rowing_boat SimData::dolle.
 int _encodeForce(double newtons) => (newtons / 1000.0 * 65535).round();
 int _encodeAngle(double degrees) => ((degrees + 180.0) / 360.0 * 65535).round();
 
@@ -28,6 +28,10 @@ void main() {
 
     test('full scale maps to +180 degrees', () {
       expect(convertAngleSensorData(65535), closeTo(180, 1e-6));
+    });
+
+    test('midpoint maps to 0 degrees', () {
+      expect(convertAngleSensorData(32768), closeTo(0, 0.01));
     });
 
     test('round-trips a firmware-encoded angle value', () {

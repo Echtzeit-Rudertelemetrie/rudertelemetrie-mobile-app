@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
 
 enum TelemetryQualityLevel { waiting, live, delayed, interrupted }
 
@@ -22,7 +23,6 @@ class TelemetryQuality {
 }
 
 class TelemetryQualityMonitor extends ChangeNotifier {
-  static const _sequenceModulo = 1 << 28;
   static const _lagThreshold = Duration(milliseconds: 250);
   static const _interruptionThreshold = Duration(milliseconds: 600);
   static const _lossVisibleFor = Duration(seconds: 4);
@@ -86,8 +86,9 @@ class TelemetryQualityMonitor extends ChangeNotifier {
     final previous = device.lastSequence;
 
     if (previous != null) {
-      final advance = (sequenceNumber - previous) % _sequenceModulo;
-      if (advance > 1 && advance < _sequenceModulo ~/ 2) {
+      final advance =
+          (sequenceNumber - previous) % BluetoothPacket.sequenceModulo;
+      if (advance > 1 && advance < BluetoothPacket.sequenceModulo ~/ 2) {
         device.lastMissing = advance - 1;
         device.lastInvalid = 0;
         device.lastProblemAt = receivedAt;

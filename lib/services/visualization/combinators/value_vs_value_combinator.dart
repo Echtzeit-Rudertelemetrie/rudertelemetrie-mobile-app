@@ -26,8 +26,6 @@ class ValueVsValueCombinator extends Combinator2 {
       StreamSubscription<Measurement>? sub1;
       StreamSubscription<Measurement>? sub2;
 
-      DateTime? lastEmittedTimestamp;
-
       void tryEmit() {
         if (latest1 == null || latest2 == null) return;
         if (requireMatchingTimestamps &&
@@ -37,10 +35,6 @@ class ValueVsValueCombinator extends Combinator2 {
         final ts = latest1!.timestamp.isAfter(latest2!.timestamp)
             ? latest1!.timestamp
             : latest2!.timestamp;
-        if (ts == lastEmittedTimestamp) {
-          return;
-        }
-        lastEmittedTimestamp = ts;
         controller.add(
           XYPoint(x: latest1!.value, y: latest2!.value, timestamp: ts),
         );

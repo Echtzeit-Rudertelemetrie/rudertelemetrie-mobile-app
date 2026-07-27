@@ -47,9 +47,7 @@ class _PackBuilder {
 void main() {
   test('returns null for undersized buffers', () {
     expect(
-      BluetoothPacket.decode(
-        List.filled(BluetoothPacket.packetSize - 1, 0),
-      ),
+      BluetoothPacket.decode(List.filled(BluetoothPacket.packetSize - 1, 0)),
       isNull,
     );
   });

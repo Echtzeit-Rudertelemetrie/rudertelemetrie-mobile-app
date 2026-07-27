@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
+import 'package:rudertelemetrie_mobile_app/components/keep_screen_awake.dart';
+import 'package:rudertelemetrie_mobile_app/components/notice_presenter.dart';
+import 'package:rudertelemetrie_mobile_app/components/recording_lifecycle_guard.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/notifications_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/recording_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/boat_config_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/force_sources_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/power_sources_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/recording_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/session_store_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/stroke_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
-import 'package:rudertelemetrie_mobile_app/providers/simulation_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/screens//home_screen.dart';
 import 'package:rudertelemetrie_mobile_app/utils/startup_util.dart';
 
@@ -13,9 +23,17 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
-        simulationSettingsProvider,
+        notificationsProvider,
         dashboardProvider,
         dataSourceProvider,
+        sessionStoreProvider,
+        recordingSettingsProvider,
+        boatConfigProvider,
+        recordingProvider,
+        forceSourcesProvider,
+        strokeSettingsProvider,
+        strokeEngineProvider,
+        powerSourcesProvider,
         visualizerProvider,
         bluetoothProvider,
       ],
@@ -36,6 +54,7 @@ class _ApplicationState extends State<Application> {
   void initState() {
     super.initState();
     initializeBluetooth(context);
+    recoverInterruptedSessions(context);
   }
 
   @override
@@ -48,9 +67,16 @@ class _ApplicationState extends State<Application> {
       theme: theme.toApproximateMaterialTheme(),
       builder: (_, child) => FTheme(
         data: theme,
-        child: FToaster(child: FTooltipGroup(child: child!)),
+        child: FToaster(
+          child: NoticePresenter(
+            child: RecordingLifecycleGuard(
+              child: KeepScreenAwake(child: FTooltipGroup(child: child!)),
+            ),
+          ),
+        ),
       ),
-      home: const FScaffold(child: Home()),
+      // Each screen owns its own FScaffold; nesting one here double-padded Home.
+      home: const Home(),
     );
   }
 }

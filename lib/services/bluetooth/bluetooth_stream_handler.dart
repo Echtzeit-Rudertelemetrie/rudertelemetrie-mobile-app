@@ -7,7 +7,6 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/packet_reassembler.dart';
-import 'package:rudertelemetrie_mobile_app/utils/bluetooth/timestamp_conversion_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/angle_conversion_util.dart';
 import 'package:rudertelemetrie_mobile_app/utils/sensor_data/force_conversion_util.dart';
 
@@ -18,14 +17,9 @@ class BluetoothStreamHandler {
   final void Function()? onInvalidPacket;
 
   final Map<String, PushDataSource> _dataSources = {};
-  final Queue<_OarlockSample> _pendingOarlockSamples = Queue();
-  final Stopwatch _playbackClock = Stopwatch();
+  final Map<int, _OarlockStream> _oarlocks = {};
 
   int? _boatDeviceClockOrigin;
-  int? _lastOarlockSequence;
-  DateTime? _nextOarlockTimestamp;
-  int _playbackSamples = 0;
-  Timer? _sampleTimer;
 
   late final PacketReassembler _reassembler = PacketReassembler(_decodeFrame);
 
@@ -36,12 +30,12 @@ class BluetoothStreamHandler {
     this.onInvalidPacket,
   });
 
-  void onData(List<int> fragment) {
-    if (fragment.length != BluetoothPacket.packetSize) {
+  void onData(List<int> value) {
+    if (value.length != BluetoothPacket.packetSize) {
       onInvalidPacket?.call();
       return;
     }
-    _reassembler.addFragment(fragment);
+    _reassembler.addFragment(value);
   }
 
   void _decodeFrame(List<int> frame) {
@@ -58,94 +52,22 @@ class BluetoothStreamHandler {
   }
 
   void _handleOarlock(OarlockPacket packet) {
-    final sequenceAdvance = _acceptOarlockSequence(packet.sequenceNumber);
-    if (sequenceAdvance == null) return; // duplicate or late retry
+    final stream = _oarlockStream(packet.sensorId);
+    final advance = stream.acceptSequence(packet.sequenceNumber);
+    if (advance == null) return; // duplicate or late retry
 
     onOarlockPacket?.call(packet.sequenceNumber);
-    // The current production setup has one oarlock per BLE hub. Keep the wire
-    // protocol ID internal instead of exposing misleading Force/Angle 1..15
-    // sources in the dashboard.
-    final group = 'Oarlock ($_deviceTag)';
-    final force = _source('Force', Unit.N, group: group);
-    final angle = _source('Angle', Unit.deg, group: group);
-
-    if (_sampleTimer != null) _emitDueOarlockSamples(force, angle);
-    if (_pendingOarlockSamples.length > BluetoothPacket.samplesPerRegion) {
-      _pendingOarlockSamples.clear();
-    }
-
-    var packetStart = _nextOarlockTimestamp ?? force.startTime;
-    if (sequenceAdvance > 1) {
-      packetStart = packetStart.add(
-        Duration(
-          milliseconds:
-              (sequenceAdvance - 1) *
-              BluetoothPacket.samplesPerRegion *
-              sensorSampleIntervalMs,
-        ),
-      );
-    }
-
-    for (var i = 0; i < packet.forces.length; i++) {
-      final timestamp = packetStart.add(
-        Duration(milliseconds: i * sensorSampleIntervalMs),
-      );
-      _pendingOarlockSamples.add(
-        _OarlockSample(
-          force: Measurement(
-            value: convertForceSensorData(packet.forces[i]),
-            timestamp: timestamp,
-          ),
-          angle: Measurement(
-            value: convertAngleSensorData(packet.angles[i]),
-            timestamp: timestamp,
-          ),
-        ),
-      );
-    }
-    _nextOarlockTimestamp = packetStart.add(
-      const Duration(
-        milliseconds: BluetoothPacket.samplesPerRegion * sensorSampleIntervalMs,
-      ),
-    );
-
-    _startSampleTimer(force, angle);
+    stream.enqueue(packet, advance);
   }
 
-  void _startSampleTimer(PushDataSource force, PushDataSource angle) {
-    if (_sampleTimer != null) return;
-    _playbackSamples = 0;
-    _playbackClock
-      ..reset()
-      ..start();
-    _sampleTimer ??= Timer.periodic(
-      const Duration(milliseconds: 16),
-      (_) => _emitDueOarlockSamples(force, angle),
-    );
-  }
-
-  void _emitDueOarlockSamples(PushDataSource force, PushDataSource angle) {
-    if (_pendingOarlockSamples.isEmpty) {
-      _stopSampleTimer();
-      return;
-    }
-
-    final targetSamples =
-        _playbackClock.elapsedMilliseconds ~/ sensorSampleIntervalMs;
-    final dueSamples = targetSamples - _playbackSamples;
-    _playbackSamples = targetSamples;
-
-    for (var i = 0; i < dueSamples && _pendingOarlockSamples.isNotEmpty; i++) {
-      final sample = _pendingOarlockSamples.removeFirst();
-      force.add(sample.force);
-      angle.add(sample.angle);
-    }
-  }
-
-  void _stopSampleTimer() {
-    _sampleTimer?.cancel();
-    _sampleTimer = null;
-    _playbackClock.stop();
+  _OarlockStream _oarlockStream(int sensorId) {
+    return _oarlocks.putIfAbsent(sensorId, () {
+      final group = 'Oarlock $sensorId ($_deviceTag)';
+      return _OarlockStream(
+        force: _source('Force $sensorId', Unit.N, group: group),
+        angle: _source('Angle $sensorId', Unit.deg, group: group),
+      );
+    });
   }
 
   void _handleBoat(BoatPacket packet) {
@@ -156,6 +78,18 @@ class BluetoothStreamHandler {
     speed.add(
       Measurement(value: packet.gps.speedMps.toDouble(), timestamp: timestamp),
     );
+    if (packet.gps.valid) {
+      _source(
+        'Latitude',
+        Unit.deg,
+        group: group,
+      ).add(Measurement(value: packet.gps.latitude, timestamp: timestamp));
+      _source(
+        'Longitude',
+        Unit.deg,
+        group: group,
+      ).add(Measurement(value: packet.gps.longitude, timestamp: timestamp));
+    }
     _source(
       'Acceleration X',
       Unit.mps2,
@@ -176,36 +110,6 @@ class BluetoothStreamHandler {
   DateTime _boatTimestamp(PushDataSource source, int deviceMs) {
     final origin = _boatDeviceClockOrigin ??= deviceMs;
     return source.startTime.add(Duration(milliseconds: deviceMs - origin));
-  }
-
-  /// Returns the forward sequence advance, 1 after a sender restart, or null
-  /// for a duplicate / slightly late retry. This keeps timestamps monotonic
-  /// even when the embedded sender reboots and starts its sequence at zero.
-  int? _acceptOarlockSequence(int sequence) {
-    const modulo = 1 << 28;
-    const halfModulo = modulo ~/ 2;
-    const maxLatePackets = 64;
-    final previous = _lastOarlockSequence;
-    if (previous == null) {
-      _lastOarlockSequence = sequence;
-      return 1;
-    }
-
-    final advance = (sequence - previous) % modulo;
-    if (advance == 0) return null;
-    if (advance < halfModulo) {
-      _lastOarlockSequence = sequence;
-      return advance;
-    }
-
-    final backwards = (previous - sequence) % modulo;
-    if (backwards <= maxLatePackets) return null;
-
-    // Large backwards jump: sender restarted. Continue directly after the
-    // previous local sample instead of jumping the chart back to t=0.
-    _lastOarlockSequence = sequence;
-    _pendingOarlockSamples.clear();
-    return 1;
   }
 
   PushDataSource _source(String name, Unit unit, {String? group}) {
@@ -230,13 +134,147 @@ class BluetoothStreamHandler {
   }
 
   void dispose() {
-    _stopSampleTimer();
-    _pendingOarlockSamples.clear();
+    for (final stream in _oarlocks.values) {
+      stream.dispose();
+    }
+    _oarlocks.clear();
     for (final source in _dataSources.values) {
       dataSourceRegistry.unregister(source.name);
       source.dispose();
     }
     _dataSources.clear();
+  }
+}
+
+/// One oarlock's force/angle pair, with its packets released at the sensor's own
+/// sample rate.
+///
+/// A BLE notification delivers a whole packet at once. Pushing all of it into
+/// the chart in a single frame makes the trace advance in visible steps, so the
+/// samples are buffered and paid out against a wall clock instead. Timestamps
+/// are anchored to the source's start time rather than to the firmware's
+/// sequence counter, which is already running when the app connects.
+class _OarlockStream {
+  static const _tickInterval = Duration(milliseconds: 16);
+  static const _packetDuration = Duration(
+    milliseconds:
+        BluetoothPacket.samplesPerRegion * BluetoothPacket.sampleIntervalMs,
+  );
+
+  /// Sequence gap treated as a late retry rather than a sender restart.
+  static const _maxLatePackets = 64;
+
+  final PushDataSource force;
+  final PushDataSource angle;
+
+  final Queue<_OarlockSample> _pending = Queue();
+  final Stopwatch _clock = Stopwatch();
+
+  int? _lastSequence;
+  DateTime? _nextTimestamp;
+  int _emitted = 0;
+  Timer? _timer;
+
+  _OarlockStream({required this.force, required this.angle});
+
+  /// Returns the forward sequence advance, 1 after a sender restart, or null
+  /// for a duplicate / slightly late retry. This keeps timestamps monotonic
+  /// even when the embedded sender reboots and starts its sequence at zero.
+  int? acceptSequence(int sequence) {
+    const modulo = BluetoothPacket.sequenceModulo;
+    final previous = _lastSequence;
+    if (previous == null) {
+      _lastSequence = sequence;
+      return 1;
+    }
+
+    final advance = (sequence - previous) % modulo;
+    if (advance == 0) return null;
+    if (advance < modulo ~/ 2) {
+      _lastSequence = sequence;
+      return advance;
+    }
+
+    if ((previous - sequence) % modulo <= _maxLatePackets) return null;
+
+    // Large backwards jump: sender restarted. Continue directly after the
+    // previous local sample instead of jumping the chart back to t=0.
+    _lastSequence = sequence;
+    _pending.clear();
+    return 1;
+  }
+
+  void enqueue(OarlockPacket packet, int advance) {
+    if (_timer != null) _emitDue();
+    // A backlog longer than one packet means playback has fallen behind the
+    // sender; showing stale samples is worse than skipping them.
+    if (_pending.length > BluetoothPacket.samplesPerRegion) _pending.clear();
+
+    final start = _packetStart(advance);
+    for (var i = 0; i < packet.forces.length; i++) {
+      final timestamp = start.add(
+        Duration(milliseconds: i * BluetoothPacket.sampleIntervalMs),
+      );
+      _pending.add(
+        _OarlockSample(
+          force: Measurement(
+            value: convertForceSensorData(packet.forces[i]),
+            timestamp: timestamp,
+          ),
+          angle: Measurement(
+            value: convertAngleSensorData(packet.angles[i]),
+            timestamp: timestamp,
+          ),
+        ),
+      );
+    }
+    _nextTimestamp = start.add(_packetDuration);
+    _start();
+  }
+
+  /// Leaves a gap for packets lost in transit, so a dropped packet shows as a
+  /// gap in the trace rather than compressing time.
+  DateTime _packetStart(int advance) {
+    final start = _nextTimestamp ?? force.startTime;
+    return advance > 1 ? start.add(_packetDuration * (advance - 1)) : start;
+  }
+
+  void _start() {
+    if (_timer != null) return;
+    _emitted = 0;
+    _clock
+      ..reset()
+      ..start();
+    _timer = Timer.periodic(_tickInterval, (_) => _emitDue());
+  }
+
+  void _emitDue() {
+    if (_pending.isEmpty) {
+      _stop();
+      return;
+    }
+
+    final target =
+        _clock.elapsedMilliseconds ~/ BluetoothPacket.sampleIntervalMs;
+    final due = target - _emitted;
+    _emitted = target;
+
+    for (var i = 0; i < due && _pending.isNotEmpty; i++) {
+      final sample = _pending.removeFirst();
+      force.add(sample.force);
+      angle.add(sample.angle);
+    }
+  }
+
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
+    _clock.stop();
+  }
+
+  void dispose() {
+    _stop();
+    _pending.clear();
   }
 }
 
