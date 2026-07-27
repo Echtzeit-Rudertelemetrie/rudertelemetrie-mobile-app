@@ -14,6 +14,20 @@ typedef CollectorBuilder = PointCollector Function(Map<String, double> params);
 
 enum SourceSelectionMode { individual, forceAnglePair }
 
+/// The shape of the points a visualizer produces. A tile declares which shapes
+/// it can draw, so the sheet can offer only the visualizers that suit the tile
+/// the user picked — without the pipeline knowing tiles exist.
+enum VisualizerShape {
+  /// A value against elapsed time, advancing continuously.
+  series,
+
+  /// One value against another, tracing a curve.
+  xy,
+
+  /// One point per completed stroke.
+  perStroke,
+}
+
 /// The result of binding a [Visualizer] to concrete [DataSource] instances.
 /// Holds the final [units] and a ready-to-subscribe [output] stream.
 ///
@@ -108,6 +122,11 @@ sealed class AnyVisualizer {
   int get sourceCount;
   SourceSelectionMode get sourceSelectionMode;
 
+  /// One line on how this visualizer shapes its sources, for the picker.
+  String get description;
+
+  VisualizerShape get shape;
+
   /// Numeric settings this visualizer exposes for per-widget configuration.
   List<VisualizerParam> get params;
 
@@ -120,6 +139,12 @@ sealed class AnyVisualizer {
 class Visualizer1 extends AnyVisualizer {
   @override
   final String name;
+
+  @override
+  final String description;
+
+  @override
+  final VisualizerShape shape;
 
   @override
   int get sourceCount => 1;
@@ -137,6 +162,8 @@ class Visualizer1 extends AnyVisualizer {
 
   Visualizer1({
     required this.name,
+    required this.description,
+    required this.shape,
     required this.combinator,
     this.filters = const [],
     this.params = const [],
@@ -173,6 +200,12 @@ class Visualizer2 extends AnyVisualizer {
   final String name;
 
   @override
+  final String description;
+
+  @override
+  final VisualizerShape shape;
+
+  @override
   int get sourceCount => 2;
 
   @override
@@ -188,6 +221,8 @@ class Visualizer2 extends AnyVisualizer {
 
   Visualizer2({
     required this.name,
+    required this.description,
+    required this.shape,
     required this.combinator,
     this.filters = const [],
     this.params = const [],

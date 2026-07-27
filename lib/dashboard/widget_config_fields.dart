@@ -6,6 +6,7 @@ import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 import 'force_angle_picker.dart';
 import 'param_field.dart';
+import 'source_picker.dart';
 import 'widget_config_draft.dart';
 
 /// The visualizer / settings / sources / reduction editor, shared by the add
@@ -87,7 +88,7 @@ class WidgetConfigFields extends StatelessWidget {
       for (int i = 0; i < (selected?.sourceCount ?? 0); i++) ...[
         _SectionLabel(_sourceLabel(i)),
         const SizedBox(height: 4),
-        ..._sourcePicker(i),
+        _sourcePicker(i),
         const SizedBox(height: 12),
       ],
     ];
@@ -98,40 +99,14 @@ class WidgetConfigFields extends StatelessWidget {
     return index == 0 ? 'X axis' : 'Y axis';
   }
 
-  List<Widget> _sourcePicker(int index) {
-    if (dataSources.isEmpty) {
-      return const [
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            'No streams available.',
-            style: TextStyle(color: AppPalette.disabledLabel),
-          ),
-        ),
-      ];
-    }
-
-    return _groupSources(dataSources).entries
-        .map(
-          (group) => _SourceGroup(
-            key: ValueKey('src${index}_${group.key}'),
-            title: group.key,
-            children: group.value
-                .map(
-                  (ds) => _SourceOption(
-                    dataSource: ds,
-                    selected:
-                        index < draft.sourceKeys.length &&
-                        draft.sourceKeys[index] == ds.name,
-                    onTap: () =>
-                        _edit(() => draft.sourceKeys[index] = ds.name),
-                  ),
-                )
-                .toList(),
-          ),
-        )
-        .toList();
-  }
+  Widget _sourcePicker(int index) => SourcePicker(
+    slot: 'src$index',
+    sources: dataSources,
+    selectedKey: index < draft.sourceKeys.length
+        ? draft.sourceKeys[index]
+        : null,
+    onSelected: (key) => _edit(() => draft.sourceKeys[index] = key),
+  );
 
   List<Widget> _reduction() {
     if (!draft.offersReduction(selected)) return const [];
@@ -144,14 +119,6 @@ class WidgetConfigFields extends StatelessWidget {
         onChanged: (r) => _edit(() => draft.reduction = r),
       ),
     ];
-  }
-
-  Map<String, List<DataSource>> _groupSources(List<DataSource> sources) {
-    final grouped = <String, List<DataSource>>{};
-    for (final ds in sources) {
-      (grouped[ds.group ?? 'Other'] ??= []).add(ds);
-    }
-    return grouped;
   }
 }
 
@@ -182,140 +149,11 @@ class _VisualizerOption extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => _OptionRow(
+  Widget build(BuildContext context) => OptionRow(
     selected: selected,
     onTap: onTap,
     title: visualizer.name,
-    subtitle:
-        '${visualizer.sourceCount} source${visualizer.sourceCount == 1 ? '' : 's'}',
-  );
-}
-
-class _SourceOption extends StatelessWidget {
-  final DataSource dataSource;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SourceOption({
-    required this.dataSource,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => _OptionRow(
-    selected: selected,
-    onTap: onTap,
-    title: dataSource.name,
-    subtitle: dataSource.unit.label,
-  );
-}
-
-class _OptionRow extends StatelessWidget {
-  final bool selected;
-  final VoidCallback onTap;
-  final String title;
-  final String subtitle;
-
-  const _OptionRow({
-    required this.selected,
-    required this.onTap,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    behavior: HitTestBehavior.opaque,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SelectionRadio(selected: selected),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppPalette.label,
-                    fontSize: AppTypeScale.body,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: AppPalette.faintLabel,
-                    fontSize: AppTypeScale.caption,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _SourceGroup extends StatefulWidget {
-  final String title;
-  final List<Widget> children;
-
-  const _SourceGroup({super.key, required this.title, required this.children});
-
-  @override
-  State<_SourceGroup> createState() => _SourceGroupState();
-}
-
-class _SourceGroupState extends State<_SourceGroup> {
-  bool _expanded = true;
-
-  void _toggle() => setState(() => _expanded = !_expanded);
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _toggle,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              Icon(
-                _expanded
-                    ? Icons.keyboard_arrow_down
-                    : Icons.keyboard_arrow_right,
-                size: 18,
-                color: AppPalette.faintLabel,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                widget.title,
-                style: const TextStyle(
-                  color: AppPalette.label,
-                  fontSize: AppTypeScale.label,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      if (_expanded)
-        Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: widget.children,
-          ),
-        ),
-    ],
+    subtitle: visualizer.description,
   );
 }
 

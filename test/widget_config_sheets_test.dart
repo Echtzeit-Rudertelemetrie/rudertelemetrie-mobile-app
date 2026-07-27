@@ -5,6 +5,7 @@ import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/add_widget_sheet.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_model.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/stream_selector_sheet.dart';
+import 'package:rudertelemetrie_mobile_app/dashboard/tile_kind.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/widget_config.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
@@ -63,33 +64,113 @@ void main() {
     },
   );
 
-  group('AddWidgetSheet', () {
-    testWidgets('offers every display type the dashboard can render', (
+  group('AddWidgetSheet step one', () {
+    testWidgets('offers every tile kind, each with what it shows', (
       tester,
     ) async {
       await tester.pumpWidget(host(const AddWidgetSheet()));
 
-      for (final label in ['Chart', 'Value', 'Bar', 'Gauge', 'Level', 'Map']) {
-        expect(find.text(label), findsOneWidget, reason: label);
+      for (final kind in TileKind.values) {
+        expect(find.text(kind.label), findsOneWidget, reason: kind.label);
+        expect(
+          find.text(kind.description),
+          findsOneWidget,
+          reason: kind.description,
+        );
       }
-      expect(find.text('Reduction'), findsOneWidget);
+    });
+
+    testWidgets('places an instrument straight away, with no second step', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Boat');
+
+      expect(dashboard.layout.single.data['type'], 'schematic');
+      expect(dashboard.layout.single.data['sourceKeys'], isEmpty);
+    });
+
+    testWidgets('a data tile leads on to its configuration', (tester) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Chart');
+
+      expect(find.text('Visualizer'), findsOneWidget);
+      expect(find.text('Add Chart'), findsOneWidget);
+      expect(dashboard.layout, isEmpty);
+    });
+
+    testWidgets('the gauge asks for a source and nothing else', (tester) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Gauge');
+
+      expect(find.text('Visualizer'), findsNothing);
+      expect(find.text('Reduction'), findsNothing);
+      expect(find.text('Force'), findsOneWidget);
+    });
+
+    testWidgets('going back returns to the kind list, keeping nothing', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Chart');
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add Widget'), findsOneWidget);
+      expect(find.text(TileKind.track.description), findsOneWidget);
+      expect(dashboard.layout, isEmpty);
+    });
+  });
+
+  group('AddWidgetSheet step two', () {
+    testWidgets('names a source by its metric, not its device suffix', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Chart');
+
+      expect(find.text('Force'), findsOneWidget);
+      expect(find.text('Force (EE01)'), findsNothing);
+      expect(
+        find.text('Force at the oarlock pin, as the sensor reads it.'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('adds the tile at a single cell', (tester) async {
       await tester.pumpWidget(host(const AddWidgetSheet()));
-      await tapField(tester, 'Force (EE01)');
-      await tester.tap(find.text('Chart'));
-      await tester.pump();
+      await tapField(tester, 'Chart');
+      await tapField(tester, 'Force');
+      await tapField(tester, 'Add Chart');
 
       expect(dashboard.layout.single.w, 1);
       expect(dashboard.layout.single.h, 1);
+      expect(dashboard.layout.single.data['type'], 'chart');
       expect(dashboard.layout.single.data['sourceKeys'], ['Force (EE01)']);
+    });
+
+    testWidgets('a gauge stores the picked source and no visualizer', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(const AddWidgetSheet()));
+      await tapField(tester, 'Gauge');
+      await tapField(tester, 'Force');
+      await tapField(tester, 'Add Gauge');
+
+      expect(dashboard.layout.single.data['type'], 'gauge');
+      expect(dashboard.layout.single.data['sourceKeys'], ['Force (EE01)']);
+      expect(
+        dashboard.layout.single.data.containsKey('visualizerKey'),
+        isFalse,
+      );
     });
   });
 
   group('StreamSelectorSheet', () {
     testWidgets('offers the same options as the add sheet', (tester) async {
-      await tester.pumpWidget(host(StreamSelectorSheet(config: storedWidget('chart'))));
+      await tester.pumpWidget(
+        host(StreamSelectorSheet(config: storedWidget('chart'))),
+      );
 
       for (final label in ['Chart', 'Value', 'Bar']) {
         expect(find.text(label), findsOneWidget, reason: label);
@@ -100,20 +181,22 @@ void main() {
 
     testWidgets('applies a reduction to the stored widget', (tester) async {
       dashboard.addWidget(storedWidget('chart'));
-      await tester.pumpWidget(host(StreamSelectorSheet(config: storedWidget('chart'))));
+      await tester.pumpWidget(
+        host(StreamSelectorSheet(config: storedWidget('chart'))),
+      );
 
       await tapField(tester, 'Peak since start');
       await tester.tap(find.text('Apply'));
       await tester.pump();
 
-      expect(dashboard.layout.single.data['sourceKeys'], [
-        'Peak Force (EE01)',
-      ]);
+      expect(dashboard.layout.single.data['sourceKeys'], ['Peak Force (EE01)']);
     });
 
     testWidgets('switches a chart to a bar tile', (tester) async {
       dashboard.addWidget(storedWidget('chart'));
-      await tester.pumpWidget(host(StreamSelectorSheet(config: storedWidget('chart'))));
+      await tester.pumpWidget(
+        host(StreamSelectorSheet(config: storedWidget('chart'))),
+      );
 
       await tester.tap(find.text('Bar'));
       await tester.pump();

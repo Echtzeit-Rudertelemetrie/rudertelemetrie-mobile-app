@@ -82,9 +82,7 @@ class GpsPacketLog {
   void _noteFix(GpsSample gps, DateTime at) {
     if (!_sawFirstFix) {
       _sawFirstFix = true;
-      _write(
-        '$_tag first valid fix ${_position(gps)}, ${gps.satellites} sats',
-      );
+      _write('$_tag first valid fix ${_position(gps)}, ${gps.satellites} sats');
     }
 
     final previous = _lastFix;

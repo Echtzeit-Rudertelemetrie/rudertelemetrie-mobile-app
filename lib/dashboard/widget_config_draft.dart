@@ -57,6 +57,15 @@ class WidgetConfigDraft {
       visualizer.sourceCount == 1 &&
       visualizer.sourceSelectionMode != SourceSelectionMode.forceAnglePair;
 
+  /// Prepares the draft for a tile that binds one source directly, with no
+  /// visualizer in between — the gauge and the other instruments.
+  void selectSingleSource() {
+    visualizerKey = null;
+    sourceKeys = [null];
+    params = {};
+    reduction = Reduction.raw;
+  }
+
   void selectVisualizer(AnyVisualizer visualizer) {
     visualizerKey = visualizer.name;
     sourceKeys = List.filled(visualizer.sourceCount, null);
@@ -74,7 +83,10 @@ class WidgetConfigDraft {
 
     final count = visualizer.sourceCount;
     if (sourceKeys.length < count) {
-      sourceKeys = [...sourceKeys, ...List.filled(count - sourceKeys.length, null)];
+      sourceKeys = [
+        ...sourceKeys,
+        ...List.filled(count - sourceKeys.length, null),
+      ];
     } else if (sourceKeys.length > count) {
       sourceKeys = sourceKeys.sublist(0, count);
     }

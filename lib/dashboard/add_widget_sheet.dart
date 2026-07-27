@@ -8,11 +8,16 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dar
 
 import 'dashboard_model.dart';
 import 'sheet_scaffold.dart';
+import 'source_picker.dart';
+import 'tile_kind.dart';
+import 'tile_kind_step.dart';
 import 'widget_config.dart';
 import 'widget_config_draft.dart';
 import 'widget_config_fields.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
+/// Adds a widget in steps: first what kind of tile, then whatever that kind
+/// still needs. A kind that needs nothing is placed straight from step one.
 class AddWidgetSheet extends StatefulWidget {
   const AddWidgetSheet({super.key});
 
@@ -28,14 +33,8 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
 
   final _draft = WidgetConfigDraft();
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final visualizers = context.read<VisualizerProviderModel>().registry.all;
-    if (_draft.visualizerKey == null && visualizers.isNotEmpty) {
-      _draft.selectVisualizer(visualizers.first);
-    }
-  }
+  /// Null while the kind is still being chosen.
+  TileKind? _kind;
 
   AnyVisualizer? get _selectedVisualizer {
     final key = _draft.visualizerKey;
@@ -43,27 +42,62 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
     return context.read<VisualizerProviderModel>().registry.get(key);
   }
 
-  void _add(BuildContext context, String type) {
-    _place(
-      context,
-      _draft.toData(
-        type: type,
-        registry: context.read<DataSourceProviderModel>().registry,
-        session: context.read<RecordingSession>(),
-      ),
-    );
+  void _select(TileKind kind) {
+    switch (kind.input) {
+      case TileInput.none:
+        _addTile(context, kind);
+      case TileInput.source:
+        setState(() {
+          _draft.selectSingleSource();
+          _kind = kind;
+        });
+      case TileInput.visualizer:
+        setState(() {
+          _prepareVisualizer();
+          _kind = kind;
+        });
+    }
+  }
+
+  /// A visualizer tile opens on the first visualizer rather than on nothing, so
+  /// the step has something to show. A pick the user already made survives a
+  /// trip back to step one.
+  void _prepareVisualizer() {
+    if (_draft.visualizerKey != null) return;
+    final visualizers = context.read<VisualizerProviderModel>().registry.all;
+    if (visualizers.isNotEmpty) _draft.selectVisualizer(visualizers.first);
+  }
+
+  void _addTile(BuildContext context, TileKind kind) {
+    switch (kind.input) {
+      case TileInput.visualizer:
+        _place(
+          context,
+          _draft.toData(
+            type: kind.key,
+            registry: context.read<DataSourceProviderModel>().registry,
+            session: context.read<RecordingSession>(),
+          ),
+        );
+      case TileInput.source:
+        _placeSimple(context, kind, [
+          _draft.sourceKeys.whereType<String>().first,
+        ]);
+      case TileInput.none:
+        _placeSimple(context, kind, const []);
+    }
   }
 
   /// Instrument tiles bypass the visualizer pipeline and just carry their
   /// source keys.
-  void _addSimple(BuildContext context, String type, List<String> keys) =>
-      _place(context, {'type': type, 'sourceKeys': keys});
+  void _placeSimple(BuildContext context, TileKind kind, List<String> keys) =>
+      _place(context, {'type': kind.key, 'sourceKeys': keys});
 
-  void _addGauge(BuildContext context) {
-    final keys = _draft.sourceKeys.whereType<String>().toList();
-    if (keys.isEmpty) return;
-    _addSimple(context, 'gauge', [keys.first]);
-  }
+  bool _canAdd(TileKind kind) => switch (kind.input) {
+    TileInput.visualizer => _draft.isComplete,
+    TileInput.source => _draft.hasSource,
+    TileInput.none => true,
+  };
 
   void _place(BuildContext context, Map<String, dynamic> data) {
     final placed = context.read<DashboardModel>().addWidget(
@@ -95,146 +129,55 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final canAdd = _draft.isComplete;
-    final hasSource = _draft.hasSource;
+    final kind = _kind;
+    if (kind == null) return _kindStep();
 
-    return SheetScaffold(
-      title: 'Add Widget',
-      footer: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _AddButton(
-                  icon: Icons.show_chart,
-                  label: 'Chart',
-                  enabled: canAdd,
-                  onTap: canAdd ? () => _add(context, 'chart') : null,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AddButton(
-                  icon: Icons.pin,
-                  label: 'Value',
-                  enabled: canAdd,
-                  onTap: canAdd ? () => _add(context, 'value') : null,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AddButton(
-                  icon: Icons.bar_chart,
-                  label: 'Bar',
-                  enabled: canAdd,
-                  onTap: canAdd ? () => _add(context, 'bar') : null,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _AddButton(
-                  icon: Icons.speed,
-                  label: 'Gauge',
-                  enabled: hasSource,
-                  onTap: hasSource ? () => _addGauge(context) : null,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AddButton(
-                  icon: Icons.explore,
-                  label: 'Level',
-                  enabled: true,
-                  onTap: () => _addSimple(context, 'level', const []),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _AddButton(
-                  icon: Icons.rowing,
-                  label: 'Boat',
-                  enabled: true,
-                  onTap: () => _addSimple(context, 'schematic', const []),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _AddButton(
-                  icon: Icons.map,
-                  label: 'Map',
-                  enabled: true,
-                  onTap: () => _addSimple(context, 'track', const []),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      children: [
-        WidgetConfigFields(
-          draft: _draft,
-          visualizers: context.read<VisualizerProviderModel>().registry.all,
-          selected: _selectedVisualizer,
-          dataSources: context.watch<DataSourceProviderModel>().registry.all,
-          onChanged: () => setState(() {}),
-        ),
-      ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _kind = null);
+      },
+      child: _configureStep(context, kind),
     );
   }
-}
 
-class _AddButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool enabled;
-  final VoidCallback? onTap;
+  Widget _kindStep() => SheetScaffold(
+    title: 'Add Widget',
+    initialSize: 0.7,
+    children: [TileKindStep(onSelected: _select)],
+  );
 
-  const _AddButton({
-    required this.icon,
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppPalette.accent.withAlpha(enabled ? 30 : 10),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppPalette.accent.withAlpha(enabled ? 80 : 30),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: AppPalette.accent.withAlpha(enabled ? 255 : 100),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppPalette.accent.withAlpha(enabled ? 255 : 100),
-              fontSize: AppTypeScale.caption,
-            ),
-          ),
-        ],
+  Widget _configureStep(BuildContext context, TileKind kind) => SheetScaffold(
+    title: kind.label,
+    initialSize: 0.7,
+    onBack: () => setState(() => _kind = null),
+    footer: SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        style: FilledButton.styleFrom(backgroundColor: AppPalette.accent),
+        onPressed: _canAdd(kind) ? () => _addTile(context, kind) : null,
+        child: Text('Add ${kind.label}'),
       ),
     ),
+    children: [_configureFields(context, kind)],
   );
+
+  Widget _configureFields(BuildContext context, TileKind kind) {
+    final dataSources = context.watch<DataSourceProviderModel>().registry.all;
+    if (kind.input == TileInput.source) {
+      return SourcePicker(
+        sources: dataSources,
+        selectedKey: _draft.sourceKeys.firstOrNull,
+        onSelected: (key) => setState(() => _draft.sourceKeys[0] = key),
+      );
+    }
+
+    return WidgetConfigFields(
+      draft: _draft,
+      visualizers: context.read<VisualizerProviderModel>().registry.all,
+      selected: _selectedVisualizer,
+      dataSources: dataSources,
+      onChanged: () => setState(() {}),
+    );
+  }
 }

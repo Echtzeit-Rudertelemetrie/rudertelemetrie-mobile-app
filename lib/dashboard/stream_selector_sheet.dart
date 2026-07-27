@@ -7,6 +7,7 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dar
 
 import 'dashboard_model.dart';
 import 'sheet_scaffold.dart';
+import 'tile_kind.dart';
 import 'widget_config.dart';
 import 'widget_config_draft.dart';
 import 'widget_config_fields.dart';
@@ -22,19 +23,19 @@ class StreamSelectorSheet extends StatefulWidget {
 }
 
 class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
-  static const _types = {
-    'chart': (label: 'Chart', icon: Icons.show_chart),
-    'value': (label: 'Value', icon: Icons.pin),
-    'bar': (label: 'Bar', icon: Icons.bar_chart),
-  };
+  static final _kinds = TileKind.values
+      .where((kind) => kind.input == TileInput.visualizer)
+      .toList();
 
-  late String _type;
+  late TileKind _kind;
   late WidgetConfigDraft _draft;
 
   @override
   void initState() {
     super.initState();
-    _type = widget.config.data['type'] as String? ?? 'value';
+    _kind =
+        TileKind.fromKey(widget.config.data['type'] as String?) ??
+        TileKind.value;
     _draft = WidgetConfigDraft.fromData(
       widget.config.data,
       context.read<DataSourceProviderModel>().registry,
@@ -59,7 +60,7 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
     context.read<DashboardModel>().updateWidget(
       widget.config.copyWith(
         data: _draft.toData(
-          type: _type,
+          type: _kind.key,
           registry: context.read<DataSourceProviderModel>().registry,
           session: context.read<RecordingSession>(),
         ),
@@ -92,12 +93,12 @@ class _StreamSelectorSheetState extends State<StreamSelectorSheet> {
         Row(
           spacing: 8,
           children: [
-            for (final entry in _types.entries)
+            for (final kind in _kinds)
               _TypeButton(
-                label: entry.value.label,
-                icon: entry.value.icon,
-                selected: _type == entry.key,
-                onTap: () => setState(() => _type = entry.key),
+                label: kind.label,
+                icon: kind.icon,
+                selected: _kind == kind,
+                onTap: () => setState(() => _kind = kind),
               ),
           ],
         ),

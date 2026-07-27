@@ -23,6 +23,7 @@ import '../dashboard/dashboard_grid.dart';
 import '../dashboard/dashboard_model.dart';
 import '../dashboard/preset_sheet.dart';
 import '../dashboard/stream_selector_sheet.dart';
+import '../dashboard/tile_kind.dart';
 import '../components/dashboard_tiles/value_tile.dart';
 import '../dashboard/visualizer_binding_cache.dart';
 import '../dashboard/widget_config.dart';
@@ -113,15 +114,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final visualizerKey = config.data['visualizerKey'] as String?;
     final sourceKeys =
         (config.data['sourceKeys'] as List<dynamic>?)?.cast<String>() ?? [];
-    final type = config.data['type'] as String?;
+    final kind = TileKind.fromKey(config.data['type'] as String?);
     final params = _readParams(config.data['params']);
 
     // Instrument tiles bypass the visualizer pipeline and read sources directly.
-    if (type == 'gauge' ||
-        type == 'level' ||
-        type == 'schematic' ||
-        type == 'track') {
-      return _buildInstrument(context, type!, sourceKeys);
+    if (kind != null && kind.input != TileInput.visualizer) {
+      return _buildInstrument(context, kind, sourceKeys);
     }
 
     final visualizer = visualizerKey == null
@@ -139,10 +137,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       () => _bind(visualizer, sources, params),
     );
 
-    final content = switch ((type, bound)) {
-      ('chart', final BoundVisualizer b) => ChartTile(visualizer: b),
-      ('value', final BoundVisualizer b) => ValueTile(visualizer: b),
-      ('bar', final BoundVisualizer b) => BarTile(visualizer: b),
+    final content = switch ((kind, bound)) {
+      (TileKind.chart, final BoundVisualizer b) => ChartTile(visualizer: b),
+      (TileKind.value, final BoundVisualizer b) => ValueTile(visualizer: b),
+      (TileKind.bar, final BoundVisualizer b) => BarTile(visualizer: b),
       _ => const _NoStreamPlaceholder(),
     };
 
@@ -155,22 +153,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildInstrument(
     BuildContext context,
-    String type,
+    TileKind kind,
     List<String> sourceKeys,
   ) {
     final registry = context.read<DataSourceProviderModel>().registry;
-    switch (type) {
-      case 'level':
+    switch (kind) {
+      case TileKind.level:
         return LevelTile(registry: registry);
-      case 'schematic':
+      case TileKind.schematic:
         return BoatSchematicTile(registry: registry);
-      case 'track':
+      case TileKind.track:
         return MapTile(registry: registry);
+      default:
+        final source = sourceKeys.isEmpty
+            ? null
+            : registry.get(sourceKeys.first);
+        return source == null
+            ? const _NoStreamPlaceholder()
+            : AngleGaugeTile(source: source);
     }
-    final source = sourceKeys.isEmpty ? null : registry.get(sourceKeys.first);
-    return source == null
-        ? const _NoStreamPlaceholder()
-        : AngleGaugeTile(source: source);
   }
 
   /// Force/angle visualizers store one oarlock's two keys but must survive the

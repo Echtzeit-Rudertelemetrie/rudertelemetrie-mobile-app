@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/source_catalog.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
 
 /// The reductions a value tile can apply to a base source.
@@ -12,6 +13,15 @@ const Map<Reduction, String> _reductionPrefixes = {
   Reduction.average: 'Avg',
   Reduction.peak: 'Peak',
 };
+
+const Map<Reduction, String> _descriptions = {
+  Reduction.raw: 'Every sample, as it arrives.',
+  Reduction.average: 'Time-weighted mean since the recording started.',
+  Reduction.peak: 'Highest value seen since the recording started.',
+};
+
+/// What a [Reduction] does to a source, for a picker offering the choice.
+String describeReduction(Reduction reduction) => _descriptions[reduction]!;
 
 /// Reads a reducer source's name back into the reduction and the base it wraps.
 /// A configuration sheet needs this to show what the user picked: the stored
@@ -54,6 +64,18 @@ abstract class SessionReducerSource extends DataSource {
 
   @override
   String? get group => base.group;
+
+  /// A reducer exists because the user asked for it on [base], so it is never
+  /// offered as its own pick.
+  @override
+  bool get derived => true;
+
+  @override
+  SourceInfo get info => SourceInfo(
+    label: '${_reductionPrefixes[reduction]} ${base.info.label}',
+    category: base.info.category,
+    description: _descriptions[reduction],
+  );
 
   @override
   DateTime get startTime => base.startTime;

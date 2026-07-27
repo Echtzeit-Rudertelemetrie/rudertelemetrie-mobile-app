@@ -20,6 +20,8 @@ class VisualizerProviderModel extends ChangeNotifier {
     registry.register(
       Visualizer1(
         name: 'Time Window',
+        description: 'The last few seconds of a value, scrolling as it arrives.',
+        shape: VisualizerShape.series,
         combinator: TimeElapsedCombinator(Unit.s),
         params: const [
           VisualizerParam(
@@ -38,6 +40,9 @@ class VisualizerProviderModel extends ChangeNotifier {
     registry.register(
       Visualizer1(
         name: 'Since Threshold',
+        description:
+            'Restarts the trace each time the value crosses a level — one stroke per sweep.',
+        shape: VisualizerShape.series,
         combinator: TimeElapsedCombinator(Unit.s),
         params: const [
           VisualizerParam(
@@ -52,6 +57,9 @@ class VisualizerProviderModel extends ChangeNotifier {
     registry.register(
       Visualizer2(
         name: 'X vs Y (Window)',
+        description:
+            'Two values plotted against each other, keeping the last few seconds.',
+        shape: VisualizerShape.xy,
         combinator: ValueVsValueCombinator(),
         params: const [
           VisualizerParam(
@@ -76,6 +84,9 @@ class VisualizerProviderModel extends ChangeNotifier {
     registry.register(
       Visualizer2(
         name: 'X vs Y (Stroke)',
+        description:
+            'Two values against each other, redrawn from scratch every stroke.',
+        shape: VisualizerShape.xy,
         combinator: ValueVsValueCombinator(),
         params: const [
           VisualizerParam(
@@ -95,6 +106,9 @@ class VisualizerProviderModel extends ChangeNotifier {
     registry.register(
       Visualizer2(
         name: 'Force vs Angle (Drive)',
+        description:
+            'The force curve of one oarlock over its arc, one drive at a time.',
+        shape: VisualizerShape.xy,
         combinator: ValueVsValueCombinator(requireMatchingTimestamps: true),
         params: const [
           VisualizerParam(
@@ -122,6 +136,8 @@ class VisualizerProviderModel extends ChangeNotifier {
     registry.register(
       Visualizer1(
         name: 'Per-Stroke Bars',
+        description: 'One point per completed stroke, for the last N strokes.',
+        shape: VisualizerShape.perStroke,
         combinator: StrokeIndexCombinator(),
         params: const [
           VisualizerParam(

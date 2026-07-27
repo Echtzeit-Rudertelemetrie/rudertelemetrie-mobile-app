@@ -40,6 +40,8 @@ XYPoint _p({required double x, required double y, required int ms}) =>
 void main() {
   final visualizer = Visualizer2(
     name: 'X vs Y (Window)',
+    description: 'Two values plotted against each other.',
+    shape: VisualizerShape.xy,
     combinator: ValueVsValueCombinator(),
     buildCollector: (_) => TimeWindowCollector(const Duration(seconds: 10)),
   );

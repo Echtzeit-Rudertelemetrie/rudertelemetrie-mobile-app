@@ -16,12 +16,16 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dar
 BoundVisualizer _driveGated(PushDataSource angle, PushDataSource force) =>
     Visualizer2(
       name: 'Force vs Angle (Drive)',
+      description: 'Force curve over the arc, one drive at a time.',
+      shape: VisualizerShape.xy,
       combinator: ValueVsValueCombinator(requireMatchingTimestamps: true),
       buildCollector: (_) => DriveGatedCollector(fOn: 40, fOff: 20),
     ).bind(angle, force);
 
 BoundVisualizer _timeWindow(PushDataSource source) => Visualizer1(
   name: 'Time Window',
+  description: 'The last few seconds of a value.',
+  shape: VisualizerShape.series,
   combinator: TimeElapsedCombinator(Unit.s),
   buildCollector: (_) => TimeWindowCollector(const Duration(seconds: 20)),
 ).bind(source);
