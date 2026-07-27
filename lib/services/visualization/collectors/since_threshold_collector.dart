@@ -17,6 +17,11 @@ class SinceThresholdCollector extends PointCollector {
       (u) => u;
 
   @override
+  String? get idleHint =>
+      'Nothing collected yet — starts when the value passes '
+      '${threshold.toStringAsFixed(0)}.';
+
+  @override
   StreamTransformer<XYPoint, List<XYPoint>> get collector =>
       StreamTransformer.fromBind((stream) async* {
         final buffer = <XYPoint>[];

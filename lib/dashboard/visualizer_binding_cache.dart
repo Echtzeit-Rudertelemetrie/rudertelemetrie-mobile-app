@@ -40,6 +40,10 @@ class VisualizerBindingCache {
     final cached = _entries[configId];
     if (cached != null && cached.signature == signature) return cached.bound;
 
+    // A binding holds a live subscription to its sources; dropping the
+    // reference without this leaks the whole pipeline behind it.
+    cached?.bound.dispose();
+
     final bound = build();
     if (bound == null) {
       _entries.remove(configId);
@@ -50,8 +54,21 @@ class VisualizerBindingCache {
   }
 
   /// Drops bindings of tiles that are no longer on the dashboard.
-  void retainOnly(Set<String> configIds) =>
-      _entries.removeWhere((id, _) => !configIds.contains(id));
+  void retainOnly(Set<String> configIds) {
+    _entries.removeWhere((id, entry) {
+      if (configIds.contains(id)) return false;
+      entry.bound.dispose();
+      return true;
+    });
+  }
+
+  /// Releases every binding. For the owning screen's `dispose`.
+  void clear() {
+    for (final entry in _entries.values) {
+      entry.bound.dispose();
+    }
+    _entries.clear();
+  }
 }
 
 class _Entry {

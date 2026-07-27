@@ -31,6 +31,7 @@ class BoatSetupScreen extends StatelessWidget {
         ],
       ),
       child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           const Text(
             'Boat class',

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
@@ -27,10 +28,29 @@ class TelemetryQualityMonitor extends ChangeNotifier {
   static const _interruptionThreshold = Duration(milliseconds: 600);
   static const _lossVisibleFor = Duration(seconds: 4);
 
+  /// A spike is a burst of loss, not a stray packet. At one packet per
+  /// [BluetoothPacket.samplesPerRegion] × [BluetoothPacket.sampleIntervalMs]
+  /// (80 ms), losing this many inside [spikeWindow] is over half a second of
+  /// missing telemetry — worth interrupting the rower for. Anything less is
+  /// noise the pipeline already absorbs.
+  static const spikeWindow = Duration(seconds: 10);
+  static const spikeThreshold = 8;
+
+  /// Nothing here gets better by being told twice in a row.
+  static const spikeCooldown = Duration(seconds: 30);
+
   final Map<String, _DeviceQuality> _devices = {};
+  final Queue<_LossBurst> _recentLosses = Queue();
   late final Timer _timer;
 
-  TelemetryQualityMonitor() {
+  /// Raised with the number of packets lost in the trailing [spikeWindow].
+  /// A callback rather than a stream so the monitor stays synchronous and free
+  /// of any UI dependency.
+  final void Function(int lostPackets)? onLossSpike;
+
+  DateTime? _lastSpikeAt;
+
+  TelemetryQualityMonitor({this.onLossSpike}) {
     _timer = Timer.periodic(
       const Duration(milliseconds: 250),
       (_) => notifyListeners(),
@@ -92,6 +112,7 @@ class TelemetryQualityMonitor extends ChangeNotifier {
         device.lastMissing = advance - 1;
         device.lastInvalid = 0;
         device.lastProblemAt = receivedAt;
+        _recordLoss(advance - 1, receivedAt);
       }
     }
 
@@ -101,11 +122,40 @@ class TelemetryQualityMonitor extends ChangeNotifier {
   }
 
   void recordInvalidPacket(String deviceId, {DateTime? now}) {
+    final at = now ?? DateTime.now();
     final device = _devices.putIfAbsent(deviceId, _DeviceQuality.new);
     device.lastInvalid++;
     device.lastMissing = 0;
-    device.lastProblemAt = now ?? DateTime.now();
+    device.lastProblemAt = at;
+    _recordLoss(1, at);
     notifyListeners();
+  }
+
+  /// Folds one loss into the trailing window and reports a spike when the
+  /// window's total crosses [spikeThreshold]. Losses are summed across devices:
+  /// what the rower cares about is the boat's telemetry, not which oarlock.
+  void _recordLoss(int packets, DateTime at) {
+    _recentLosses.add(_LossBurst(at, packets));
+    _dropLossesBefore(at.subtract(spikeWindow));
+
+    final total = _recentLosses.fold(0, (sum, burst) => sum + burst.packets);
+    if (total < spikeThreshold) return;
+
+    final last = _lastSpikeAt;
+    if (last != null && at.difference(last) < spikeCooldown) return;
+
+    _lastSpikeAt = at;
+    // Cleared so the next report needs a fresh burst rather than re-reporting
+    // the same one the moment the cooldown lapses.
+    _recentLosses.clear();
+    onLossSpike?.call(total);
+  }
+
+  void _dropLossesBefore(DateTime cutoff) {
+    while (_recentLosses.isNotEmpty &&
+        _recentLosses.first.at.isBefore(cutoff)) {
+      _recentLosses.removeFirst();
+    }
   }
 
   void removeDevice(String deviceId) {
@@ -127,6 +177,12 @@ class TelemetryQualityMonitor extends ChangeNotifier {
     _timer.cancel();
     super.dispose();
   }
+}
+
+class _LossBurst {
+  final DateTime at;
+  final int packets;
+  const _LossBurst(this.at, this.packets);
 }
 
 class _DeviceQuality {

@@ -21,9 +21,17 @@ class PushDataSource extends DataSource {
   final String? group;
 
   @override
+  final String? idleHint;
+
+  @override
   late final DateTime startTime;
 
-  PushDataSource({required this.name, required this.unit, this.group}) {
+  PushDataSource({
+    required this.name,
+    required this.unit,
+    this.group,
+    this.idleHint,
+  }) {
     startTime = DateTime.now();
   }
 

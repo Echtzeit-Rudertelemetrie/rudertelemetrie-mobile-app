@@ -43,6 +43,11 @@ abstract class SessionReducerSource extends DataSource {
   @override
   Stream<Measurement> get data => _controller.stream;
 
+  /// [_onSample] drops everything outside a recording, so an idle dashboard
+  /// shows nothing at all — say why rather than look broken.
+  @override
+  String? get idleHint => 'Starts when a recording is running.';
+
   void _onSession() {
     if (session.startedAt != _origin) {
       _origin = session.startedAt;

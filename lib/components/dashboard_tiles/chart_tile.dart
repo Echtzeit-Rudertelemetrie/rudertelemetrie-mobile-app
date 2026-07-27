@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_idle_state.dart';
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
@@ -132,16 +133,7 @@ class _ChartTileState extends State<ChartTile>
   @override
   Widget build(BuildContext context) {
     if (_points.isEmpty) {
-      return const Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppPalette.accent,
-          ),
-        ),
-      );
+      return TileIdleState(hint: widget.visualizer.idleHint);
     }
 
     final spots = _points.map((p) => FlSpot(p.x, p.y)).toList();

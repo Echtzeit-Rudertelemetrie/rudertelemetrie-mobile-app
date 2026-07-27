@@ -26,6 +26,7 @@ class RecordingSettingsScreen extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             FTileGroup(
               children: [

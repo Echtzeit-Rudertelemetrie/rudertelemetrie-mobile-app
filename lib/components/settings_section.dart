@@ -15,8 +15,8 @@ class SettingsSection extends StatelessWidget {
     label: const Text('Settings'),
     children: [
       .tile(
-        prefix: const Icon(FIcons.slidersHorizontal),
-        title: const Text('Connected Devices'),
+        prefix: const Icon(FIcons.bluetooth),
+        title: const Text('Oarlocks'),
         suffix: const Icon(FIcons.chevronRight),
         onPress: () => Navigator.push(
           context,

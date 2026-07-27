@@ -21,6 +21,11 @@ class DriveGatedCollector extends PointCollector {
       (u) => u;
 
   @override
+  String? get idleHint =>
+      'No drive yet — the curve is drawn once force passes '
+      '${fOn.toStringAsFixed(0)} N at the catch.';
+
+  @override
   StreamTransformer<XYPoint, List<XYPoint>> get collector =>
       StreamTransformer.fromBind((stream) async* {
         final buffer = <XYPoint>[];

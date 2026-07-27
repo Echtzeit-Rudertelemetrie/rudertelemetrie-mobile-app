@@ -35,6 +35,7 @@ class RigSetupScreen extends StatelessWidget {
         child: keys.isEmpty
             ? const _EmptyHint()
             : ListView(
+                padding: EdgeInsets.zero,
                 children: [
                   for (final key in keys)
                     _OarlockRig(
@@ -64,29 +65,63 @@ class _EmptyHint extends StatelessWidget {
   );
 }
 
-class _OarlockRig extends StatelessWidget {
+/// One oarlock's rig. The fields hold a draft: a rig is only written once both
+/// lengths are present and the geometry is usable, so a half-filled form never
+/// stores a scull length the user never typed.
+class _OarlockRig extends StatefulWidget {
   final String oarlockKey;
   final RigConfig? rig;
 
   const _OarlockRig({super.key, required this.oarlockKey, required this.rig});
 
-  double get innerLever => rig?.innerLever ?? BoatConfig.defaultRig.innerLever;
-  double get scullLength =>
-      rig?.scullLength ?? BoatConfig.defaultRig.scullLength;
+  @override
+  State<_OarlockRig> createState() => _OarlockRigState();
+}
 
-  void _update(
-    BuildContext context, {
-    double? innerLever,
-    double? scullLength,
-  }) {
-    final current = rig ?? BoatConfig.defaultRig;
-    context.read<BoatConfig>().setRig(
-      oarlockKey,
-      RigConfig(
-        innerLever: innerLever ?? current.innerLever,
-        scullLength: scullLength ?? current.scullLength,
-      ),
-    );
+class _OarlockRigState extends State<_OarlockRig> {
+  double? _innerLever;
+  double? _scullLength;
+
+  @override
+  void initState() {
+    super.initState();
+    _adoptRig();
+  }
+
+  @override
+  void didUpdateWidget(_OarlockRig old) {
+    super.didUpdateWidget(old);
+    if (widget.rig == old.rig) return;
+    setState(_adoptRig);
+  }
+
+  void _adoptRig() {
+    _innerLever = widget.rig?.innerLever;
+    _scullLength = widget.rig?.scullLength;
+  }
+
+  RigConfig? get _draft {
+    final innerLever = _innerLever;
+    final scullLength = _scullLength;
+    if (innerLever == null || scullLength == null) return null;
+    final rig = RigConfig(innerLever: innerLever, scullLength: scullLength);
+    return rig.isValid ? rig : null;
+  }
+
+  void _setInnerLever(double value) => _commit(() => _innerLever = value);
+
+  void _setScullLength(double value) => _commit(() => _scullLength = value);
+
+  void _applyDefaults() => _commit(() {
+    _innerLever = BoatConfig.defaultRig.innerLever;
+    _scullLength = BoatConfig.defaultRig.scullLength;
+  });
+
+  void _commit(VoidCallback edit) {
+    setState(edit);
+    final rig = _draft;
+    if (rig == null) return;
+    context.read<BoatConfig>().setRig(widget.oarlockKey, rig);
   }
 
   @override
@@ -96,7 +131,7 @@ class _OarlockRig extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          oarlockKey,
+          widget.oarlockKey,
           style: const TextStyle(
             color: Colors.white,
             fontSize: 15,
@@ -109,43 +144,83 @@ class _OarlockRig extends StatelessWidget {
           children: [
             Expanded(
               child: NumberInputField(
-                key: ValueKey('$oarlockKey.lin'),
+                key: ValueKey('${widget.oarlockKey}.lin'),
                 label: 'Inner lever l_in',
                 unit: 'm',
-                value: innerLever,
-                validate: (v) => _validateInnerLever(v, scullLength),
-                onCommitted: (v) => _update(context, innerLever: v),
+                value: _innerLever,
+                placeholder: '${BoatConfig.defaultRig.innerLever}',
+                validate: _validateInnerLever,
+                onCommitted: _setInnerLever,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: NumberInputField(
-                key: ValueKey('$oarlockKey.L'),
+                key: ValueKey('${widget.oarlockKey}.L'),
                 label: 'Scull length L',
                 unit: 'm',
-                value: scullLength,
-                validate: (v) => _validateScullLength(v, innerLever),
-                onCommitted: (v) => _update(context, scullLength: v),
+                value: _scullLength,
+                placeholder: '${BoatConfig.defaultRig.scullLength}',
+                validate: _validateScullLength,
+                onCommitted: _setScullLength,
               ),
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        _status(),
+        if (widget.rig?.isValid != true) ...[
+          const SizedBox(height: 8),
+          FButton(
+            variant: FButtonVariant.outline,
+            onPress: _applyDefaults,
+            child: Text(
+              'Use example rig '
+              '(${BoatConfig.defaultRig.innerLever} / '
+              '${BoatConfig.defaultRig.scullLength} m)',
+            ),
+          ),
+        ],
       ],
     ),
   );
 
+  /// The screen has no save button — a valid pair is written as soon as it is
+  /// entered — so this line is the only feedback that it landed.
+  Widget _status() {
+    final saved = widget.rig;
+    final (text, color) = saved != null && saved.isValid
+        ? (
+            'Saved · outer lever l_out = '
+                '${saved.outerLever.toStringAsFixed(2)} m',
+            Colors.greenAccent,
+          )
+        : (
+            'Not set — enter l_in and L to enable force and power for this '
+                'oarlock.',
+            Colors.amber,
+          );
+    return Text(text, style: TextStyle(color: color, fontSize: 12));
+  }
+
   /// The outer lever `L − l_in` drives every force and power source; a
   /// non-positive one makes the rig invalid and unregisters them all, so it is
   /// rejected here rather than written and silently propagated.
-  static String? _validateInnerLever(double value, double scullLength) {
+  String? _validateInnerLever(double value) {
     if (value <= 0) return 'Must be greater than 0';
-    if (value >= scullLength) return 'Must be less than L ($scullLength m)';
+    final scullLength = _scullLength;
+    if (scullLength != null && value >= scullLength) {
+      return 'Must be less than L ($scullLength m)';
+    }
     return null;
   }
 
-  static String? _validateScullLength(double value, double innerLever) {
+  String? _validateScullLength(double value) {
     if (value <= 0) return 'Must be greater than 0';
-    if (value <= innerLever) return 'Must exceed l_in ($innerLever m)';
+    final innerLever = _innerLever;
+    if (innerLever != null && value <= innerLever) {
+      return 'Must exceed l_in ($innerLever m)';
+    }
     return null;
   }
 }

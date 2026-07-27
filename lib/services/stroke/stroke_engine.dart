@@ -255,7 +255,12 @@ class StrokeEngine {
       );
 
   PushDataSource _register(String name, Unit unit) {
-    final source = PushDataSource(name: name, unit: unit, group: 'Stroke');
+    final source = PushDataSource(
+      name: name,
+      unit: unit,
+      group: 'Stroke',
+      idleHint: 'No strokes detected yet — one value per stroke.',
+    );
     registry.registerDeferred(source);
     return source;
   }

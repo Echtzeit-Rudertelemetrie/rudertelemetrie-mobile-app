@@ -66,6 +66,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   /// Always scrollable, so pull-to-refresh works even with nothing in the list.
   Widget _emptyState() => ListView(
+    padding: EdgeInsets.zero,
     physics: const AlwaysScrollableScrollPhysics(),
     children: const [
       SizedBox(height: 120),
@@ -81,6 +82,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _grouped(List<SessionSummary> sessions) {
     final rows = _rowsByDay(sessions);
     return ListView.builder(
+      padding: EdgeInsets.zero,
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: rows.length,
       itemBuilder: (context, i) => switch (rows[i]) {

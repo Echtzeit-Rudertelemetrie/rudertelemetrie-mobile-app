@@ -16,19 +16,81 @@ enum SourceSelectionMode { individual, forceAnglePair }
 
 /// The result of binding a [Visualizer] to concrete [DataSource] instances.
 /// Holds the final [units] and a ready-to-subscribe [output] stream.
+///
+/// A binding outlives the widget that shows it — `VisualizerBindingCache` keeps
+/// it across edit-mode toggles, drags and preset switches precisely so the
+/// accumulated history survives, and a tile remounts freely underneath it. The
+/// pipeline itself does not allow that: the gated collectors are `async*`
+/// generators, so their stream can be listened to exactly once. So the raw
+/// pipeline is subscribed at most once here and fanned out to however many
+/// tiles are watching, with the last emission replayed to a tile that mounts
+/// late — otherwise a remounted chart would sit empty until the next point,
+/// which for a per-stroke source is a whole stroke away.
 class BoundVisualizer {
   final String name;
   final UnitPair units;
-  final Stream<List<XYPoint>> output;
   final ({double min, double max})? fixedXBounds;
 
-  const BoundVisualizer({
+  /// What this binding is waiting for while it has produced nothing — a stroke,
+  /// a drive, a recording. Null when points should simply arrive.
+  final String? idleHint;
+
+  final Stream<List<XYPoint>> _pipeline;
+  final StreamController<List<XYPoint>> _fanout =
+      StreamController<List<XYPoint>>.broadcast();
+
+  StreamSubscription<List<XYPoint>>? _subscription;
+  List<XYPoint>? _latest;
+
+  BoundVisualizer({
     required this.name,
     required this.units,
-    required this.output,
+    required Stream<List<XYPoint>> output,
     this.fixedXBounds,
+    this.idleHint,
+  }) : _pipeline = output;
+
+  /// A fresh subscription per listener. Emits the most recent points first when
+  /// there are any, then everything that follows.
+  Stream<List<XYPoint>> get output => Stream.multi((controller) {
+    _start();
+    final latest = _latest;
+    if (latest != null) controller.add(latest);
+    final subscription = _fanout.stream.listen(
+      controller.add,
+      onError: controller.addError,
+      onDone: controller.close,
+    );
+    controller.onCancel = subscription.cancel;
   });
+
+  /// Deferred to the first listener: a dashboard holds bindings for tiles that
+  /// may never be built, and an unwatched pipeline should not run.
+  void _start() {
+    _subscription ??= _pipeline.listen(
+      (points) {
+        _latest = points;
+        _fanout.add(points);
+      },
+      onError: _fanout.addError,
+      onDone: _fanout.close,
+    );
+  }
+
+  /// Releases the upstream subscription. The binding is unusable afterwards;
+  /// its owner ([VisualizerBindingCache]) calls this when it drops the binding.
+  void dispose() {
+    _subscription?.cancel();
+    _subscription = null;
+    if (!_fanout.isClosed) _fanout.close();
+  }
 }
+
+/// The gate a tile is waiting on: the collector's own, or failing that the one
+/// declared by a source that only speaks under some condition. The collector
+/// wins — it is the narrower gate, and the last one the points pass through.
+String? resolveIdleHint(PointCollector collector, List<DataSource> sources) =>
+    collector.idleHint ?? sources.map((s) => s.idleHint).nonNulls.firstOrNull;
 
 /// Base class for all visualizers. Use [Visualizer1] or [Visualizer2] directly.
 sealed class AnyVisualizer {
@@ -89,6 +151,7 @@ class Visualizer1 extends AnyVisualizer {
       units: collector.unitTransform(units),
       output: stream.transform(collector.collector),
       fixedXBounds: fixedXBounds,
+      idleHint: resolveIdleHint(collector, [source]),
     );
   }
 }
@@ -139,6 +202,7 @@ class Visualizer2 extends AnyVisualizer {
       units: collector.unitTransform(units),
       output: stream.transform(collector.collector),
       fixedXBounds: fixedXBounds,
+      idleHint: resolveIdleHint(collector, [s1, s2]),
     );
   }
 }

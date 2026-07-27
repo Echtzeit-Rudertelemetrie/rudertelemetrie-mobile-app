@@ -26,6 +26,15 @@ class RigConfig {
     innerLever: (json['innerLever'] as num).toDouble(),
     scullLength: (json['scullLength'] as num).toDouble(),
   );
+
+  @override
+  bool operator ==(Object other) =>
+      other is RigConfig &&
+      other.innerLever == innerLever &&
+      other.scullLength == scullLength;
+
+  @override
+  int get hashCode => Object.hash(innerLever, scullLength);
 }
 
 /// Boat classes (boat-rig-config Part B). `x` = sculling (two oars per seat),
@@ -97,6 +106,7 @@ class BoatConfig extends ChangeNotifier {
   }
 
   void setRig(String oarlockKey, RigConfig rig) {
+    if (_rigs[oarlockKey] == rig) return;
     _rigs[oarlockKey] = rig;
     _persist();
     notifyListeners();

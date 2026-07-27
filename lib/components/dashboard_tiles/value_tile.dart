@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_idle_state.dart';
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
@@ -28,6 +29,9 @@ class _ValueTileState extends State<ValueTile> {
   DateTime _lastUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   DateTime? _lastSample;
 
+  /// Distinguishes "has read zero" from "has never read anything" — the latter
+  /// is not a measurement and must not be displayed as one.
+  var _received = false;
   var _latest = 0.0;
 
   @override
@@ -60,17 +64,23 @@ class _ValueTileState extends State<ValueTile> {
   void _resubscribe() {
     _sub?.cancel();
     _lastSample = null;
+    _received = false;
     _sub = widget.visualizer.output.listen((points) {
       final now = DateTime.now();
       _lastSample = now;
-      if (now.difference(_lastUpdate) < _updateInterval) return;
+      if (now.difference(_lastUpdate) < _updateInterval && _received) return;
       _lastUpdate = now;
-      setState(() => _latest = points.last.y);
+      setState(() {
+        _received = true;
+        _latest = points.last.y;
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_received) return TileIdleState(hint: widget.visualizer.idleHint);
+
     final value = _latest;
     final unit = widget.visualizer.units.y;
     final display = switch (unit) {

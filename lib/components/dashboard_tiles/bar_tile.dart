@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_idle_state.dart';
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
@@ -77,14 +78,8 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     if (_points.isEmpty) {
-      return const Center(
-        child: Text(
-          'Waiting for strokes…',
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: AppTypeScale.caption,
-          ),
-        ),
+      return TileIdleState(
+        hint: widget.visualizer.idleHint ?? 'No strokes detected yet.',
       );
     }
 

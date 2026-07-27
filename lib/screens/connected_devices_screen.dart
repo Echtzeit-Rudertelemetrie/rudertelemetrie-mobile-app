@@ -8,7 +8,7 @@ class ConnectedDevicesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FScaffold(
     header: FHeader.nested(
-      title: const Text("Connected Devices"),
+      title: const Text('Oarlocks'),
       prefixes: [
         FHeaderAction(
           icon: const Icon(FIcons.arrowLeft),

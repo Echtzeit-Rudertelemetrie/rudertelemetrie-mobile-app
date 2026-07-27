@@ -18,6 +18,9 @@ class SmoothedXyCollector extends PointCollector {
   UnitPair Function(UnitPair) get unitTransform => inner.unitTransform;
 
   @override
+  String? get idleHint => inner.idleHint;
+
+  @override
   StreamTransformer<XYPoint, List<XYPoint>> get collector =>
       StreamTransformer.fromBind(
         (stream) => stream.transform(inner.collector).map(_smooth),

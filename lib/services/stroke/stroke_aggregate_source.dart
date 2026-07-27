@@ -77,6 +77,9 @@ class StrokeGatedAggregateSource extends DataSource {
   @override
   Stream<Measurement> get data => _controller.stream;
 
+  @override
+  String? get idleHint => 'No strokes detected yet — one value per stroke.';
+
   bool get _driveBounded =>
       mode == StrokeAggregate.peakOverDrive ||
       mode == StrokeAggregate.averageOverDrive ||

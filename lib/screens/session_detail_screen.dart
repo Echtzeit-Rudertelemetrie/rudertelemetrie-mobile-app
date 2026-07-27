@@ -115,6 +115,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       child: Material(
         type: MaterialType.transparency,
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             _summary(s),
             const SizedBox(height: 16),

@@ -11,7 +11,6 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/force_angle_so
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 
 import '../components/recording/session_control.dart';
-import '../components/telemetry_quality_indicator.dart';
 import '../dashboard/add_widget_sheet.dart';
 import '../components/dashboard_tiles/angle_gauge_tile.dart';
 import '../components/dashboard_tiles/bar_tile.dart';
@@ -37,6 +36,12 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final _bindings = VisualizerBindingCache();
+
+  @override
+  void dispose() {
+    _bindings.clear();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +71,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Column(
             children: [
-              const TelemetryQualityIndicator(),
               const _RigBanner(),
               Expanded(
                 child: DashboardGrid(

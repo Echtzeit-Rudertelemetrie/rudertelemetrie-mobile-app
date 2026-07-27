@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
+import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/visualizer_binding_cache.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
@@ -81,5 +84,59 @@ void main() {
 
     bindTile('tile_1', _signature());
     expect(builds, 2); // tile_1 survived the eviction
+  });
+
+  group('a dropped binding is released', () {
+    /// A binding whose upstream never completes, so only [BoundVisualizer.dispose]
+    /// can end its subscription.
+    (BoundVisualizer, StreamController<List<XYPoint>>) live() {
+      final upstream = StreamController<List<XYPoint>>();
+      return (
+        BoundVisualizer(
+          name: 'live',
+          units: (x: Unit.s, y: Unit.N),
+          output: upstream.stream,
+        ),
+        upstream,
+      );
+    }
+
+    test('when its signature changes', () async {
+      final (bound, upstream) = live();
+      cache.bind('tile_1', _signature(), () => bound);
+      bound.output.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      expect(upstream.hasListener, isTrue);
+
+      cache.bind('tile_1', _signature(params: const {'window': 20}), () {
+        final (next, _) = live();
+        return next;
+      });
+
+      expect(upstream.hasListener, isFalse);
+    });
+
+    test('when the tile leaves the dashboard', () async {
+      final (bound, upstream) = live();
+      cache.bind('tile_1', _signature(), () => bound);
+      bound.output.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+
+      cache.retainOnly(const {});
+
+      expect(upstream.hasListener, isFalse);
+    });
+
+    test('when the screen clears the cache', () async {
+      final (bound, upstream) = live();
+      cache.bind('tile_1', _signature(), () => bound);
+      bound.output.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+
+      cache.clear();
+
+      expect(cache.length, 0);
+      expect(upstream.hasListener, isFalse);
+    });
   });
 }

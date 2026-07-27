@@ -5,6 +5,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:rudertelemetrie_mobile_app/models/telemetry_quality.dart';
 import 'package:rudertelemetrie_mobile_app/services/bluetooth/bluetooth_stream_handler.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
+import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
 
 enum BluetoothState {
   unknown,
@@ -29,7 +30,15 @@ class ConnectedDevice {
 }
 
 class BluetoothManager {
-  final TelemetryQualityMonitor telemetryQuality = TelemetryQualityMonitor();
+  /// Where a packet-loss spike is announced. Optional so tests and any headless
+  /// use can construct a manager without the notification queue.
+  final AppNotifications? notifications;
+
+  late final TelemetryQualityMonitor telemetryQuality = TelemetryQualityMonitor(
+    onLossSpike: _reportLossSpike,
+  );
+
+  BluetoothManager({this.notifications});
 
   static const _deviceName = 'RowingBoat';
 
@@ -161,6 +170,16 @@ class BluetoothManager {
     debugPrint('$message: $error');
     _errorStreamController.sink.add(message);
   }
+
+  /// Only a burst gets a toast. Steady reception is the assumption, and a lone
+  /// dropped packet is absorbed by the pipeline — announcing it would train the
+  /// rower to ignore the one message that matters.
+  void _reportLossSpike(int lostPackets) => notifications?.alert(
+    'Weak sensor signal',
+    detail:
+        '$lostPackets packets lost in the last '
+        '${TelemetryQualityMonitor.spikeWindow.inSeconds} s.',
+  );
 
   void _onConnectionState(
     _DeviceConnection connection,

@@ -11,5 +11,11 @@ abstract class DataSource {
   /// source is not tied to a connected device.
   String? get group => null;
 
+  /// Why this source can stay silent even though its inputs are healthy — it
+  /// only emits once some condition is met. Tiles show it in place of an empty
+  /// chart, which is otherwise indistinguishable from a broken binding. Null
+  /// for a source that streams continuously.
+  String? get idleHint => null;
+
   void dispose();
 }

@@ -17,12 +17,16 @@ typedef NumberValidator = String? Function(double candidate);
 ///   rather than letting an impossible rig silently unregister every source;
 /// * debounces the commit, so typing `0.88` writes the config once, not
 ///   four times.
+///
+/// A null [value] means "nothing stored yet": the field shows [placeholder] as
+/// a hint rather than a number that looks saved but is not.
 class NumberInputField extends StatefulWidget {
   static const _accent = AppPalette.accent;
 
   final String label;
   final String unit;
-  final double value;
+  final double? value;
+  final String? placeholder;
   final ValueChanged<double> onCommitted;
   final NumberValidator? validate;
   final Duration debounce;
@@ -33,6 +37,7 @@ class NumberInputField extends StatefulWidget {
     required this.unit,
     required this.value,
     required this.onCommitted,
+    this.placeholder,
     this.validate,
     this.debounce = const Duration(milliseconds: 400),
   });
@@ -50,8 +55,11 @@ class _NumberInputFieldState extends State<NumberInputField> {
   Timer? _pending;
   String? _error;
 
-  static String _format(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : '$v';
+  static String _format(double? v) => v == null
+      ? ''
+      : v == v.roundToDouble()
+      ? v.toInt().toString()
+      : '$v';
 
   @override
   void initState() {
@@ -153,6 +161,8 @@ class _NumberInputFieldState extends State<NumberInputField> {
     cursorColor: NumberInputField._accent,
     decoration: InputDecoration(
       isDense: true,
+      hintText: widget.placeholder,
+      hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       filled: true,
       fillColor: Colors.white10,

@@ -18,6 +18,9 @@ class PerStrokeBarCollector extends PointCollector {
       (u) => u;
 
   @override
+  String? get idleHint => 'No strokes detected yet — one bar per stroke.';
+
+  @override
   StreamTransformer<XYPoint, List<XYPoint>> get collector =>
       StreamTransformer.fromBind((stream) {
         final buffer = Queue<XYPoint>();

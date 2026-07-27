@@ -27,6 +27,7 @@ class StrokeSettingsScreen extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
             const _Label('Threshold mode'),
             _Segmented<ThresholdMode>(
