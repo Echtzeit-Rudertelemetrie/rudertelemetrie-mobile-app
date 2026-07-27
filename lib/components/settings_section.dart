@@ -7,6 +7,7 @@ import 'package:rudertelemetrie_mobile_app/screens/history_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/recording_settings_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/rig_setup_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/stroke_settings_screen.dart';
+import 'package:rudertelemetrie_mobile_app/screens/speed_settings_screen.dart';
 
 class SettingsSection extends StatelessWidget {
   const SettingsSection({super.key});
@@ -69,6 +70,16 @@ class SettingsSection extends StatelessWidget {
         onPress: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const RecordingSettingsScreen()),
+        ),
+      ),
+      .tile(
+        prefix: const Icon(Icons.speed),
+        title: const Text('Geschwindigkeitseinheit'),
+        subtitle: const Text('km/h, m/s oder /500 m'),
+        suffix: const Icon(FIcons.chevronRight),
+        onPress: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SpeedSettingsScreen()),
         ),
       ),
       .tile(

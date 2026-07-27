@@ -4,6 +4,7 @@ import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
+import 'package:rudertelemetrie_mobile_app/models/speed_settings_model.dart';
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_store.dart';
@@ -56,6 +57,7 @@ void initializeBluetooth(BuildContext context) {
   final dataSourceRegistry = context.read<DataSourceProviderModel>().registry;
   final bluetoothManager = context.read<BluetoothProviderModel>().manager;
   final notifications = context.read<AppNotifications>();
+  final speedSettings = context.read<SpeedSettingsModel>();
   final forceCalibrations = context.read<ForceCalibrations>();
 
   bluetoothManager.onDeviceConnected.listen(
@@ -68,6 +70,7 @@ void initializeBluetooth(BuildContext context) {
 
   bluetoothManager.initialize(
     dataSourceRegistry,
+    speedSettings,
     forceCalibrations: forceCalibrations,
   );
 }

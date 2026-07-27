@@ -3,8 +3,11 @@ import 'dart:collection';
 
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/measurement.dart';
+import 'package:rudertelemetrie_mobile_app/models/speed_settings_model.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
+import 'package:rudertelemetrie_mobile_app/services/data_processing/speed_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibration.dart';
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/utils/bluetooth/bluetooth_packet_decode_util.dart';
@@ -14,6 +17,7 @@ import 'package:rudertelemetrie_mobile_app/utils/sensor_data/angle_conversion_ut
 class BluetoothStreamHandler {
   final DataSourceRegistry dataSourceRegistry;
   final String deviceId;
+  final SpeedSettingsModel speedSettings;
   final void Function(int sequenceNumber)? onOarlockPacket;
   final void Function()? onInvalidPacket;
 
@@ -21,16 +25,18 @@ class BluetoothStreamHandler {
   /// it every oarlock reads on the nominal firmware scale.
   final ForceCalibrations? calibrations;
 
-  final Map<String, PushDataSource> _dataSources = {};
+  final Map<String, DataSource> _dataSources = {};
   final Map<int, _OarlockStream> _oarlocks = {};
 
   int? _boatDeviceClockOrigin;
+  double? _boatRotationDeg;
 
   late final PacketReassembler _reassembler = PacketReassembler(_decodeFrame);
 
   BluetoothStreamHandler({
     required this.dataSourceRegistry,
     required this.deviceId,
+    required this.speedSettings,
     this.onOarlockPacket,
     this.onInvalidPacket,
     this.calibrations,
@@ -74,19 +80,24 @@ class BluetoothStreamHandler {
         calibrations: calibrations,
         force: _source('Force $sensorId', Unit.N, group: group),
         angle: _source('Angle $sensorId', Unit.deg, group: group),
+        rawAngle: _source('Raw Angle $sensorId', Unit.deg, group: group),
+        boatRotationDeg: () => _boatRotationDeg,
       );
     });
   }
 
   void _handleBoat(BoatPacket packet) {
     final group = 'Boat ($_deviceTag)';
-    final speed = _source('Speed', Unit.mps, group: group);
+    final speed = _speedSource(group);
     final timestamp = _boatTimestamp(speed, packet.imu.timestampMs);
+    // The installed boat IMU was physically verified on 2026-07-27: a flat
+    // 42-degree turn changed pitch by 42 degrees while yaw/roll stayed near 0.
+    _boatRotationDeg = packet.imu.pitchDeg;
 
-    speed.add(
-      Measurement(value: packet.gps.speedMps.toDouble(), timestamp: timestamp),
-    );
     if (packet.gps.valid) {
+      speed.addMps(
+        Measurement(value: packet.gps.speedMps, timestamp: timestamp),
+      );
       _source(
         'Latitude',
         Unit.deg,
@@ -113,23 +124,52 @@ class BluetoothStreamHandler {
       Unit.mps2,
       group: group,
     ).add(Measurement(value: packet.imu.accZ, timestamp: timestamp));
+    _source(
+      'Boat Roll',
+      Unit.deg,
+      group: group,
+    ).add(Measurement(value: packet.imu.rollDeg, timestamp: timestamp));
+    _source(
+      'Boat Pitch',
+      Unit.deg,
+      group: group,
+    ).add(Measurement(value: packet.imu.pitchDeg, timestamp: timestamp));
+    _source(
+      'Boat Yaw',
+      Unit.deg,
+      group: group,
+    ).add(Measurement(value: packet.imu.yawDeg, timestamp: timestamp));
   }
 
-  DateTime _boatTimestamp(PushDataSource source, int deviceMs) {
+  DateTime _boatTimestamp(DataSource source, int deviceMs) {
     final origin = _boatDeviceClockOrigin ??= deviceMs;
     return source.startTime.add(Duration(milliseconds: deviceMs - origin));
   }
 
   PushDataSource _source(String name, Unit unit, {String? group}) {
     return _dataSources.putIfAbsent(name, () {
-      final source = PushDataSource(
-        name: _qualify(name),
-        unit: unit,
-        group: group,
-      );
-      dataSourceRegistry.register(source);
-      return source;
-    });
+          final source = PushDataSource(
+            name: _qualify(name),
+            unit: unit,
+            group: group,
+          );
+          dataSourceRegistry.register(source);
+          return source;
+        })
+        as PushDataSource;
+  }
+
+  SpeedDataSource _speedSource(String group) {
+    return _dataSources.putIfAbsent('Speed', () {
+          final source = SpeedDataSource(
+            name: _qualify('Speed'),
+            settings: speedSettings,
+            group: group,
+          );
+          dataSourceRegistry.register(source);
+          return source;
+        })
+        as SpeedDataSource;
   }
 
   String _qualify(String name) => '$name ($_deviceTag)';
@@ -176,6 +216,8 @@ class _OarlockStream {
   final ForceCalibrations? calibrations;
   final PushDataSource force;
   final PushDataSource angle;
+  final PushDataSource rawAngle;
+  final double? Function() boatRotationDeg;
 
   final Queue<_OarlockSample> _pending = Queue();
   final Stopwatch _clock = Stopwatch();
@@ -190,6 +232,8 @@ class _OarlockStream {
     required this.calibrations,
     required this.force,
     required this.angle,
+    required this.rawAngle,
+    required this.boatRotationDeg,
   });
 
   /// Returns the forward sequence advance, 1 after a sender restart, or null
@@ -283,7 +327,18 @@ class _OarlockStream {
     for (var i = 0; i < due && _pending.isNotEmpty; i++) {
       final sample = _pending.removeFirst();
       force.add(sample.force);
-      angle.add(sample.angle);
+      rawAngle.add(sample.angle);
+      final boatRotation = boatRotationDeg();
+      angle.add(
+        Measurement(
+          value: boatRotation == null
+              ? sample.angle.value
+              // The two installed IMUs use opposite signs for the same
+              // physical boat turn, so adding pitch cancels common rotation.
+              : _wrapDegrees(sample.angle.value + boatRotation),
+          timestamp: sample.angle.timestamp,
+        ),
+      );
     }
   }
 
@@ -297,6 +352,16 @@ class _OarlockStream {
     _stop();
     _pending.clear();
   }
+}
+
+double _wrapDegrees(double angle) {
+  while (angle > 180) {
+    angle -= 360;
+  }
+  while (angle <= -180) {
+    angle += 360;
+  }
+  return angle;
 }
 
 class _OarlockSample {

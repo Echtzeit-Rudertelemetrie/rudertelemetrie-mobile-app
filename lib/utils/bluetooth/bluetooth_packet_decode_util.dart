@@ -97,8 +97,8 @@ class BoatPacket extends BluetoothPacket {
 class GpsSample {
   final double latitude;
   final double longitude;
-  final int speedMps;
-  final int courseDeg;
+  final double speedMps;
+  final double courseDeg;
   final int satellites;
   final bool valid;
 
@@ -115,8 +115,8 @@ class GpsSample {
     return GpsSample._(
       latitude: data.getInt32(offset, Endian.little) / 1e6,
       longitude: data.getInt32(offset + 4, Endian.little) / 1e6,
-      speedMps: data.getInt16(offset + 8, Endian.little),
-      courseDeg: data.getInt16(offset + 10, Endian.little),
+      speedMps: data.getUint16(offset + 8, Endian.little) / 100.0,
+      courseDeg: data.getUint16(offset + 10, Endian.little) / 100.0,
       satellites: data.getUint8(offset + 12),
       valid: data.getUint8(offset + 13) != 0,
     );
@@ -124,24 +124,34 @@ class GpsSample {
 }
 
 /// Firmware `ImuData` (16 bytes, packed) laid into the boat packet's angle region.
+/// Acceleration uses signed mg and Euler angles signed centidegrees.
 class ImuSample {
   final double accX;
   final double accY;
   final double accZ;
+  final double rollDeg;
+  final double pitchDeg;
+  final double yawDeg;
   final int timestampMs;
 
   ImuSample._({
     required this.accX,
     required this.accY,
     required this.accZ,
+    required this.rollDeg,
+    required this.pitchDeg,
+    required this.yawDeg,
     required this.timestampMs,
   });
 
   static ImuSample _decode(ByteData data, int offset) {
     return ImuSample._(
-      accX: data.getFloat32(offset, Endian.little),
-      accY: data.getFloat32(offset + 4, Endian.little),
-      accZ: data.getFloat32(offset + 8, Endian.little),
+      accX: data.getInt16(offset, Endian.little) * 9.80665 / 1000.0,
+      accY: data.getInt16(offset + 2, Endian.little) * 9.80665 / 1000.0,
+      accZ: data.getInt16(offset + 4, Endian.little) * 9.80665 / 1000.0,
+      rollDeg: data.getInt16(offset + 6, Endian.little) / 100.0,
+      pitchDeg: data.getInt16(offset + 8, Endian.little) / 100.0,
+      yawDeg: data.getInt16(offset + 10, Endian.little) / 100.0,
       timestampMs: data.getUint32(offset + 12, Endian.little),
     );
   }

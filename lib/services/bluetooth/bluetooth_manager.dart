@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:rudertelemetrie_mobile_app/models/telemetry_quality.dart';
+import 'package:rudertelemetrie_mobile_app/models/speed_settings_model.dart';
 import 'package:rudertelemetrie_mobile_app/services/bluetooth/bluetooth_stream_handler.dart';
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
@@ -69,6 +70,7 @@ class BluetoothManager {
   bool _dataSetupFailed = false;
 
   DataSourceRegistry? _dataSourceRegistry;
+  SpeedSettingsModel? _speedSettings;
   ForceCalibrations? _forceCalibrations;
 
   final Map<String, _DeviceConnection> _connections = {};
@@ -100,10 +102,12 @@ class BluetoothManager {
   Stream<ConnectedDevice> get onDeviceLost => _deviceLostController.stream;
 
   Future<void> initialize(
-    DataSourceRegistry dataSourceRegistry, {
+    DataSourceRegistry dataSourceRegistry,
+    SpeedSettingsModel speedSettings, {
     ForceCalibrations? forceCalibrations,
   }) async {
     _dataSourceRegistry = dataSourceRegistry;
+    _speedSettings = speedSettings;
     _forceCalibrations = forceCalibrations;
     await checkStatus();
     await _syncScanning();
@@ -240,7 +244,8 @@ class BluetoothManager {
 
   Future<void> _registerDataSource(_DeviceConnection connection) async {
     final registry = _dataSourceRegistry;
-    if (registry == null) {
+    final speedSettings = _speedSettings;
+    if (registry == null || speedSettings == null) {
       _markDataSetupFailed();
       return;
     }
@@ -263,6 +268,7 @@ class BluetoothManager {
     final deviceId = connection.device.remoteId.str;
     final handler = BluetoothStreamHandler(
       dataSourceRegistry: registry,
+      speedSettings: speedSettings,
       deviceId: deviceId,
       calibrations: _forceCalibrations,
       onOarlockPacket: (sequence) =>

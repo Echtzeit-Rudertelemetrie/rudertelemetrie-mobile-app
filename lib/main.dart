@@ -16,6 +16,7 @@ import 'package:rudertelemetrie_mobile_app/providers/power_sources_provider.dart
 import 'package:rudertelemetrie_mobile_app/providers/recording_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/session_store_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/stroke_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/speed_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/visualizer_provider.dart';
 import 'package:rudertelemetrie_mobile_app/screens//home_screen.dart';
 import 'package:rudertelemetrie_mobile_app/utils/startup_util.dart';
@@ -25,6 +26,7 @@ void main() {
     MultiProvider(
       providers: [
         notificationsProvider,
+        speedSettingsProvider,
         dashboardProvider,
         dataSourceProvider,
         sessionStoreProvider,
