@@ -93,6 +93,18 @@ void main() {
     expect(config.rigFor('Oarlock 1')?.innerLever, 0.88); // never committed
   });
 
+  testWidgets('lists only connected oarlocks', (tester) async {
+    config.setRig(
+      'Oarlock 9',
+      const RigConfig(innerLever: 0.88, scullLength: 2.88),
+    );
+    await tester.pumpWidget(_screen(sources, config));
+    await tester.pump();
+
+    expect(find.text('Oarlock 1'), findsOneWidget);
+    expect(find.text('Oarlock 9'), findsNothing);
+  });
+
   testWidgets('shows a rig that loads after the screen is built', (
     tester,
   ) async {

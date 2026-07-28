@@ -195,7 +195,7 @@ void main() {
               DashboardPreset(
                 id: 'p1',
                 name: 'Legacy',
-                layout: [for (var y = 0; y < 16; y++) _tile('w$y', y: y)],
+                layout: [for (var y = 0; y < 40; y++) _tile('w$y', y: y)],
               ),
             ],
             activeId: 'p1',
@@ -203,7 +203,11 @@ void main() {
 
         final model = await _loaded(store);
 
-        expect(model.layout, hasLength(DashboardModel.viewportRows));
+        // The saved tiles are one coarse cell each, so the viewport holds as
+        // many as the coarse grid had cells — the rest have nowhere to go.
+        final coarseCells =
+            (model.cols ~/ model.columnStep) * (model.rows ~/ model.rowStep);
+        expect(model.layout, hasLength(coarseCells));
         expect(model.layout.every((w) => w.y + w.h <= model.rows), isTrue);
       },
     );
@@ -243,28 +247,52 @@ void main() {
   });
 
   group('orientation', () {
-    test(
-      'rotating to landscape spreads the layout over the finer grid',
-      () async {
-        final model = await _loaded(FakePresetStore());
-        model.addWidget(_tile('a'));
-
-        model.setColumns(DashboardGridSize.landscapeCols);
-
-        expect(model.cols, DashboardGridSize.landscapeCols);
-        expect(model.layout.single.w, model.columnStep);
-        expect(model.layout.single.x, 0);
-      },
+    void rotateToLandscape(DashboardModel model) => model.setGrid(
+      cols: DashboardGridSize.landscapeCols,
+      rows: DashboardGridSize.landscapeRows,
     );
+
+    void rotateToPortrait(DashboardModel model) => model.setGrid(
+      cols: DashboardGridSize.portraitCols,
+      rows: DashboardGridSize.portraitRows,
+    );
+
+    test('a new model starts on the portrait grid', () async {
+      final model = await _loaded(FakePresetStore());
+
+      expect(model.cols, DashboardGridSize.portraitCols);
+      expect(model.rows, DashboardGridSize.portraitRows);
+    });
+
+    test('rotating keeps a tile on the same share of the screen', () async {
+      final model = await _loaded(FakePresetStore());
+      model.addWidget(
+        WidgetConfig(
+          id: 'a',
+          x: 0,
+          y: 0,
+          w: model.columnStep,
+          h: model.rowStep,
+        ),
+      );
+
+      rotateToLandscape(model);
+
+      // One coarse cell before, one coarse cell after.
+      expect(model.layout.single.w, model.columnStep);
+      expect(model.layout.single.h, model.rowStep);
+      expect(model.layout.single.x, 0);
+      expect(model.layout.single.y, 0);
+    });
 
     test('rotating back restores the portrait layout', () async {
       final model = await _loaded(FakePresetStore());
-      model.addWidget(_tile('a'));
-      model.addWidget(_tile('b', x: 1));
+      model.addWidget(_coarseTile(model, 'a'));
+      model.addWidget(_coarseTile(model, 'b', x: 1));
       final portrait = model.layout;
 
-      model.setColumns(DashboardGridSize.landscapeCols);
-      model.setColumns(DashboardGridSize.portraitCols);
+      rotateToLandscape(model);
+      rotateToPortrait(model);
 
       expect(model.layout, portrait);
     });
@@ -277,6 +305,8 @@ void main() {
               id: 'p1',
               name: 'Race',
               cols: DashboardGridSize.landscapeCols,
+              rows: DashboardGridSize.landscapeRows,
+              // The right half of the screen, top quarter of it.
               layout: [const WidgetConfig(id: 'a', x: 8, y: 0, w: 8, h: 2)],
             ),
           ],
@@ -288,18 +318,30 @@ void main() {
       expect(model.cols, DashboardGridSize.portraitCols);
       expect(
         model.layout.single,
-        const WidgetConfig(id: 'a', x: 2, y: 0, w: 2, h: 2),
+        const WidgetConfig(id: 'a', x: 4, y: 0, w: 4, h: 4),
       );
     });
 
-    test('the grid width the layout was saved in is persisted', () async {
+    test('the grid the layout was saved in is persisted', () async {
       final store = FakePresetStore();
       final model = await _loaded(store);
       model.addWidget(_tile('a'));
 
-      model.setColumns(DashboardGridSize.landscapeCols);
+      rotateToLandscape(model);
 
-      expect(store.data!.presets.single.cols, DashboardGridSize.landscapeCols);
+      final saved = store.data!.presets.single;
+      expect(saved.cols, DashboardGridSize.landscapeCols);
+      expect(saved.rows, DashboardGridSize.landscapeRows);
     });
   });
 }
+
+/// A tile one coarse cell in size, expressed in [model]'s current grid.
+WidgetConfig _coarseTile(DashboardModel model, String id, {int x = 0}) =>
+    WidgetConfig(
+      id: id,
+      x: x * model.columnStep,
+      y: 0,
+      w: model.columnStep,
+      h: model.rowStep,
+    );

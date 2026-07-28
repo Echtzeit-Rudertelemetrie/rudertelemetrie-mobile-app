@@ -27,17 +27,17 @@ void main() {
   setUp(() => model = DashboardModel());
 
   test('the dashboard is always exactly one viewport tall', () {
-    expect(model.rows, DashboardModel.viewportRows);
+    final rows = model.rows;
 
     for (var i = 0; i < 20; i++) {
       model.addWidget(_tile('w$i'));
     }
 
-    expect(model.rows, DashboardModel.viewportRows);
+    expect(model.rows, rows);
   });
 
   test('the viewport fills to capacity without overlapping tiles', () {
-    final capacity = model.cols * DashboardModel.viewportRows;
+    final capacity = model.cols * model.rows;
     for (var i = 0; i < capacity; i++) {
       expect(model.addWidget(_tile('w$i')), isTrue);
     }
@@ -48,7 +48,7 @@ void main() {
   });
 
   test('refuses a tile once the viewport is full', () {
-    final capacity = model.cols * DashboardModel.viewportRows;
+    final capacity = model.cols * model.rows;
     for (var i = 0; i < capacity; i++) {
       model.addWidget(_tile('w$i'));
     }
@@ -60,9 +60,12 @@ void main() {
   test(
     'tall tiles land without overlapping, and stop when they no longer fit',
     () {
+      final w = model.cols ~/ 2;
+      final h = (model.rows / 2.5).floor();
+
       var placed = 0;
       for (var i = 0; i < 20; i++) {
-        if (model.addWidget(_tile('w$i', w: 2, h: 3))) placed++;
+        if (model.addWidget(_tile('w$i', w: w, h: h))) placed++;
       }
 
       expect(placed, 4);
@@ -72,10 +75,7 @@ void main() {
   );
 
   test('a tile taller than the viewport is refused outright', () {
-    expect(
-      model.addWidget(_tile('giant', h: DashboardModel.viewportRows + 1)),
-      isFalse,
-    );
+    expect(model.addWidget(_tile('giant', h: model.rows + 1)), isFalse);
     expect(model.layout, isEmpty);
   });
 }

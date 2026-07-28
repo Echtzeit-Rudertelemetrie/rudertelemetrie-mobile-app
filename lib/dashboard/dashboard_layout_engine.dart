@@ -107,16 +107,23 @@ class DashboardLayoutEngine {
   // Re-gridding (orientation change)
   // ---------------------------------------------------------------------------
 
-  /// Remap a layout authored on a [fromCols]-wide grid onto this one, so each
-  /// tile keeps the share of the width it had before.
+  /// Remap a layout authored on a [fromCols]×[fromRows] grid onto this one, so
+  /// each tile keeps the share of the screen it had before.
   ///
-  /// Widening the grid is exact when [cols] is a multiple of [fromCols].
-  /// Narrowing it rounds, which can round two tiles onto each other — those are
-  /// re-seated rather than left overlapping.
-  List<WidgetConfig> rescaleColumns(List<WidgetConfig> layout, int fromCols) {
-    if (fromCols < 1 || fromCols == cols) return List.of(layout);
-    final scale = cols / fromCols;
-    return repack([for (final item in layout) _scaledToWidth(item, scale)]);
+  /// Subdividing an axis is exact when this grid's count is a multiple of the
+  /// old one. Coarsening rounds, which can round two tiles onto each other —
+  /// those are re-seated rather than left overlapping.
+  List<WidgetConfig> rescale(
+    List<WidgetConfig> layout,
+    int fromCols,
+    int fromRows,
+  ) {
+    if (fromCols < 1 || fromRows < 1) return List.of(layout);
+    if (fromCols == cols && fromRows == rows) return List.of(layout);
+    return repack([
+      for (final item in layout)
+        _scaled(item, cols / fromCols, rows / fromRows),
+    ]);
   }
 
   /// Re-seat every tile so none overlap: those that still fit stay put, the
@@ -191,12 +198,17 @@ class DashboardLayoutEngine {
     return layout;
   }
 
-  /// Scale a tile's horizontal position and width by [scale], keeping it inside
-  /// the grid and at least one column wide.
-  WidgetConfig _scaledToWidth(WidgetConfig item, double scale) {
-    final w = (item.w * scale).round().clamp(1, cols);
-    final x = (item.x * scale).round().clamp(0, cols - w);
-    return item.copyWith(x: x, w: w);
+  /// Scale a tile by [scaleX] across and [scaleY] down, keeping it inside the
+  /// grid and at least one cell in each direction.
+  WidgetConfig _scaled(WidgetConfig item, double scaleX, double scaleY) {
+    final w = (item.w * scaleX).round().clamp(1, cols);
+    final h = (item.h * scaleY).round().clamp(1, rows);
+    return item.copyWith(
+      x: (item.x * scaleX).round().clamp(0, cols - w),
+      y: (item.y * scaleY).round().clamp(0, rows - h),
+      w: w,
+      h: h,
+    );
   }
 
   /// Find the first (x, y) position where [widget] fits without collision.

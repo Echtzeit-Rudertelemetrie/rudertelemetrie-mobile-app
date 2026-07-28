@@ -9,34 +9,40 @@ class DashboardPreset {
   final String name;
   final List<WidgetConfig> layout;
 
-  /// The grid width [layout]'s coordinates are in. A preset last edited in
-  /// landscape is saved on the finer landscape grid, so loading it in portrait
-  /// has to scale it back down. Presets written before the grid became
-  /// orientation-aware carry no width and are read as portrait.
+  /// The grid [layout]'s coordinates are in. Each orientation divides the grid
+  /// differently, so a preset last edited in landscape has to be scaled when it
+  /// is loaded in portrait. Presets written before the grid became
+  /// orientation-aware carry no size and are read as the coarse grid they were
+  /// authored in.
   final int cols;
+  final int rows;
 
   const DashboardPreset({
     required this.id,
     required this.name,
     this.layout = const [],
-    this.cols = DashboardGridSize.portraitCols,
+    this.cols = DashboardGridSize.coarseCols,
+    this.rows = DashboardGridSize.coarseRows,
   });
 
   DashboardPreset copyWith({
     String? name,
     List<WidgetConfig>? layout,
     int? cols,
+    int? rows,
   }) => DashboardPreset(
     id: id,
     name: name ?? this.name,
     layout: layout ?? this.layout,
     cols: cols ?? this.cols,
+    rows: rows ?? this.rows,
   );
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'cols': cols,
+    'rows': rows,
     'layout': [for (final w in layout) w.toJson()],
   };
 
@@ -44,7 +50,8 @@ class DashboardPreset {
     id: json['id'] as String,
     name: json['name'] as String,
     layout: _layoutFromJson(json['layout']),
-    cols: json['cols'] as int? ?? DashboardGridSize.portraitCols,
+    cols: json['cols'] as int? ?? DashboardGridSize.coarseCols,
+    rows: json['rows'] as int? ?? DashboardGridSize.coarseRows,
   );
 
   static List<WidgetConfig> _layoutFromJson(dynamic raw) {

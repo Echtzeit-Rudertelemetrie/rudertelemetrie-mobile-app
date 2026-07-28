@@ -160,14 +160,14 @@ void main() {
       );
     });
 
-    testWidgets('adds the tile at a single cell', (tester) async {
+    testWidgets('adds the tile at a single coarse cell', (tester) async {
       await tester.pumpWidget(host(const AddWidgetSheet()));
       await tapField(tester, 'Chart');
       await tapField(tester, 'Force');
       await tapField(tester, 'Add Chart');
 
-      expect(dashboard.layout.single.w, 1);
-      expect(dashboard.layout.single.h, 1);
+      expect(dashboard.layout.single.w, dashboard.columnStep);
+      expect(dashboard.layout.single.h, dashboard.rowStep);
       expect(dashboard.layout.single.data['type'], 'chart');
       expect(dashboard.layout.single.data['sourceKeys'], ['Force (EE01)']);
     });

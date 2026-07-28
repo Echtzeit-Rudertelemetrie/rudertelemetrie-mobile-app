@@ -46,16 +46,23 @@ class _DashboardGridState extends State<DashboardGrid> {
     _matchGridToOrientation();
   }
 
-  /// A landscape screen gets the finer grid. The model re-grids the layout when
-  /// it hears about it, and notifying mid-build throws — hence the next frame.
+  /// Each orientation divides the grid its own way. The model re-grids the
+  /// layout when it hears about it, and notifying mid-build throws — hence the
+  /// next frame.
   void _matchGridToOrientation() {
-    final cols = MediaQuery.orientationOf(context) == Orientation.landscape
+    final landscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final cols = landscape
         ? DashboardGridSize.landscapeCols
         : DashboardGridSize.portraitCols;
+    final rows = landscape
+        ? DashboardGridSize.landscapeRows
+        : DashboardGridSize.portraitRows;
+
     final model = context.read<DashboardModel>();
-    if (model.cols == cols) return;
+    if (model.cols == cols && model.rows == rows) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) model.setColumns(cols);
+      if (mounted) model.setGrid(cols: cols, rows: rows);
     });
   }
 

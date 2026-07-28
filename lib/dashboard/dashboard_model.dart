@@ -9,15 +9,12 @@ import 'widget_config.dart';
 /// they can swap between. The active preset's layout *is* the live layout —
 /// every edit is written back to it and persisted through [store].
 class DashboardModel extends ChangeNotifier {
-  /// The grid's full height. It does not scroll, so this is also every row the
-  /// user will ever see.
-  static const int viewportRows = DashboardGridSize.rows;
-
   static const String defaultPresetName = 'Default';
 
   final DashboardPresetStore? store;
 
   int _cols = DashboardGridSize.portraitCols;
+  int _rows = DashboardGridSize.portraitRows;
   List<DashboardPreset> _presets = [];
   String? _activeId;
   List<WidgetConfig> _layout = [];
@@ -27,23 +24,29 @@ class DashboardModel extends ChangeNotifier {
 
   int get cols => _cols;
 
-  int get rows => viewportRows;
+  /// The grid's full height. It does not scroll, so this is also every row the
+  /// user will ever see.
+  int get rows => _rows;
 
-  /// One portrait column expressed in the current grid, so a tile sized in
-  /// portrait steps covers the same share of the screen in landscape.
-  int get columnStep => _cols ~/ DashboardGridSize.portraitCols;
+  /// How many columns and rows of the current grid make up one coarse cell —
+  /// the size a new tile is created at, so it covers the same share of the
+  /// screen however finely the grid is currently divided.
+  int get columnStep => _cols ~/ DashboardGridSize.coarseCols;
+  int get rowStep => _rows ~/ DashboardGridSize.coarseRows;
 
   DashboardLayoutEngine get _engine =>
-      DashboardLayoutEngine(cols: _cols, rows: rows);
+      DashboardLayoutEngine(cols: _cols, rows: _rows);
 
-  /// Re-grids the dashboard after a rotation. Tiles keep the share of the width
-  /// they had; the finer landscape grid only changes how small a step the user
+  /// Re-grids the dashboard after a rotation. Tiles keep the share of the
+  /// screen they had; a different grid only changes how small a step the user
   /// can move and resize them in.
-  void setColumns(int cols) {
-    if (cols < 1 || cols == _cols) return;
-    final previous = _cols;
+  void setGrid({required int cols, required int rows}) {
+    if (cols < 1 || rows < 1) return;
+    if (cols == _cols && rows == _rows) return;
+    final (fromCols, fromRows) = (_cols, _rows);
     _cols = cols;
-    _layout = _engine.rescaleColumns(_layout, previous);
+    _rows = rows;
+    _layout = _engine.rescale(_layout, fromCols, fromRows);
     _persist();
     notifyListeners();
   }
@@ -164,6 +167,7 @@ class DashboardModel extends ChangeNotifier {
       name: trimmed.isEmpty ? defaultPresetName : trimmed,
       layout: List.of(layout),
       cols: _cols,
+      rows: _rows,
     );
   }
 
@@ -178,7 +182,7 @@ class DashboardModel extends ChangeNotifier {
     }
     final preset = _presets[index];
     _layout = _fitToViewport(
-      _engine.rescaleColumns(preset.layout, preset.cols),
+      _engine.rescale(preset.layout, preset.cols, preset.rows),
     );
   }
 
@@ -203,7 +207,11 @@ class DashboardModel extends ChangeNotifier {
     final index = _indexOf(_activeId);
     if (index != -1) {
       _presets = List.of(_presets)
-        ..[index] = _presets[index].copyWith(layout: _layout, cols: _cols);
+        ..[index] = _presets[index].copyWith(
+          layout: _layout,
+          cols: _cols,
+          rows: _rows,
+        );
     }
     store?.save(DashboardPresetData(presets: _presets, activeId: _activeId));
   }

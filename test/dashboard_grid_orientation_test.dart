@@ -26,25 +26,34 @@ void main() {
 
   setUp(() {
     model = DashboardModel();
-    model.addWidget(const WidgetConfig(id: 'a', x: 0, y: 0, w: 1, h: 1));
+    model.addWidget(
+      WidgetConfig(id: 'a', x: 0, y: 0, w: model.columnStep, h: model.rowStep),
+    );
   });
 
-  testWidgets('a portrait grid keeps the portrait columns', (tester) async {
+  testWidgets('a portrait grid keeps the portrait divisions', (tester) async {
     await tester.pumpWidget(_grid(model, _portrait));
     await tester.pump();
 
     expect(model.cols, DashboardGridSize.portraitCols);
+    expect(model.rows, DashboardGridSize.portraitRows);
   });
 
-  testWidgets('a landscape grid switches to the finer columns', (tester) async {
+  testWidgets('a landscape grid switches to the landscape divisions', (
+    tester,
+  ) async {
     await tester.pumpWidget(_grid(model, _landscape));
     await tester.pump();
 
     expect(model.cols, DashboardGridSize.landscapeCols);
+    expect(model.rows, DashboardGridSize.landscapeRows);
     expect(model.layout.single.w, model.columnStep);
+    expect(model.layout.single.h, model.rowStep);
   });
 
-  testWidgets('rotating back returns to the portrait columns', (tester) async {
+  testWidgets('rotating back returns to the portrait divisions', (
+    tester,
+  ) async {
     await tester.pumpWidget(_grid(model, _landscape));
     await tester.pump();
 
@@ -52,7 +61,9 @@ void main() {
     await tester.pump();
 
     expect(model.cols, DashboardGridSize.portraitCols);
-    expect(model.layout.single.w, 1);
+    expect(model.rows, DashboardGridSize.portraitRows);
+    expect(model.layout.single.w, model.columnStep);
+    expect(model.layout.single.h, model.rowStep);
   });
 
   testWidgets('a tile spans its columns of the landscape width', (

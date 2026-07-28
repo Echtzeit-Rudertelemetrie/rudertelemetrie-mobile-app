@@ -15,10 +15,7 @@ class RigSetupScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final registry = context.watch<DataSourceProviderModel>().registry;
     final config = context.watch<BoatConfig>();
-    final keys = {
-      ...connectedOarlockKeys(registry),
-      ...config.oarlockKeys,
-    }.toList()..sort();
+    final keys = connectedOarlockKeys(registry).toList()..sort();
 
     return FScaffold(
       header: FHeader.nested(

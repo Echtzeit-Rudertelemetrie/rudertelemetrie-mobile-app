@@ -277,48 +277,67 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // rescaleColumns — the grid widens on rotation
+  // rescale — the grid is divided differently on rotation
   // ---------------------------------------------------------------------------
-  group('rescaleColumns', () {
+  group('rescale', () {
     const wide = DashboardLayoutEngine(cols: 16, rows: 6);
 
-    test('widening keeps each tile on the same share of the width', () {
-      final result = wide.rescaleColumns([
-        w('a', 0, 0, 1, 1),
-        w('b', 2, 1, 2, 2),
-      ], 4);
+    test('a finer grid keeps each tile on the same share of the width', () {
+      final result = wide.rescale(
+        [w('a', 0, 0, 1, 1), w('b', 2, 1, 2, 2)],
+        4,
+        6,
+      );
 
       expect(result, contains(w('a', 0, 0, 4, 1)));
       expect(result, contains(w('b', 8, 1, 8, 2)));
     });
 
-    test('rows are untouched', () {
-      final result = wide.rescaleColumns([w('a', 1, 3, 1, 2)], 4);
+    test('an unchanged axis is left alone', () {
+      final result = wide.rescale([w('a', 1, 3, 1, 2)], 4, 6);
 
       expect(result.single.y, 3);
       expect(result.single.h, 2);
     });
 
-    test('same width is a no-op', () {
-      final layout = [w('a', 1, 1, 2, 2)];
-      expect(wide.rescaleColumns(layout, 16), layout);
+    test('rows scale the same way columns do', () {
+      const tall = DashboardLayoutEngine(cols: 4, rows: 12);
+
+      final result = tall.rescale([w('a', 1, 3, 1, 2)], 4, 6);
+
+      expect(result.single, w('a', 1, 6, 1, 4));
     });
 
-    test('narrowing scales back down without losing tiles', () {
-      final result = engine.rescaleColumns([
-        w('a', 0, 0, 4, 1),
-        w('b', 8, 1, 8, 2),
-      ], 16);
+    test('both axes at once trade width for height', () {
+      const portrait = DashboardLayoutEngine(cols: 8, rows: 16);
+
+      final result = portrait.rescale([w('a', 8, 0, 8, 2)], 16, 8);
+
+      expect(result.single, w('a', 4, 0, 4, 4));
+    });
+
+    test('the same grid is a no-op', () {
+      final layout = [w('a', 1, 1, 2, 2)];
+      expect(wide.rescale(layout, 16, 6), layout);
+    });
+
+    test('a coarser grid scales back down without losing tiles', () {
+      final result = engine.rescale(
+        [w('a', 0, 0, 4, 1), w('b', 8, 1, 8, 2)],
+        16,
+        6,
+      );
 
       expect(result, contains(w('a', 0, 0, 1, 1)));
       expect(result, contains(w('b', 2, 1, 2, 2)));
     });
 
     test('tiles rounding onto each other are re-seated, not stacked', () {
-      final result = engine.rescaleColumns([
-        w('a', 0, 0, 1, 1),
-        w('b', 1, 0, 1, 1),
-      ], 16);
+      final result = engine.rescale(
+        [w('a', 0, 0, 1, 1), w('b', 1, 0, 1, 1)],
+        16,
+        6,
+      );
 
       expect(result, hasLength(2));
       for (final item in result) {
@@ -332,10 +351,7 @@ void main() {
           for (var x = 0; x < engine.cols; x++) w('t_${x}_$y', x * 4, y, 4, 1),
       ];
 
-      final result = engine.rescaleColumns([
-        ...full,
-        w('extra', 1, 0, 1, 1),
-      ], 16);
+      final result = engine.rescale([...full, w('extra', 1, 0, 1, 1)], 16, 6);
 
       expect(result, hasLength(engine.cols * engine.rows));
       for (final item in result) {

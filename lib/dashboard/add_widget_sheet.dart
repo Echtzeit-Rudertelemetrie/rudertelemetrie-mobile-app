@@ -26,9 +26,9 @@ class AddWidgetSheet extends StatefulWidget {
 }
 
 class _AddWidgetSheetState extends State<AddWidgetSheet> {
-  /// New tiles start at a single portrait cell so a tile fits wherever the grid
-  /// still has room. The user resizes it afterwards. Landscape's finer columns
-  /// are a smaller step, not a smaller tile — hence the scaling in [_place].
+  /// New tiles start at a single coarse cell so a tile fits wherever the grid
+  /// still has room. The user resizes it afterwards. A finer grid is a smaller
+  /// step, not a smaller tile — hence the scaling in [_place].
   static const int _newTileW = 1;
   static const int _newTileH = 1;
 
@@ -111,7 +111,7 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
         x: 0,
         y: 0,
         w: _newTileW * model.columnStep,
-        h: _newTileH,
+        h: _newTileH * model.rowStep,
         data: data,
       ),
     );
