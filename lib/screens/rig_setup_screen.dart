@@ -5,6 +5,7 @@ import 'package:rudertelemetrie_mobile_app/components/settings/number_input_fiel
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/oarlocks.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// Setup → Rig (boat-rig-config Part A): per-oarlock inner lever `l_in` and
 /// scull length `L`. These are mandatory for every force/power source.
@@ -56,7 +57,7 @@ class _EmptyHint extends StatelessWidget {
       padding: EdgeInsets.all(24),
       child: Text(
         'Connect an oarlock to configure its rig.',
-        style: TextStyle(color: Colors.white54),
+        style: TextStyle(color: AppPalette.faintLabel),
       ),
     ),
   );
@@ -130,7 +131,7 @@ class _OarlockRigState extends State<_OarlockRig> {
         Text(
           widget.oarlockKey,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppPalette.label,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -190,12 +191,12 @@ class _OarlockRigState extends State<_OarlockRig> {
         ? (
             'Saved · outer lever l_out = '
                 '${saved.outerLever.toStringAsFixed(2)} m',
-            Colors.greenAccent,
+            AppPalette.ok,
           )
         : (
             'Not set — enter l_in and L to enable force and power for this '
                 'oarlock.',
-            Colors.amber,
+            AppPalette.warning,
           );
     return Text(text, style: TextStyle(color: color, fontSize: 12));
   }

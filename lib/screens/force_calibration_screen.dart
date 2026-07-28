@@ -72,7 +72,7 @@ class _ForceCalibrationScreenState extends State<ForceCalibrationScreen> {
               Text(
                 widget.oarlockKey,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppPalette.label,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -87,7 +87,7 @@ class _ForceCalibrationScreenState extends State<ForceCalibrationScreen> {
                 Text(
                   session.fault!,
                   style: const TextStyle(
-                    color: Colors.redAccent,
+                    color: AppPalette.danger,
                     fontSize: AppTypeScale.caption,
                   ),
                 ),
@@ -107,7 +107,7 @@ class _Blocked extends StatelessWidget {
   Widget build(BuildContext context) => const Text(
     'Stop the recording first — calibrating mid-session would change what the '
     'data already in it means.',
-    style: TextStyle(color: Colors.amber),
+    style: TextStyle(color: AppPalette.warning),
   );
 }
 
@@ -173,7 +173,10 @@ class _WeightPrompt extends StatelessWidget {
       const Text(
         'Use the heaviest weight you can safely hang. A light one is '
         'extrapolated up to full rowing load, and its error with it.',
-        style: TextStyle(color: Colors.amber, fontSize: AppTypeScale.caption),
+        style: TextStyle(
+          color: AppPalette.warning,
+          fontSize: AppTypeScale.caption,
+        ),
       ),
       const SizedBox(height: 16),
       SizedBox(
@@ -217,7 +220,7 @@ class _Capturing extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 12),
-      Text(label, style: const TextStyle(color: Colors.white70)),
+      Text(label, style: const TextStyle(color: AppPalette.mutedLabel)),
     ],
   );
 }
@@ -263,7 +266,7 @@ class _Review extends StatelessWidget {
             'load. The calibration will work, but its error is multiplied '
             'across the rowing range — a heavier weight is worth the trouble.',
             style: const TextStyle(
-              color: Colors.amber,
+              color: AppPalette.warning,
               fontSize: AppTypeScale.caption,
             ),
           ),
@@ -313,13 +316,13 @@ class _Instruction extends StatelessWidget {
       Text(
         title,
         style: const TextStyle(
-          color: Colors.white,
+          color: AppPalette.label,
           fontSize: 17,
           fontWeight: FontWeight.w600,
         ),
       ),
       const SizedBox(height: 6),
-      Text(detail, style: const TextStyle(color: Colors.white54)),
+      Text(detail, style: const TextStyle(color: AppPalette.faintLabel)),
     ],
   );
 }
@@ -336,8 +339,8 @@ class _Row extends StatelessWidget {
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white54)),
-        Text(value, style: const TextStyle(color: Colors.white)),
+        Text(label, style: const TextStyle(color: AppPalette.faintLabel)),
+        Text(value, style: const TextStyle(color: AppPalette.label)),
       ],
     ),
   );

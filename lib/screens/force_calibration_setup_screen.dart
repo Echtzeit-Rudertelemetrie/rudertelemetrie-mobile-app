@@ -60,7 +60,7 @@ class _EmptyHint extends StatelessWidget {
       padding: EdgeInsets.all(24),
       child: Text(
         'Connect an oarlock to calibrate its force sensor.',
-        style: TextStyle(color: Colors.white54),
+        style: TextStyle(color: AppPalette.faintLabel),
       ),
     ),
   );
@@ -89,7 +89,7 @@ class _OarlockCalibration extends StatelessWidget {
         Text(
           oarlockKey,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppPalette.label,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -104,7 +104,7 @@ class _OarlockCalibration extends StatelessWidget {
             'The zero has drifted further than a healthy sensor should. '
             'Recalibrate before trusting these readings.',
             style: TextStyle(
-              color: Colors.redAccent,
+              color: AppPalette.danger,
               fontSize: AppTypeScale.caption,
             ),
           ),
@@ -130,12 +130,12 @@ class _OarlockCalibration extends StatelessWidget {
         ? (
             'Not calibrated — readings are on the nominal firmware scale and '
                 'are proportional to force, not newtons.',
-            Colors.amber,
+            AppPalette.warning,
           )
         : (
             'Calibrated ${_date(at)} · '
                 '${calibration.spanNewtons.toStringAsFixed(0)} N reference',
-            Colors.greenAccent,
+            AppPalette.ok,
           );
     return Text(
       text,
@@ -148,7 +148,7 @@ class _OarlockCalibration extends StatelessWidget {
   Widget _drift() => Text(
     'Zero drift being removed: ${driftNewtons.toStringAsFixed(1)} N',
     style: const TextStyle(
-      color: Colors.white38,
+      color: AppPalette.disabledLabel,
       fontSize: AppTypeScale.caption,
     ),
   );

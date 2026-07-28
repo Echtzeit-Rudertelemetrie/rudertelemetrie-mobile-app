@@ -40,13 +40,24 @@ FThemeData getTheme() {
         .fuchsia,
       }.contains(defaultTargetPlatform),
     ),
+    // Tile groups sit on the background as raised cards, not flush against it:
+    // a settings list and the page it is on should not be the same surface.
     tileGroupStyle: FTileGroupStyle.inherit(
-      colors: newColors.copyWith(card: background),
+      colors: newColors.copyWith(
+        card: AppPalette.surface,
+        border: AppPalette.surfaceBorder,
+        mutedForeground: AppPalette.faintLabel,
+      ),
       typography: base.typography,
-      style: base.style,
+      // `md` is the token FTileGroup clips its card with.
+      style: base.style.copyWith(
+        borderRadius: base.style.borderRadius.copyWith(
+          md: BorderRadius.circular(AppRadii.panel),
+        ),
+      ),
     ),
     sliderStyles: FSliderStyles.inherit(
-      colors: newColors.copyWith(secondary: Colors.white),
+      colors: newColors.copyWith(secondary: AppPalette.label),
       typography: base.typography,
       style: base.style,
     ),

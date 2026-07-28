@@ -196,7 +196,7 @@ class _MapTileState extends State<MapTile> {
     child: Text(
       '© OpenStreetMap',
       style: TextStyle(
-        color: Colors.white70,
+        color: AppPalette.mutedLabel,
         fontSize: AppTypeScale.caption,
         shadows: [Shadow(color: Colors.black87, blurRadius: 2)],
       ),
@@ -218,7 +218,7 @@ class _MapTileState extends State<MapTile> {
           Text(
             'Map',
             style: TextStyle(
-              color: Colors.white54,
+              color: AppPalette.faintLabel,
               fontSize: AppTypeScale.caption,
             ),
           ),
@@ -226,7 +226,7 @@ class _MapTileState extends State<MapTile> {
           Text(
             'Waiting for GPS',
             style: TextStyle(
-              color: Colors.white70,
+              color: AppPalette.mutedLabel,
               fontSize: AppTypeScale.caption,
             ),
           ),
@@ -246,7 +246,7 @@ class _MapTileState extends State<MapTile> {
             color: AppPalette.accent,
             shape: BoxShape.circle,
             border: Border.fromBorderSide(
-              BorderSide(color: Colors.white, width: 2),
+              BorderSide(color: AppPalette.label, width: 2),
             ),
           ),
         ),
@@ -267,7 +267,7 @@ class _MapTileState extends State<MapTile> {
           color: Colors.black54,
           borderRadius: BorderRadius.circular(22),
         ),
-        child: const Icon(Icons.my_location, color: Colors.white, size: 20),
+        child: const Icon(Icons.my_location, color: AppPalette.label, size: 20),
       ),
     ),
   );

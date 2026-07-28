@@ -61,13 +61,14 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
           child: Container(
             decoration: BoxDecoration(
               color: AppPalette.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: editMode
-                  ? Border.all(color: AppPalette.accent, width: 1.5)
-                  : null,
+              borderRadius: BorderRadius.circular(AppRadii.tile),
+              border: Border.all(
+                color: editMode ? AppPalette.accent : AppPalette.surfaceBorder,
+                width: editMode ? 2 : 1,
+              ),
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadii.tile),
               child: widget.child,
             ),
           ),
@@ -76,8 +77,8 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
         if (editMode) ...[
           // Drag handle — top-left
           Positioned(
-            top: 0,
-            left: 0,
+            top: 6,
+            left: 6,
             child: GestureDetector(
               onPanStart: _onDragStart,
               onPanUpdate: _onDragUpdate,
@@ -95,8 +96,8 @@ class _DashboardWidgetTileState extends State<DashboardWidgetTile> {
 
           // Delete — top-right
           Positioned(
-            top: 0,
-            right: 0,
+            top: 6,
+            right: 6,
             child: GestureDetector(
               onTap: () => context.read<DashboardModel>().removeWidget(cfg.id),
               child: Semantics(
@@ -225,19 +226,25 @@ class _Handle extends StatelessWidget {
     width: 32,
     height: 32,
     decoration: BoxDecoration(
-      color: Colors.black54,
-      borderRadius: BorderRadius.circular(4),
+      color: Colors.black.withAlpha(140),
+      borderRadius: BorderRadius.circular(AppRadii.control),
     ),
     child: Icon(icon, size: 18, color: color),
   );
 }
 
+/// Clipped to the tile's own corner, so the grip follows the rounded edge
+/// instead of jutting a square corner past it.
 class _ResizeHandle extends StatelessWidget {
   const _ResizeHandle();
 
   @override
-  Widget build(BuildContext context) =>
-      CustomPaint(painter: _TrianglePainter(), size: const Size(32, 32));
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: const BorderRadius.only(
+      bottomRight: Radius.circular(AppRadii.tile),
+    ),
+    child: CustomPaint(painter: _TrianglePainter(), size: const Size(28, 28)),
+  );
 }
 
 class _TrianglePainter extends CustomPainter {

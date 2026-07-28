@@ -12,6 +12,7 @@ import 'package:rudertelemetrie_mobile_app/services/recording/series_decimation.
 import 'package:rudertelemetrie_mobile_app/services/recording/session_record.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_store.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
+import 'package:rudertelemetrie_mobile_app/theme/chart_style.dart';
 
 /// Read-only view of one saved session: summary, a replay chart from
 /// `session.csv`, plus export (share sheet) and delete.
@@ -121,7 +122,10 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             const SizedBox(height: 16),
             const Text(
               'Replay',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(
+                color: AppPalette.faintLabel,
+                fontSize: AppTypeScale.caption,
+              ),
             ),
             const SizedBox(height: 6),
             _replay(),
@@ -131,32 +135,48 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     );
   }
 
-  Widget _summary(SessionSummary s) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _stat('Duration', formatElapsed(s.duration)),
-      _stat('Distance', formatDistance(s.distanceMeters)),
-      _stat('Start mode', s.info.startMode.name),
-      for (final e in s.averages.entries)
-        _stat('Avg ${e.key}', e.value.toStringAsFixed(1)),
-      for (final e in s.peaks.entries)
-        _stat('Peak ${e.key}', e.value.toStringAsFixed(1)),
-    ],
-  );
-
-  Widget _stat(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  /// The four numbers a rower compares outings on get card-sized type; the
+  /// long tail of averages and peaks stays a scannable list underneath.
+  Widget _summary(SessionSummary s) {
+    final headline = _headlineAverages(s);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white54, fontSize: 13),
+        _HeroGrid(
+          stats: [
+            ('Duration', formatElapsed(s.duration)),
+            ('Distance', formatDistance(s.distanceMeters)),
+            for (final key in headline)
+              ('Avg $key', s.averages[key]!.toStringAsFixed(1)),
+          ],
         ),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 13)),
+        const SizedBox(height: 16),
+        _StatList(
+          stats: [
+            ('Start mode', s.info.startMode.name),
+            for (final e in s.averages.entries)
+              if (!headline.contains(e.key))
+                ('Avg ${e.key}', e.value.toStringAsFixed(1)),
+            for (final e in s.peaks.entries)
+              ('Peak ${e.key}', e.value.toStringAsFixed(1)),
+          ],
+        ),
       ],
-    ),
-  );
+    );
+  }
+
+  /// Two averages to sit beside duration and distance, picked by what a rower
+  /// actually reads first. A session missing those falls back to whatever it
+  /// does have, so the grid is never left with holes in it.
+  List<String> _headlineAverages(SessionSummary s) {
+    const preferred = ['Pace (/500m)', 'Stroke Rate', 'Speed (km/h)'];
+    final available = s.averages.keys.toList();
+    final ranked = [
+      ...preferred.where(available.contains),
+      ...available.where((key) => !preferred.contains(key)),
+    ];
+    return ranked.take(2).toList();
+  }
 
   Widget _replay() => AsyncContent<Map<String, List<SessionSample>>>(
     future: _series,
@@ -173,7 +193,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     if (series.isEmpty) {
       return const Text(
         'No recorded series.',
-        style: TextStyle(color: Colors.white38),
+        style: TextStyle(color: AppPalette.disabledLabel),
       );
     }
     final sources = series.keys.toList()..sort();
@@ -186,15 +206,26 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           value: selected,
           isExpanded: true,
           dropdownColor: AppPalette.overlay,
-          style: const TextStyle(color: Colors.white, fontSize: 13),
+          underline: const SizedBox.shrink(),
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          style: const TextStyle(
+            color: AppPalette.label,
+            fontSize: AppTypeScale.label,
+          ),
           items: [
             for (final name in sources)
               DropdownMenuItem(value: name, child: Text(name)),
           ],
           onChanged: (v) => setState(() => _selected = v),
         ),
-        SizedBox(
+        Container(
           height: 200,
+          padding: const EdgeInsets.fromLTRB(4, 12, 12, 4),
+          decoration: BoxDecoration(
+            color: AppPalette.overlay,
+            borderRadius: BorderRadius.circular(AppRadii.tile),
+            border: Border.all(color: AppPalette.surfaceBorder),
+          ),
           child: _chart(_displaySeries(selected, series[selected]!)),
         ),
       ],
@@ -203,6 +234,10 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
 
   Widget _chart(List<SessionSample> points) {
     final spots = [for (final p in points) FlSpot(p.elapsedMs / 1000, p.value)];
+    // A series that dips below zero — an oar angle, say — has no meaningful
+    // area under it, so it is drawn as a bare trace instead.
+    final fills = points.every((p) => p.value >= 0);
+
     return LineChart(
       LineChartData(
         clipData: const FlClipData.all(),
@@ -211,26 +246,151 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
             spots: spots,
             isCurved: false,
             color: AppPalette.accent,
-            barWidth: 1.5,
+            barWidth: 2,
             dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(show: fills, gradient: chartFillGradient),
           ),
         ],
-        titlesData: const FlTitlesData(
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           leftTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 34,
+              getTitlesWidget: (value, meta) => SideTitleWidget(
+                meta: meta,
+                child: Text(_axisLabel(value), style: chartAxisLabelStyle),
+              ),
+            ),
           ),
           bottomTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: true, reservedSize: 18),
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 20,
+              getTitlesWidget: (value, meta) => SideTitleWidget(
+                meta: meta,
+                child: Text(
+                  '${_axisLabel(value)}s',
+                  style: chartAxisLabelStyle,
+                ),
+              ),
+            ),
           ),
         ),
         gridData: const FlGridData(show: true, drawVerticalLine: false),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: Colors.white.withAlpha(30)),
-        ),
+        borderData: chartBorderData,
       ),
     );
   }
+
+  String _axisLabel(double value) =>
+      value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
+}
+
+/// The session's headline numbers, two to a row.
+class _HeroGrid extends StatelessWidget {
+  final List<(String, String)> stats;
+
+  const _HeroGrid({required this.stats});
+
+  @override
+  Widget build(BuildContext context) => GridView.count(
+    crossAxisCount: 2,
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    crossAxisSpacing: 8,
+    mainAxisSpacing: 8,
+    childAspectRatio: 2.1,
+    children: [for (final (label, value) in stats) _HeroStat(label, value)],
+  );
+}
+
+class _HeroStat extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _HeroStat(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: AppPalette.overlay,
+      borderRadius: BorderRadius.circular(AppRadii.tile),
+      border: Border.all(color: AppPalette.surfaceBorder),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: AppPalette.faintLabel,
+            fontSize: AppTypeScale.caption,
+          ),
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: AppPalette.label,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Everything past the headline: one label/value pair per divided row.
+class _StatList extends StatelessWidget {
+  final List<(String, String)> stats;
+
+  const _StatList({required this.stats});
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (var i = 0; i < stats.length; i++) ...[
+        if (i > 0) const Divider(height: 1, color: AppPalette.gridLine),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                stats[i].$1,
+                style: const TextStyle(
+                  color: AppPalette.faintLabel,
+                  fontSize: AppTypeScale.label,
+                ),
+              ),
+              Text(
+                stats[i].$2,
+                style: const TextStyle(
+                  color: AppPalette.label,
+                  fontSize: AppTypeScale.label,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ],
+  );
 }

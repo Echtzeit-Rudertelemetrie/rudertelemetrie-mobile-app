@@ -5,6 +5,7 @@ import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_idle_
 import 'package:rudertelemetrie_mobile_app/constants/unit.dart';
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 import 'package:rudertelemetrie_mobile_app/utils/format.dart';
 
 /// Live numeric readout showing the latest y-value from a [BoundVisualizer].
@@ -106,22 +107,30 @@ class _ValueTileState extends State<ValueTile> {
             Text(
               widget.visualizer.name,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: const TextStyle(
+                color: AppPalette.faintLabel,
+                fontSize: AppTypeScale.caption,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               display,
               style: TextStyle(
-                color: stale ? Colors.white38 : Colors.white,
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
+                color: stale ? AppPalette.disabledLabel : AppPalette.label,
+                fontSize: AppTypeScale.readout,
+                fontWeight: FontWeight.w800,
+                height: 1,
+                // Digits that do not shuffle sideways as the value changes —
+                // the number is read at a glance, mid-stroke.
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
+            const SizedBox(height: 2),
             Text(
               stale ? '${unit.label} · no signal' : unit.label,
               style: TextStyle(
-                color: stale ? Colors.amber : Colors.white54,
-                fontSize: 12,
+                color: stale ? AppPalette.warning : AppPalette.faintLabel,
+                fontSize: AppTypeScale.caption,
               ),
             ),
           ],

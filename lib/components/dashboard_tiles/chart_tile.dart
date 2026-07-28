@@ -9,6 +9,7 @@ import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_title
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
+import 'package:rudertelemetrie_mobile_app/theme/chart_style.dart';
 
 class ChartTile extends StatefulWidget {
   final BoundVisualizer visualizer;
@@ -131,6 +132,13 @@ class _ChartTileState extends State<ChartTile>
     return (min: minY, max: maxY, interval: interval);
   }
 
+  /// An area fill reads as "this much of the quantity", which is only true when
+  /// the x axis is elapsed time and the trace advances one way. An xy
+  /// trajectory doubles back on itself, so the region under it is not an area
+  /// of anything — those stay a plain line.
+  bool get _fillsUnderLine =>
+      widget.visualizer.shape != VisualizerShape.xy && _yAxis.min >= 0;
+
   @override
   Widget build(BuildContext context) {
     if (_points.isEmpty) {
@@ -167,11 +175,17 @@ class _ChartTileState extends State<ChartTile>
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
+                    // Left off deliberately: the trace is redrawn every frame
+                    // from densely sampled points, so smoothing costs a bezier
+                    // pass per frame and changes nothing visible.
                     isCurved: false,
                     color: AppPalette.accent,
-                    barWidth: 1.5,
+                    barWidth: 2,
                     dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(show: false),
+                    belowBarData: BarAreaData(
+                      show: _fillsUnderLine,
+                      gradient: chartFillGradient,
+                    ),
                   ),
                 ],
                 titlesData: FlTitlesData(
@@ -195,10 +209,7 @@ class _ChartTileState extends State<ChartTile>
                           meta: meta,
                           child: Text(
                             _yLabel(value),
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: AppTypeScale.caption,
-                            ),
+                            style: chartAxisLabelStyle,
                           ),
                         );
                       },
@@ -218,27 +229,15 @@ class _ChartTileState extends State<ChartTile>
                           space: 2,
                           child: Text(
                             _xLabel(value),
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: AppTypeScale.caption,
-                            ),
+                            style: chartAxisLabelStyle,
                           ),
                         );
                       },
                     ),
                   ),
                 ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: yAxis.interval,
-                  getDrawingHorizontalLine: (_) =>
-                      FlLine(color: Colors.white.withAlpha(20), strokeWidth: 1),
-                ),
-                borderData: FlBorderData(
-                  show: true,
-                  border: Border.all(color: Colors.white.withAlpha(30)),
-                ),
+                gridData: chartGridData(yAxis.interval),
+                borderData: chartBorderData,
               ),
               duration: Duration.zero,
             ),

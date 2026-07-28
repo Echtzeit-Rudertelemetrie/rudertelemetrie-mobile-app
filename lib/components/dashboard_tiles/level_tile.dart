@@ -96,7 +96,7 @@ class _LevelTileState extends State<LevelTile>
           const Text(
             _title,
             style: TextStyle(
-              color: Colors.white54,
+              color: AppPalette.faintLabel,
               fontSize: AppTypeScale.caption,
             ),
           ),
@@ -112,7 +112,10 @@ class _LevelTileState extends State<LevelTile>
         child: Text(
           'Accel not gravity-referenced\n(|g| off) — level unavailable',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.amber, fontSize: AppTypeScale.caption),
+          style: TextStyle(
+            color: AppPalette.warning,
+            fontSize: AppTypeScale.caption,
+          ),
         ),
       );
     }
@@ -129,7 +132,7 @@ class _LevelTileState extends State<LevelTile>
           'roll ${_reading.rollDegrees.toStringAsFixed(0)}°  '
           'pitch ${_reading.pitchDegrees.toStringAsFixed(0)}°',
           style: const TextStyle(
-            color: Colors.white54,
+            color: AppPalette.faintLabel,
             fontSize: AppTypeScale.caption,
           ),
         ),
@@ -180,9 +183,9 @@ class _LevelPainter extends CustomPainter {
     final ring = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
-      ..color = Colors.white24;
+      ..color = AppPalette.outline;
     canvas.drawCircle(center, radius, ring);
-    canvas.drawCircle(center, radius / 2, ring..color = Colors.white10);
+    canvas.drawCircle(center, radius / 2, ring..color = AppPalette.gridLine);
     canvas.drawLine(
       Offset(center.dx - radius, center.dy),
       Offset(center.dx + radius, center.dy),
@@ -202,7 +205,7 @@ class _LevelPainter extends CustomPainter {
     canvas.drawCircle(
       bubble,
       7,
-      Paint()..color = level ? Colors.greenAccent : Colors.amber,
+      Paint()..color = level ? AppPalette.ok : AppPalette.warning,
     );
 
     // Surge arrow: horizontal, length tracks a_x (±5 m/s² full scale).

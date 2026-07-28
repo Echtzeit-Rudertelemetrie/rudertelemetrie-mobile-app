@@ -9,6 +9,7 @@ import 'package:rudertelemetrie_mobile_app/screens/session_detail_screen.dart';
 import 'package:rudertelemetrie_mobile_app/services/notifications/app_notifications.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_record.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/session_store.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// Lists saved sessions from the [SessionStore], newest first, grouped by day.
 class HistoryScreen extends StatefulWidget {
@@ -73,7 +74,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       Center(
         child: Text(
           'No saved sessions yet.',
-          style: TextStyle(color: Colors.white54),
+          style: TextStyle(color: AppPalette.faintLabel),
         ),
       ),
     ],
@@ -105,9 +106,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _deleteBackground() => Container(
     alignment: Alignment.centerRight,
-    color: Colors.redAccent.withAlpha(60),
-    padding: const EdgeInsets.only(right: 20),
-    child: const Icon(FIcons.trash2, color: Colors.redAccent),
+    color: AppPalette.danger.withAlpha(45),
+    padding: const EdgeInsets.only(right: 24),
+    child: const Icon(FIcons.trash2, color: AppPalette.danger),
   );
 
   Future<bool> _confirmDelete(SessionSummary summary) =>
@@ -181,18 +182,25 @@ class _DayHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 16, bottom: 4),
+    padding: const EdgeInsets.only(top: 18, bottom: 6),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           _dayLabel(header.day),
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
+          style: const TextStyle(
+            color: AppPalette.mutedLabel,
+            fontSize: AppTypeScale.label,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         Text(
           '${formatElapsed(header.duration)} · '
           '${formatDistance(header.distanceMeters)}',
-          style: const TextStyle(color: Colors.white38, fontSize: 12),
+          style: const TextStyle(
+            color: AppPalette.disabledLabel,
+            fontSize: AppTypeScale.caption,
+          ),
         ),
       ],
     ),
@@ -209,14 +217,14 @@ class _ProvisionalBadge extends StatelessWidget {
   Widget build(BuildContext context) => Tooltip(
     message: 'Force was not calibrated — force and power are relative only.',
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.amber.withAlpha(40),
-        borderRadius: BorderRadius.circular(4),
+        color: AppPalette.warning.withAlpha(40),
+        borderRadius: BorderRadius.circular(5),
       ),
       child: const Text(
         'uncalibrated',
-        style: TextStyle(color: Colors.amber, fontSize: 10),
+        style: TextStyle(color: AppPalette.warning, fontSize: 10),
       ),
     ),
   );
@@ -234,8 +242,11 @@ class _SessionRow extends StatelessWidget {
     return GestureDetector(
       onTap: onOpen,
       behavior: HitTestBehavior.opaque,
-      child: Padding(
+      child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppPalette.gridLine)),
+        ),
         child: Row(
           children: [
             Expanded(
@@ -247,8 +258,9 @@ class _SessionRow extends StatelessWidget {
                       Text(
                         '${_two(started.hour)}:${_two(started.minute)}',
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
+                          color: AppPalette.label,
+                          fontSize: AppTypeScale.body,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       if (summary.isProvisional) ...[
@@ -257,15 +269,22 @@ class _SessionRow extends StatelessWidget {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     _metrics(summary),
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: const TextStyle(
+                      color: AppPalette.faintLabel,
+                      fontSize: AppTypeScale.caption,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(FIcons.chevronRight, color: Colors.white38, size: 18),
+            const Icon(
+              FIcons.chevronRight,
+              color: AppPalette.disabledLabel,
+              size: 18,
+            ),
           ],
         ),
       ),

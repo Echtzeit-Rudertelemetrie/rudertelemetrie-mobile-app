@@ -34,34 +34,29 @@ class BoatSetupScreen extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const Text(
-            'Boat class',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
-          ),
-          const SizedBox(height: 6),
+          const _SectionLabel('Boat class'),
+          const SizedBox(height: 8),
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               for (final c in BoatClass.values)
                 _Chip(
                   label: c.label,
                   selected: config.boatClass == c,
+                  pill: true,
                   onTap: () => config.setBoatClass(c),
                 ),
             ],
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Oarlocks',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
-          ),
+          const SizedBox(height: 22),
+          const _SectionLabel('Oarlocks'),
           if (keys.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(
                 'Connect an oarlock to assign it.',
-                style: TextStyle(color: Colors.white38),
+                style: TextStyle(color: AppPalette.disabledLabel),
               ),
             ),
           for (final key in keys)
@@ -102,8 +97,14 @@ class _OarlockAssignment extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(top: 12),
+    padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+    decoration: BoxDecoration(
+      color: AppPalette.overlay,
+      borderRadius: BorderRadius.circular(AppRadii.tile),
+      border: Border.all(color: AppPalette.surfaceBorder),
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -118,7 +119,10 @@ class _OarlockAssignment extends StatelessWidget {
           children: [
             const Text(
               'Seat',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(
+                color: AppPalette.faintLabel,
+                fontSize: AppTypeScale.caption,
+              ),
             ),
             for (var s = 1; s <= seats; s++)
               _Chip(
@@ -146,7 +150,7 @@ class _OarlockAssignment extends StatelessWidget {
           const Text(
             'Another oarlock already holds this seat and side.',
             style: TextStyle(
-              color: Colors.amber,
+              color: AppPalette.warning,
               fontSize: AppTypeScale.caption,
             ),
           ),
@@ -161,8 +165,9 @@ class _OarlockAssignment extends StatelessWidget {
         child: Text(
           connected ? oarlockKey : '$oarlockKey (not connected)',
           style: TextStyle(
-            color: connected ? Colors.white : Colors.white54,
-            fontSize: 14,
+            color: connected ? AppPalette.label : AppPalette.faintLabel,
+            fontSize: AppTypeScale.body,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -202,8 +207,27 @@ class _TextAction extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Text(
         label,
-        style: const TextStyle(color: AppPalette.accent, fontSize: 12),
+        style: const TextStyle(
+          color: AppPalette.accent,
+          fontSize: AppTypeScale.label,
+          fontWeight: FontWeight.w600,
+        ),
       ),
+    ),
+  );
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(
+      color: AppPalette.faintLabel,
+      fontSize: AppTypeScale.caption,
     ),
   );
 }
@@ -213,10 +237,15 @@ class _Chip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// Fully rounded, for chips that name a thing rather than a slot. Seat and
+  /// side chips stay square-ish so a row of them reads as a set of positions.
+  final bool pill;
+
   const _Chip({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.pill = false,
   });
 
   static const _accent = AppPalette.accent;
@@ -231,17 +260,23 @@ class _Chip extends StatelessWidget {
         minWidth: kMinTapTarget,
       ),
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: pill ? 18 : 12, vertical: 6),
       decoration: BoxDecoration(
         color: _accent.withAlpha(selected ? 40 : 0),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: selected ? _accent : Colors.white24),
+        borderRadius: BorderRadius.circular(
+          pill ? kMinTapTarget / 2 : AppRadii.control,
+        ),
+        border: Border.all(
+          color: selected ? _accent : AppPalette.outline,
+          width: 1.5,
+        ),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: selected ? _accent : Colors.white70,
-          fontSize: 12,
+          color: selected ? _accent : AppPalette.mutedLabel,
+          fontSize: AppTypeScale.label,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
         ),
       ),
     ),

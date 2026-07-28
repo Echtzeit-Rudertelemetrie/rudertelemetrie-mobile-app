@@ -142,14 +142,14 @@ class _PresetRow extends StatelessWidget {
                       Text(
                         preset.name,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppPalette.label,
                           fontSize: 14,
                         ),
                       ),
                       Text(
                         _subtitle,
                         style: const TextStyle(
-                          color: Colors.white38,
+                          color: AppPalette.disabledLabel,
                           fontSize: AppTypeScale.caption,
                         ),
                       ),
@@ -159,13 +159,13 @@ class _PresetRow extends StatelessWidget {
           if (!renaming) ...[
             _IconAction(
               icon: Icons.edit_outlined,
-              color: Colors.white54,
+              color: AppPalette.faintLabel,
               onTap: onRenameStart,
             ),
             if (deletable)
               _IconAction(
                 icon: Icons.delete_outline,
-                color: Colors.redAccent,
+                color: AppPalette.danger,
                 onTap: onDelete,
               ),
           ],
@@ -201,7 +201,7 @@ class _RenameFieldState extends State<_RenameField> {
     controller: _controller,
     autofocus: true,
     textInputAction: TextInputAction.done,
-    style: const TextStyle(color: Colors.white, fontSize: 14),
+    style: const TextStyle(color: AppPalette.label, fontSize: 14),
     cursorColor: _accent,
     decoration: _fieldDecoration('Preset name'),
     onSubmitted: widget.onSubmit,
@@ -226,7 +226,7 @@ class _Footer extends StatelessWidget {
     children: [
       TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(color: AppPalette.label, fontSize: 14),
         cursorColor: _accent,
         decoration: _fieldDecoration('New preset name'),
       ),
@@ -257,13 +257,13 @@ class _Footer extends StatelessWidget {
 InputDecoration _fieldDecoration(String hint) => InputDecoration(
   isDense: true,
   hintText: hint,
-  hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+  hintStyle: const TextStyle(color: AppPalette.outline, fontSize: 13),
   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
   filled: true,
-  fillColor: Colors.white10,
+  fillColor: AppPalette.gridLine,
   enabledBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),
-    borderSide: const BorderSide(color: Colors.white24),
+    borderSide: const BorderSide(color: AppPalette.outline),
   ),
   focusedBorder: OutlineInputBorder(
     borderRadius: BorderRadius.circular(8),
@@ -342,7 +342,10 @@ class _Radio extends StatelessWidget {
     height: 20,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      border: Border.all(color: selected ? _accent : Colors.white38, width: 2),
+      border: Border.all(
+        color: selected ? _accent : AppPalette.disabledLabel,
+        width: 2,
+      ),
     ),
     child: selected
         ? const Center(child: CircleAvatar(radius: 5, backgroundColor: _accent))

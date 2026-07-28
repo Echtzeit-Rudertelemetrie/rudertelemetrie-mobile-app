@@ -40,7 +40,7 @@ class TileIdleState extends StatelessWidget {
                 label,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Colors.white54,
+                  color: AppPalette.faintLabel,
                   fontSize: AppTypeScale.caption,
                 ),
               ),
@@ -50,7 +50,7 @@ class TileIdleState extends StatelessWidget {
                   source,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.white38,
+                    color: AppPalette.disabledLabel,
                     fontSize: AppTypeScale.caption,
                   ),
                 ),
@@ -63,7 +63,7 @@ class TileIdleState extends StatelessWidget {
                   hint,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.white38,
+                    color: AppPalette.disabledLabel,
                     fontSize: AppTypeScale.caption,
                   ),
                 ),
@@ -84,5 +84,5 @@ class TileIdleState extends StatelessWidget {
             color: AppPalette.accent,
           ),
         )
-      : const Icon(Icons.hourglass_empty, size: 16, color: Colors.white24);
+      : const Icon(Icons.hourglass_empty, size: 16, color: AppPalette.outline);
 }

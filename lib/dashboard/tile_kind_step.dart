@@ -39,8 +39,8 @@ class TileKindStep extends StatelessWidget {
             title,
             style: const TextStyle(
               color: AppPalette.label,
-              fontSize: AppTypeScale.label,
-              fontWeight: FontWeight.w600,
+              fontSize: AppTypeScale.heading,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 2),
@@ -48,13 +48,13 @@ class TileKindStep extends StatelessWidget {
             caption,
             style: const TextStyle(
               color: AppPalette.faintLabel,
-              fontSize: AppTypeScale.caption,
+              fontSize: AppTypeScale.label,
             ),
           ),
           const SizedBox(height: 10),
           for (final kind in kinds) ...[
             _KindCard(kind: kind, onTap: () => onSelected(kind)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
           ],
         ],
       );
@@ -74,16 +74,16 @@ class _KindCard extends StatelessWidget {
     behavior: HitTestBehavior.opaque,
     child: Container(
       constraints: const BoxConstraints(minHeight: kMinTapTarget),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppPalette.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppPalette.gridLine),
+        color: AppPalette.overlay,
+        borderRadius: BorderRadius.circular(AppRadii.tile),
+        border: Border.all(color: AppPalette.surfaceBorder),
       ),
       child: Row(
         children: [
           _IconBadge(icon: kind.icon),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +93,7 @@ class _KindCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppPalette.label,
                     fontSize: AppTypeScale.body,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -111,8 +111,8 @@ class _KindCard extends StatelessWidget {
           const SizedBox(width: 8),
           Icon(
             _addsImmediately ? Icons.add : Icons.chevron_right,
-            size: 18,
-            color: AppPalette.faintLabel,
+            size: 20,
+            color: AppPalette.disabledLabel,
           ),
         ],
       ),
@@ -127,12 +127,12 @@ class _IconBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     decoration: BoxDecoration(
-      color: AppPalette.accent.withAlpha(30),
-      borderRadius: BorderRadius.circular(8),
+      color: AppPalette.accent.withAlpha(40),
+      borderRadius: BorderRadius.circular(12),
     ),
-    child: Icon(icon, size: 18, color: AppPalette.accent),
+    child: Icon(icon, size: 20, color: AppPalette.accent),
   );
 }

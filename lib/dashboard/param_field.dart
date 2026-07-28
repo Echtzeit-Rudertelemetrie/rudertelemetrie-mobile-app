@@ -49,7 +49,7 @@ class _ParamFieldState extends State<ParamField> {
       children: [
         Text(
           widget.param.label,
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
+          style: const TextStyle(color: AppPalette.faintLabel, fontSize: 12),
         ),
         const SizedBox(height: 4),
         Row(
@@ -59,7 +59,10 @@ class _ParamFieldState extends State<ParamField> {
               const SizedBox(width: 8),
               Text(
                 widget.param.unitLabel!,
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
+                style: const TextStyle(
+                  color: AppPalette.faintLabel,
+                  fontSize: 13,
+                ),
               ),
             ],
           ],
@@ -72,16 +75,16 @@ class _ParamFieldState extends State<ParamField> {
     controller: _controller,
     keyboardType: const TextInputType.numberWithOptions(decimal: true),
     inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-    style: const TextStyle(color: Colors.white, fontSize: 14),
+    style: const TextStyle(color: AppPalette.label, fontSize: 14),
     cursorColor: AppPalette.accent,
     decoration: InputDecoration(
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       filled: true,
-      fillColor: Colors.white10,
+      fillColor: AppPalette.gridLine,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: const BorderSide(color: AppPalette.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),

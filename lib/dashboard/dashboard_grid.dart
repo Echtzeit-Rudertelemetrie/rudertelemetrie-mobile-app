@@ -92,7 +92,9 @@ class _DashboardGridState extends State<DashboardGrid> {
                   width: cfg.w * cellW,
                   height: cfg.h * cellH,
                   child: Padding(
-                    padding: const EdgeInsets.all(3),
+                    // Half the gap the design asks for between tiles; each
+                    // neighbour contributes the other half.
+                    padding: const EdgeInsets.all(4),
                     child: DashboardWidgetTile(
                       config: cfg,
                       cellWidth: cellW,
@@ -116,10 +118,10 @@ class _DashboardGridState extends State<DashboardGrid> {
                   height: _ghost!.h * cellH,
                   child: IgnorePointer(
                     child: Container(
-                      margin: const EdgeInsets.all(2),
+                      margin: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         color: AppPalette.accent.withAlpha(40),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppRadii.tile),
                         border: Border.all(
                           color: AppPalette.accent.withAlpha(150),
                           width: 2,

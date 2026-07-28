@@ -126,7 +126,7 @@ class _NumberInputFieldState extends State<NumberInputField> {
     children: [
       Text(
         widget.label,
-        style: const TextStyle(color: Colors.white54, fontSize: 12),
+        style: const TextStyle(color: AppPalette.faintLabel, fontSize: 12),
       ),
       const SizedBox(height: 4),
       Row(
@@ -135,7 +135,7 @@ class _NumberInputFieldState extends State<NumberInputField> {
           const SizedBox(width: 6),
           Text(
             widget.unit,
-            style: const TextStyle(color: Colors.white54, fontSize: 13),
+            style: const TextStyle(color: AppPalette.faintLabel, fontSize: 13),
           ),
         ],
       ),
@@ -144,7 +144,7 @@ class _NumberInputFieldState extends State<NumberInputField> {
         Text(
           _error!,
           style: const TextStyle(
-            color: Colors.redAccent,
+            color: AppPalette.danger,
             fontSize: AppTypeScale.caption,
           ),
         ),
@@ -157,7 +157,7 @@ class _NumberInputFieldState extends State<NumberInputField> {
     focusNode: _focusNode,
     keyboardType: const TextInputType.numberWithOptions(decimal: true),
     inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-    style: const TextStyle(color: Colors.white, fontSize: 14),
+    style: const TextStyle(color: AppPalette.label, fontSize: 14),
     cursorColor: NumberInputField._accent,
     decoration: InputDecoration(
       isDense: true,
@@ -165,12 +165,12 @@ class _NumberInputFieldState extends State<NumberInputField> {
       hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       filled: true,
-      fillColor: Colors.white10,
+      fillColor: AppPalette.gridLine,
       enabledBorder: _border(
-        _error == null ? Colors.white24 : Colors.redAccent,
+        _error == null ? AppPalette.outline : AppPalette.danger,
       ),
       focusedBorder: _border(
-        _error == null ? NumberInputField._accent : Colors.redAccent,
+        _error == null ? NumberInputField._accent : AppPalette.danger,
       ),
     ),
     onChanged: _onChanged,

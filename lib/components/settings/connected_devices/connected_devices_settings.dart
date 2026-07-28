@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/bluetooth/bluetooth_manager.dart';
+import 'package:rudertelemetrie_mobile_app/components/status_card.dart';
+import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
 /// Bluetooth status, the connected devices and what can be done about them:
 /// rescan, disconnect, forget. Every control here acts — nothing is decorative.
@@ -53,18 +55,12 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     spacing: 10,
     children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('Bluetooth'),
-          Text(_stateLabel, style: const TextStyle(color: Colors.white70)),
-        ],
-      ),
+      _BluetoothStatus(label: _stateLabel, tone: _stateTone),
       if (_connectedDevices.isEmpty)
         const _EmptyState()
       else
         FTileGroup.builder(
-          label: const Text('Devices'),
+          label: const Text('Connected'),
           count: _connectedDevices.length,
           tileBuilder: (context, index) =>
               _deviceTile(_connectedDevices[index]),
@@ -77,6 +73,17 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
     ],
   );
 
+  /// The colour of the dot beside the state. Nothing here is a control — the
+  /// manager connects to what it finds on its own, so this reports rather than
+  /// offers.
+  StatusTone get _stateTone => switch (_state) {
+    BluetoothState.connected => StatusTone.ok,
+    BluetoothState.active || BluetoothState.unknown => StatusTone.neutral,
+    BluetoothState.unsupported ||
+    BluetoothState.disabled ||
+    BluetoothState.failed => StatusTone.warning,
+  };
+
   String get _stateLabel => switch (_state) {
     BluetoothState.unknown => 'Checking…',
     BluetoothState.unsupported => 'Not supported',
@@ -87,7 +94,7 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
   };
 
   FTileMixin _deviceTile(ConnectedDevice device) => FTile(
-    prefix: const Icon(FIcons.bluetooth),
+    prefix: const _ConnectedBadge(),
     title: Text(device.name),
     subtitle: Text(_deviceDetail(device)),
     suffix: const Icon(FIcons.chevronRight),
@@ -124,12 +131,12 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
         children: [
           Text(
             device.name,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: const TextStyle(color: AppPalette.label, fontSize: 16),
           ),
           const SizedBox(height: 4),
           Text(
             '${device.id}\n${_deviceDetail(device)}',
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+            style: const TextStyle(color: AppPalette.faintLabel, fontSize: 12),
           ),
           const SizedBox(height: 16),
           FButton(
@@ -155,6 +162,60 @@ class ConnectedDevicesSettingsState extends State<ConnectedDevicesSettings> {
   );
 }
 
+/// The Bluetooth adapter's own state, as a dot and a word.
+class _BluetoothStatus extends StatelessWidget {
+  final String label;
+  final StatusTone tone;
+
+  const _BluetoothStatus({required this.label, required this.tone});
+
+  Color get _color => switch (tone) {
+    StatusTone.ok => AppPalette.ok,
+    StatusTone.warning => AppPalette.warning,
+    StatusTone.neutral => AppPalette.faintLabel,
+  };
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      const Text('Bluetooth'),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: _color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(color: _color, fontSize: AppTypeScale.label),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+/// Green ring on a connected device: the list is only ever connected devices,
+/// so the badge confirms rather than distinguishes.
+class _ConnectedBadge extends StatelessWidget {
+  const _ConnectedBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 34,
+    height: 34,
+    decoration: BoxDecoration(
+      color: AppPalette.ok.withAlpha(40),
+      shape: BoxShape.circle,
+    ),
+    child: const Icon(FIcons.bluetooth, size: 16, color: AppPalette.ok),
+  );
+}
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
@@ -165,12 +226,12 @@ class _EmptyState extends StatelessWidget {
       children: [
         const Text(
           'No devices connected.',
-          style: TextStyle(color: Colors.white54),
+          style: TextStyle(color: AppPalette.faintLabel),
         ),
         const SizedBox(height: 4),
         const Text(
           'Power on the boat and scan.',
-          style: TextStyle(color: Colors.white38, fontSize: 12),
+          style: TextStyle(color: AppPalette.disabledLabel, fontSize: 12),
         ),
       ],
     ),

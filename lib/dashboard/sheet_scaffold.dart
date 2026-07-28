@@ -40,7 +40,9 @@ class SheetScaffold extends StatelessWidget {
         child: Container(
           decoration: const BoxDecoration(
             color: AppPalette.background,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(AppRadii.panel),
+            ),
           ),
           child: Column(
             children: [
@@ -59,9 +61,9 @@ class SheetScaffold extends StatelessWidget {
                       child: Text(
                         title,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          color: AppPalette.label,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -128,7 +130,7 @@ class _Grabber extends StatelessWidget {
     height: 4,
     margin: const EdgeInsets.symmetric(vertical: 10),
     decoration: BoxDecoration(
-      color: Colors.white24,
+      color: AppPalette.outline,
       borderRadius: BorderRadius.circular(2),
     ),
   );

@@ -53,6 +53,11 @@ class BoundVisualizer {
   final UnitPair units;
   final ({double min, double max})? fixedXBounds;
 
+  /// What the points mean, carried through from the visualizer that produced
+  /// them. A tile draws the same list of points differently depending on it —
+  /// an area fill under a trace is only honest when x is elapsed time.
+  final VisualizerShape shape;
+
   /// What this binding is waiting for while it has produced nothing — a stroke,
   /// a drive, a recording. Null when points should simply arrive.
   final String? idleHint;
@@ -72,6 +77,7 @@ class BoundVisualizer {
   BoundVisualizer({
     required this.name,
     required this.units,
+    required this.shape,
     required Stream<List<XYPoint>> output,
     this.fixedXBounds,
     this.idleHint,
@@ -202,6 +208,7 @@ class Visualizer1 extends AnyVisualizer {
       units: collector.unitTransform(units),
       output: stream.transform(collector.collector),
       fixedXBounds: fixedXBounds,
+      shape: shape,
       idleHint: resolveIdleHint(collector, [source]),
       sourceLabel: sourceLabelOf([source]),
     );
@@ -262,6 +269,7 @@ class Visualizer2 extends AnyVisualizer {
       units: collector.unitTransform(units),
       output: stream.transform(collector.collector),
       fixedXBounds: fixedXBounds,
+      shape: shape,
       idleHint: resolveIdleHint(collector, [s1, s2]),
       sourceLabel: sourceLabelOf([s1, s2]),
     );

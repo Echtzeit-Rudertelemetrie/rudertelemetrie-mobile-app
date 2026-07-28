@@ -138,7 +138,7 @@ class _BoatPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(cx, size.height * 0.08),
       2.5,
-      Paint()..color = Colors.white54,
+      Paint()..color = AppPalette.faintLabel,
     );
 
     final oarLength = size.width * 0.30;
@@ -157,7 +157,7 @@ class _BoatPainter extends CustomPainter {
             ..strokeWidth = 2
             ..strokeCap = StrokeCap.round,
         );
-        canvas.drawCircle(pin, 2, Paint()..color = Colors.white);
+        canvas.drawCircle(pin, 2, Paint()..color = AppPalette.label);
       }
     }
   }

@@ -13,6 +13,7 @@ import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dar
 BoundVisualizer _bound(String name) => BoundVisualizer(
   name: name,
   units: (x: Unit.s, y: Unit.N),
+  shape: VisualizerShape.series,
   output: const Stream.empty(),
 );
 
@@ -111,6 +112,7 @@ void main() {
         BoundVisualizer(
           name: 'live',
           units: (x: Unit.s, y: Unit.N),
+          shape: VisualizerShape.series,
           output: upstream.stream,
         ),
         upstream,

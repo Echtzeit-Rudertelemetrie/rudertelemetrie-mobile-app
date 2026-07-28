@@ -44,7 +44,7 @@ class StrokeSettingsScreen extends StatelessWidget {
                   ? 'Fixed catch/finish forces.'
                   : 'Thresholds scale with recent peak force (k·F_peak).',
               style: const TextStyle(
-                color: Colors.white38,
+                color: AppPalette.disabledLabel,
                 fontSize: AppTypeScale.caption,
               ),
             ),
@@ -96,7 +96,7 @@ class StrokeSettingsScreen extends StatelessWidget {
               'crossing the catch force on its own. Lower it only if gentle '
               'paddling goes undetected.',
               style: TextStyle(
-                color: Colors.white38,
+                color: AppPalette.disabledLabel,
                 fontSize: AppTypeScale.caption,
               ),
             ),
@@ -144,7 +144,7 @@ class _Label extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(
       text,
-      style: const TextStyle(color: Colors.white54, fontSize: 12),
+      style: const TextStyle(color: AppPalette.faintLabel, fontSize: 12),
     ),
   );
 }
@@ -177,14 +177,14 @@ class _Segmented<T> extends StatelessWidget {
                 color: _accent.withAlpha(value == entry.key ? 40 : 0),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: value == entry.key ? _accent : Colors.white24,
+                  color: value == entry.key ? _accent : AppPalette.outline,
                 ),
               ),
               child: Text(
                 entry.value,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: value == entry.key ? _accent : Colors.white70,
+                  color: value == entry.key ? _accent : AppPalette.mutedLabel,
                   fontSize: 12,
                 ),
               ),

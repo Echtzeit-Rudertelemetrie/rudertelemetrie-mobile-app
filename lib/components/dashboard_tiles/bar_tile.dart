@@ -9,6 +9,7 @@ import 'package:rudertelemetrie_mobile_app/components/dashboard_tiles/tile_title
 import 'package:rudertelemetrie_mobile_app/models/xy_point.dart';
 import 'package:rudertelemetrie_mobile_app/services/visualization/visualizer.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
+import 'package:rudertelemetrie_mobile_app/theme/chart_style.dart';
 
 /// One bar per stroke for a per-stroke source. Consumes the same
 /// [BoundVisualizer] pipeline as [ChartTile]; the newest bar is highlighted.
@@ -94,9 +95,11 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
           barRods: [
             BarChartRodData(
               toY: _points[i].y,
-              width: 6,
-              borderRadius: BorderRadius.circular(1),
-              color: i == _points.length - 1 ? _accent : _accent.withAlpha(120),
+              width: 8,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(3),
+              ),
+              color: i == _points.length - 1 ? _accent : _accent.withAlpha(110),
             ),
           ],
         ),
@@ -137,10 +140,7 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
                           meta: meta,
                           child: Text(
                             _format(value),
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: AppTypeScale.caption,
-                            ),
+                            style: chartAxisLabelStyle,
                           ),
                         );
                       },
@@ -155,16 +155,8 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
                     ),
                   ),
                 ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (_) =>
-                      FlLine(color: Colors.white.withAlpha(20), strokeWidth: 1),
-                ),
-                borderData: FlBorderData(
-                  show: true,
-                  border: Border.all(color: Colors.white.withAlpha(30)),
-                ),
+                gridData: chartGridData(maxY / 4),
+                borderData: chartBorderData,
                 barTouchData: BarTouchData(enabled: false),
               ),
               duration: Duration.zero,
@@ -187,10 +179,7 @@ class _BarTileState extends State<BarTile> with SingleTickerProviderStateMixin {
     }
     return Text(
       _points[barIndex].x.toInt().toString(),
-      style: const TextStyle(
-        color: Colors.white38,
-        fontSize: AppTypeScale.caption,
-      ),
+      style: chartAxisLabelStyle,
     );
   }
 

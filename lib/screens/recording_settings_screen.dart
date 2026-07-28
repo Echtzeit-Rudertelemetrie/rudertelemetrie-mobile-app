@@ -61,7 +61,7 @@ class RecordingSettingsScreen extends StatelessWidget {
             const Text(
               'Short recordings are usually the boat being carried or an '
               'oarlock being tested, not training.',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+              style: TextStyle(color: AppPalette.disabledLabel, fontSize: 12),
             ),
           ],
         ),
@@ -87,7 +87,7 @@ class _SecondsSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = enabled ? Colors.white54 : Colors.white24;
+    final muted = enabled ? AppPalette.faintLabel : AppPalette.outline;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -82,7 +82,7 @@ class _AngleGaugeTileState extends State<AngleGaugeTile>
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: Colors.white54,
+            color: AppPalette.faintLabel,
             fontSize: AppTypeScale.caption,
           ),
         ),
@@ -99,7 +99,7 @@ class _AngleGaugeTileState extends State<AngleGaugeTile>
         Text(
           '${_angle.toStringAsFixed(0)}°',
           style: const TextStyle(
-            color: Colors.white,
+            color: AppPalette.label,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -133,7 +133,7 @@ class _GaugePainter extends CustomPainter {
     final arc = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = Colors.white24;
+      ..color = AppPalette.outline;
     // Semicircle opening upward: sweep from 180° to 360°.
     canvas.drawArc(
       Rect.fromCircle(center: pivot, radius: radius),
@@ -157,8 +157,10 @@ class _GaugePainter extends CustomPainter {
       );
     }
 
-    if (finishAngle != null) needle(finishAngle!, Colors.white24, 2, 0.95);
-    if (catchAngle != null) needle(catchAngle!, Colors.white38, 2, 0.95);
+    if (finishAngle != null) needle(finishAngle!, AppPalette.outline, 2, 0.95);
+    if (catchAngle != null) {
+      needle(catchAngle!, AppPalette.disabledLabel, 2, 0.95);
+    }
     needle(angle, _accent, 3, 1.0);
     canvas.drawCircle(pivot, 3, Paint()..color = _accent);
   }

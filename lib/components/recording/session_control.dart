@@ -26,17 +26,18 @@ class SessionControl extends StatelessWidget {
               Text(
                 formatElapsed(session.elapsed),
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  color: AppPalette.label,
+                  fontSize: AppTypeScale.label,
+                  fontWeight: FontWeight.w700,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
               Text(
                 formatDistance(session.distanceMeters),
                 style: const TextStyle(
-                  color: Colors.white54,
+                  color: AppPalette.faintLabel,
                   fontSize: AppTypeScale.caption,
+                  fontFeatures: [FontFeature.tabularFigures()],
                 ),
               ),
             ],
@@ -63,7 +64,7 @@ class SessionControl extends StatelessWidget {
             button: true,
             child: _CircleButton(
               icon: Icons.refresh,
-              color: Colors.white54,
+              color: AppPalette.faintLabel,
               onTap: session.reset,
             ),
           ),

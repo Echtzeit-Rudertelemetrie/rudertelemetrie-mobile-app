@@ -309,17 +309,25 @@ class _RigBanner extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         width: double.infinity,
-        color: Colors.amber.withAlpha(40),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        color: AppPalette.warning.withAlpha(30),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         child: Row(
           children: [
-            const Icon(FIcons.triangleAlert, color: Colors.amber, size: 16),
+            const Icon(
+              FIcons.triangleAlert,
+              color: AppPalette.warning,
+              size: 16,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Rig incomplete for ${pending.join(', ')} — force and power '
                 'sources unavailable. Tap to set it up.',
-                style: const TextStyle(color: Colors.amber, fontSize: 12),
+                style: const TextStyle(
+                  color: AppPalette.warning,
+                  fontSize: AppTypeScale.caption,
+                  height: 1.4,
+                ),
               ),
             ),
           ],
@@ -334,6 +342,6 @@ class _NoStreamPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Center(
-    child: Icon(Icons.add_chart, color: Colors.white24, size: 28),
+    child: Icon(Icons.add_chart, color: AppPalette.outline, size: 28),
   );
 }
