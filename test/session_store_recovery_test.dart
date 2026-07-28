@@ -164,4 +164,61 @@ void main() {
       expect(listed.first.info.startedAt, later);
     });
   });
+
+  group('export', () {
+    Directory writeFiles(String id, {String? csv, String? json}) {
+      final dir = Directory('${docs.path}/sessions/$id')
+        ..createSync(recursive: true);
+      if (csv != null) File('${dir.path}/session.csv').writeAsStringSync(csv);
+      if (json != null) {
+        File('${dir.path}/session.json').writeAsStringSync(json);
+      }
+      return dir;
+    }
+
+    test('stages copies named after the session, not the live files', () async {
+      writeFiles('session_100', csv: 'elapsed_ms,source,value\n', json: '{}');
+
+      final paths = await store.exportPaths('session_100');
+
+      expect(paths.map((p) => p.split('/').last), [
+        'session_100.csv',
+        'session_100.json',
+      ]);
+      expect(paths.every((p) => p.contains('/exports/session_100/')), isTrue);
+      expect(File(paths.first).readAsStringSync(), 'elapsed_ms,source,value\n');
+    });
+
+    test('leaves the recorded files where they are', () async {
+      final dir = writeFiles('session_100', csv: 'a\n', json: '{}');
+
+      await store.exportPaths('session_100');
+
+      expect(File('${dir.path}/session.csv').existsSync(), isTrue);
+      expect(File('${dir.path}/session.json').existsSync(), isTrue);
+    });
+
+    test('skips a file the session never wrote', () async {
+      writeFiles('session_100', csv: 'a\n');
+
+      final paths = await store.exportPaths('session_100');
+
+      expect(paths.map((p) => p.split('/').last), ['session_100.csv']);
+    });
+
+    test('a session with nothing on disk exports nothing', () async {
+      expect(await store.exportPaths('session_100'), isEmpty);
+    });
+
+    test('a re-export never serves the previous copy', () async {
+      writeFiles('session_100', csv: 'first\n');
+      final stale = (await store.exportPaths('session_100')).single;
+
+      writeFiles('session_100', csv: 'second\n');
+      final fresh = (await store.exportPaths('session_100')).single;
+
+      expect(fresh, stale);
+      expect(File(fresh).readAsStringSync(), 'second\n');
+    });
+  });
 }

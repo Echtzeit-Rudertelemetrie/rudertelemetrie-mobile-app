@@ -26,7 +26,8 @@ abstract class SessionStore {
   /// discards the ones with no usable data. Returns what was recovered.
   Future<List<SessionSummary>> recoverOrphans();
 
-  /// File paths (csv + json) for the share sheet, existing ones only.
+  /// Copies of the session's files (csv + json), staged under the outing's id
+  /// in the temporary directory, existing ones only.
   Future<List<String>> exportPaths(String id);
 
   /// Raw `session.csv` contents, or null if absent.
@@ -359,13 +360,30 @@ class FileSessionStore implements SessionStore {
     await _writeIndex((await _list()).where((s) => s.info.id != id).toList());
   }
 
+  /// Handed to the share sheet as copies rather than as the live files: every
+  /// session writes `session.csv`, so a direct share lands in Files under a
+  /// name that collides with every other outing, and the receiving app reads
+  /// the URL out of process well after this call returns.
   @override
   Future<List<String>> exportPaths(String id) async {
     final dir = await _sessionDir(id);
-    return [
-      for (final name in ['session.csv', 'session.json'])
-        if (await File('${dir.path}/$name').exists()) '${dir.path}/$name',
-    ];
+    final staging = await _stagingDir(id);
+    final paths = <String>[];
+    for (final extension in ['csv', 'json']) {
+      final file = File('${dir.path}/session.$extension');
+      if (!await file.exists()) continue;
+      paths.add((await file.copy('${staging.path}/$id.$extension')).path);
+    }
+    return paths;
+  }
+
+  /// Emptied per export so a share never picks up the previous outing's copy.
+  Future<Directory> _stagingDir(String id) async {
+    final root = (await getTemporaryDirectory()).path;
+    final dir = Directory('$root/exports/$id');
+    if (await dir.exists()) await dir.delete(recursive: true);
+    await dir.create(recursive: true);
+    return dir;
   }
 
   @override

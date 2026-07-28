@@ -28,6 +28,7 @@ class SessionDetailScreen extends StatefulWidget {
 class _SessionDetailScreenState extends State<SessionDetailScreen> {
   late Future<Map<String, List<SessionSample>>> _series;
   final Map<String, List<SessionSample>> _decimated = {};
+  final GlobalKey _shareButton = GlobalKey();
   String? _selected;
 
   @override
@@ -55,6 +56,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
 
   Future<void> _export() async {
     final notifications = context.read<AppNotifications>();
+    final anchor = _shareAnchor();
     try {
       final paths = await context.read<SessionStore>().exportPaths(
         widget.summary.info.id,
@@ -66,10 +68,23 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         );
         return;
       }
-      await Share.shareXFiles(paths.map(XFile.new).toList());
+      await SharePlus.instance.share(
+        ShareParams(
+          files: paths.map(XFile.new).toList(),
+          subject: 'Session ${_formatStartedAt(widget.summary.info.startedAt)}',
+          sharePositionOrigin: anchor,
+        ),
+      );
     } catch (error) {
       notifications.alert('Export failed', detail: '$error');
     }
+  }
+
+  /// iPad presents the share sheet as a popover, which has to be anchored to
+  /// the button that opened it.
+  Rect? _shareAnchor() {
+    final box = _shareButton.currentContext?.findRenderObject() as RenderBox?;
+    return box == null ? null : box.localToGlobal(Offset.zero) & box.size;
   }
 
   Future<void> _delete() async {
@@ -109,7 +124,11 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
           ),
         ],
         suffixes: [
-          FHeaderAction(icon: const Icon(FIcons.share2), onPress: _export),
+          FHeaderAction(
+            key: _shareButton,
+            icon: const Icon(FIcons.share2),
+            onPress: _export,
+          ),
           FHeaderAction(icon: const Icon(FIcons.trash2), onPress: _delete),
         ],
       ),
