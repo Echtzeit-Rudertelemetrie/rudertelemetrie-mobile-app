@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/components/status_card.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_model.dart';
+import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/screens/connected_devices_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/rig_setup_screen.dart';
@@ -20,6 +21,7 @@ class ReadinessCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final registry = context.watch<DataSourceProviderModel>().registry;
+    final devices = context.watch<BluetoothProviderModel>().connectedDevices;
     final config = context.watch<BoatConfig>();
     final preset = context.watch<DashboardModel>().activePreset?.name;
 
@@ -31,10 +33,8 @@ class ReadinessCard extends StatelessWidget {
       rows: [
         StatusRow(
           title: 'Oarlocks',
-          value: connected.isEmpty
-              ? 'None connected'
-              : '${connected.length} connected',
-          tone: connected.isEmpty ? StatusTone.warning : StatusTone.ok,
+          value: _oarlockValue(devices.length, connected.length),
+          tone: _oarlockTone(devices.length, connected.length),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const ConnectedDevicesScreen()),
@@ -58,6 +58,21 @@ class ReadinessCard extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// An oarlock only exists to this app once it has sent force, but the link is
+  /// up well before the first packet arrives — and the screen this row leads to
+  /// lists the device from the moment it connects. Reporting "None connected"
+  /// over a live link contradicts what the user sees one tap away, so the two
+  /// states are named separately.
+  String _oarlockValue(int devices, int oarlocks) {
+    if (oarlocks > 0) return '$oarlocks connected';
+    return devices == 0 ? 'None connected' : 'Waiting for data';
+  }
+
+  StatusTone _oarlockTone(int devices, int oarlocks) {
+    if (oarlocks > 0) return StatusTone.ok;
+    return devices == 0 ? StatusTone.warning : StatusTone.neutral;
   }
 
   String _rigValue(int connected, int needingRig) {
