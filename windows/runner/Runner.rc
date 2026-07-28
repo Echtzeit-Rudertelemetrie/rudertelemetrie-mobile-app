@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.rudertelemetrie_mobile_app" "\0"
-            VALUE "FileDescription", "rudertelemetrie_mobile_app" "\0"
+            VALUE "FileDescription", "Rowing Telemetry" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "rudertelemetrie_mobile_app" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.rudertelemetrie_mobile_app. All rights reserved." "\0"
             VALUE "OriginalFilename", "rudertelemetrie_mobile_app.exe" "\0"
-            VALUE "ProductName", "rudertelemetrie_mobile_app" "\0"
+            VALUE "ProductName", "Rowing Telemetry" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

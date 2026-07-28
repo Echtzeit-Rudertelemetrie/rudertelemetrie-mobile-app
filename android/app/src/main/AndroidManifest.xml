@@ -2,7 +2,7 @@
     <!-- Required for fetching OpenStreetMap tiles for the map view. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="rudertelemetrie_mobile_app"
+        android:label="Rowing Telemetry"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

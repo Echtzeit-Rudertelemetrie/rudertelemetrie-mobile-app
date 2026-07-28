@@ -10,7 +10,7 @@ class Home extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => FScaffold(
-    header: FHeader(title: const Text('Rudertelemetrie')),
+    header: FHeader(title: const Text('Rowing Telemetry')),
     // Scrollable: the settings list overflows a short screen at a large system
     // font scale. The padding has to be given explicitly — a primary [ListView]
     // without any falls back to the view's safe-area inset, which [FScaffold]
