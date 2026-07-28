@@ -4,6 +4,7 @@ import 'package:rudertelemetrie_mobile_app/screens/boat_setup_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/connected_devices_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/force_calibration_setup_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/history_screen.dart';
+import 'package:rudertelemetrie_mobile_app/screens/orientation_settings_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/recording_settings_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/rig_setup_screen.dart';
 import 'package:rudertelemetrie_mobile_app/screens/stroke_settings_screen.dart';
@@ -80,6 +81,16 @@ class SettingsSection extends StatelessWidget {
         onPress: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const SpeedSettingsScreen()),
+        ),
+      ),
+      .tile(
+        prefix: const Icon(FIcons.smartphone),
+        title: const Text('Screen Orientation'),
+        subtitle: const Text('Automatic, portrait or landscape'),
+        suffix: const Icon(FIcons.chevronRight),
+        onPress: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const OrientationSettingsScreen()),
         ),
       ),
       .tile(

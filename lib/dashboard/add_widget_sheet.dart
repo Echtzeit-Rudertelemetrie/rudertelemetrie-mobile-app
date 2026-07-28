@@ -26,8 +26,9 @@ class AddWidgetSheet extends StatefulWidget {
 }
 
 class _AddWidgetSheetState extends State<AddWidgetSheet> {
-  /// New tiles start at a single cell so a tile fits wherever the grid still
-  /// has a free cell. The user resizes it afterwards.
+  /// New tiles start at a single portrait cell so a tile fits wherever the grid
+  /// still has room. The user resizes it afterwards. Landscape's finer columns
+  /// are a smaller step, not a smaller tile — hence the scaling in [_place].
   static const int _newTileW = 1;
   static const int _newTileH = 1;
 
@@ -103,12 +104,13 @@ class _AddWidgetSheetState extends State<AddWidgetSheet> {
   };
 
   void _place(BuildContext context, Map<String, dynamic> data) {
-    final placed = context.read<DashboardModel>().addWidget(
+    final model = context.read<DashboardModel>();
+    final placed = model.addWidget(
       WidgetConfig(
         id: 'w_${DateTime.now().millisecondsSinceEpoch}',
         x: 0,
         y: 0,
-        w: _newTileW,
+        w: _newTileW * model.columnStep,
         h: _newTileH,
         data: data,
       ),

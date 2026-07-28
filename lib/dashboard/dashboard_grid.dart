@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'dashboard_grid_size.dart';
 import 'dashboard_model.dart';
 import 'dashboard_widget_tile.dart';
 import 'widget_config.dart';
@@ -38,6 +39,25 @@ class DashboardGrid extends StatefulWidget {
 
 class _DashboardGridState extends State<DashboardGrid> {
   WidgetConfig? _ghost;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _matchGridToOrientation();
+  }
+
+  /// A landscape screen gets the finer grid. The model re-grids the layout when
+  /// it hears about it, and notifying mid-build throws — hence the next frame.
+  void _matchGridToOrientation() {
+    final cols = MediaQuery.orientationOf(context) == Orientation.landscape
+        ? DashboardGridSize.landscapeCols
+        : DashboardGridSize.portraitCols;
+    final model = context.read<DashboardModel>();
+    if (model.cols == cols) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) model.setColumns(cols);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

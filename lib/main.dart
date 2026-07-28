@@ -3,9 +3,11 @@ import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/components/keep_screen_awake.dart';
 import 'package:rudertelemetrie_mobile_app/components/notice_presenter.dart';
+import 'package:rudertelemetrie_mobile_app/components/screen_orientation_lock.dart';
 import 'package:rudertelemetrie_mobile_app/components/recording_lifecycle_guard.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/notifications_provider.dart';
+import 'package:rudertelemetrie_mobile_app/providers/orientation_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/recording_settings_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/bluetooth_provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/boat_config_provider.dart';
@@ -27,6 +29,7 @@ void main() {
       providers: [
         notificationsProvider,
         speedSettingsProvider,
+        orientationSettingsProvider,
         dashboardProvider,
         dataSourceProvider,
         sessionStoreProvider,
@@ -75,7 +78,9 @@ class _ApplicationState extends State<Application> {
         child: FToaster(
           child: NoticePresenter(
             child: RecordingLifecycleGuard(
-              child: KeepScreenAwake(child: FTooltipGroup(child: child!)),
+              child: ScreenOrientationLock(
+                child: KeepScreenAwake(child: FTooltipGroup(child: child!)),
+              ),
             ),
           ),
         ),

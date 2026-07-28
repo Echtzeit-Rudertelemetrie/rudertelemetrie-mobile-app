@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_grid_size.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_model.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_preset.dart';
 import 'package:rudertelemetrie_mobile_app/dashboard/dashboard_preset_store.dart';
@@ -238,6 +239,67 @@ void main() {
       expect(widget.data['visualizerKey'], 'Time Window');
       expect(widget.data['sourceKeys'], ['Force 1 (1A2B)']);
       expect(widget.data['params'], {'windowSeconds': 20.0});
+    });
+  });
+
+  group('orientation', () {
+    test(
+      'rotating to landscape spreads the layout over the finer grid',
+      () async {
+        final model = await _loaded(FakePresetStore());
+        model.addWidget(_tile('a'));
+
+        model.setColumns(DashboardGridSize.landscapeCols);
+
+        expect(model.cols, DashboardGridSize.landscapeCols);
+        expect(model.layout.single.w, model.columnStep);
+        expect(model.layout.single.x, 0);
+      },
+    );
+
+    test('rotating back restores the portrait layout', () async {
+      final model = await _loaded(FakePresetStore());
+      model.addWidget(_tile('a'));
+      model.addWidget(_tile('b', x: 1));
+      final portrait = model.layout;
+
+      model.setColumns(DashboardGridSize.landscapeCols);
+      model.setColumns(DashboardGridSize.portraitCols);
+
+      expect(model.layout, portrait);
+    });
+
+    test('a preset saved in landscape loads scaled into portrait', () async {
+      final store = FakePresetStore()
+        ..data = DashboardPresetData(
+          presets: [
+            DashboardPreset(
+              id: 'p1',
+              name: 'Race',
+              cols: DashboardGridSize.landscapeCols,
+              layout: [const WidgetConfig(id: 'a', x: 8, y: 0, w: 8, h: 2)],
+            ),
+          ],
+          activeId: 'p1',
+        );
+
+      final model = await _loaded(store);
+
+      expect(model.cols, DashboardGridSize.portraitCols);
+      expect(
+        model.layout.single,
+        const WidgetConfig(id: 'a', x: 2, y: 0, w: 2, h: 2),
+      );
+    });
+
+    test('the grid width the layout was saved in is persisted', () async {
+      final store = FakePresetStore();
+      final model = await _loaded(store);
+      model.addWidget(_tile('a'));
+
+      model.setColumns(DashboardGridSize.landscapeCols);
+
+      expect(store.data!.presets.single.cols, DashboardGridSize.landscapeCols);
     });
   });
 }

@@ -275,4 +275,72 @@ void main() {
       expect(placed.y, 6);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // rescaleColumns — the grid widens on rotation
+  // ---------------------------------------------------------------------------
+  group('rescaleColumns', () {
+    const wide = DashboardLayoutEngine(cols: 16, rows: 6);
+
+    test('widening keeps each tile on the same share of the width', () {
+      final result = wide.rescaleColumns([
+        w('a', 0, 0, 1, 1),
+        w('b', 2, 1, 2, 2),
+      ], 4);
+
+      expect(result, contains(w('a', 0, 0, 4, 1)));
+      expect(result, contains(w('b', 8, 1, 8, 2)));
+    });
+
+    test('rows are untouched', () {
+      final result = wide.rescaleColumns([w('a', 1, 3, 1, 2)], 4);
+
+      expect(result.single.y, 3);
+      expect(result.single.h, 2);
+    });
+
+    test('same width is a no-op', () {
+      final layout = [w('a', 1, 1, 2, 2)];
+      expect(wide.rescaleColumns(layout, 16), layout);
+    });
+
+    test('narrowing scales back down without losing tiles', () {
+      final result = engine.rescaleColumns([
+        w('a', 0, 0, 4, 1),
+        w('b', 8, 1, 8, 2),
+      ], 16);
+
+      expect(result, contains(w('a', 0, 0, 1, 1)));
+      expect(result, contains(w('b', 2, 1, 2, 2)));
+    });
+
+    test('tiles rounding onto each other are re-seated, not stacked', () {
+      final result = engine.rescaleColumns([
+        w('a', 0, 0, 1, 1),
+        w('b', 1, 0, 1, 1),
+      ], 16);
+
+      expect(result, hasLength(2));
+      for (final item in result) {
+        expect(engine.getAllCollisions(result, item), isEmpty);
+      }
+    });
+
+    test('a tile with nowhere left to go is dropped, not hidden', () {
+      final full = [
+        for (var y = 0; y < engine.rows; y++)
+          for (var x = 0; x < engine.cols; x++) w('t_${x}_$y', x * 4, y, 4, 1),
+      ];
+
+      final result = engine.rescaleColumns([
+        ...full,
+        w('extra', 1, 0, 1, 1),
+      ], 16);
+
+      expect(result, hasLength(engine.cols * engine.rows));
+      for (final item in result) {
+        expect(engine.getAllCollisions(result, item), isEmpty);
+      }
+    });
+  });
 }

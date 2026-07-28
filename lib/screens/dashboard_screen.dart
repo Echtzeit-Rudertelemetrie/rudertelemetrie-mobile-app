@@ -79,32 +79,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       childPad: false,
-      child: Stack(
-        children: [
-          Column(
-            children: [
-              const _RigBanner(),
-              Expanded(
-                child: DashboardGrid(
-                  widgetBuilder: (context, config) =>
-                      _buildTile(context, config),
+      // The header keeps itself clear of the status bar; everything below it
+      // has to dodge the landscape notch and the home indicator on its own,
+      // or tiles end up half-hidden behind them.
+      child: SafeArea(
+        top: false,
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                const _RigBanner(),
+                Expanded(
+                  child: DashboardGrid(
+                    widgetBuilder: (context, config) =>
+                        _buildTile(context, config),
+                  ),
+                ),
+              ],
+            ),
+            if (editMode)
+              Positioned(
+                right: 16,
+                bottom: 24,
+                child: FloatingActionButton(
+                  backgroundColor: AppPalette.accent,
+                  foregroundColor: AppPalette.label,
+                  tooltip: 'Add widget',
+                  onPressed: () => _showAddSheet(context, model),
+                  child: const Icon(Icons.add),
                 ),
               ),
-            ],
-          ),
-          if (editMode)
-            Positioned(
-              right: 16,
-              bottom: 24,
-              child: FloatingActionButton(
-                backgroundColor: AppPalette.accent,
-                foregroundColor: AppPalette.label,
-                tooltip: 'Add widget',
-                onPressed: () => _showAddSheet(context, model),
-                child: const Icon(Icons.add),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

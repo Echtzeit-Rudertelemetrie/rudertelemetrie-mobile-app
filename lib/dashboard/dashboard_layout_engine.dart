@@ -28,14 +28,7 @@ class DashboardLayoutEngine {
   List<WidgetConfig> getAllCollisions(
     List<WidgetConfig> layout,
     WidgetConfig item,
-  ) {
-    final hits = layout.where((e) => collides(item, e)).toList()
-      ..sort((a, b) {
-        final dy = a.y.compareTo(b.y);
-        return dy != 0 ? dy : a.x.compareTo(b.x);
-      });
-    return hits;
-  }
+  ) => layout.where((e) => collides(item, e)).toList()..sort(_byRowThenColumn);
 
   // ---------------------------------------------------------------------------
   // Move
@@ -80,11 +73,7 @@ class DashboardLayoutEngine {
 
   /// Sort by (y, x) then move each item up as far as possible without overlap.
   List<WidgetConfig> compact(List<WidgetConfig> layout) {
-    final sorted = [...layout]
-      ..sort((a, b) {
-        final dy = a.y.compareTo(b.y);
-        return dy != 0 ? dy : a.x.compareTo(b.x);
-      });
+    final sorted = [...layout]..sort(_byRowThenColumn);
 
     final result = <WidgetConfig>[];
     for (final item in sorted) {
@@ -112,6 +101,36 @@ class DashboardLayoutEngine {
   /// Remove the widget with [id].
   List<WidgetConfig> removeWidget(List<WidgetConfig> layout, String id) {
     return layout.where((e) => e.id != id).toList();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Re-gridding (orientation change)
+  // ---------------------------------------------------------------------------
+
+  /// Remap a layout authored on a [fromCols]-wide grid onto this one, so each
+  /// tile keeps the share of the width it had before.
+  ///
+  /// Widening the grid is exact when [cols] is a multiple of [fromCols].
+  /// Narrowing it rounds, which can round two tiles onto each other — those are
+  /// re-seated rather than left overlapping.
+  List<WidgetConfig> rescaleColumns(List<WidgetConfig> layout, int fromCols) {
+    if (fromCols < 1 || fromCols == cols) return List.of(layout);
+    final scale = cols / fromCols;
+    return repack([for (final item in layout) _scaledToWidth(item, scale)]);
+  }
+
+  /// Re-seat every tile so none overlap: those that still fit stay put, the
+  /// rest move to the first free slot. A tile with nowhere left to go is
+  /// dropped instead of hidden under another.
+  List<WidgetConfig> repack(List<WidgetConfig> layout) {
+    final placed = <WidgetConfig>[];
+    for (final item in [...layout]..sort(_byRowThenColumn)) {
+      final seat = getAllCollisions(placed, item).isEmpty
+          ? item
+          : _firstFreeSlot(placed, item);
+      if (seat != null) placed.add(seat);
+    }
+    return placed;
   }
 
   // ---------------------------------------------------------------------------
@@ -172,17 +191,32 @@ class DashboardLayoutEngine {
     return layout;
   }
 
+  /// Scale a tile's horizontal position and width by [scale], keeping it inside
+  /// the grid and at least one column wide.
+  WidgetConfig _scaledToWidth(WidgetConfig item, double scale) {
+    final w = (item.w * scale).round().clamp(1, cols);
+    final x = (item.x * scale).round().clamp(0, cols - w);
+    return item.copyWith(x: x, w: w);
+  }
+
   /// Find the first (x, y) position where [widget] fits without collision.
-  WidgetConfig _findFreeSlot(List<WidgetConfig> layout, WidgetConfig widget) {
+  /// Falls back to (0, 0) — the collision logic resolves it from there.
+  WidgetConfig _findFreeSlot(List<WidgetConfig> layout, WidgetConfig widget) =>
+      _firstFreeSlot(layout, widget) ?? widget.copyWith(x: 0, y: 0);
+
+  /// The first free slot for [widget], or null when the grid has no room.
+  WidgetConfig? _firstFreeSlot(List<WidgetConfig> layout, WidgetConfig widget) {
     for (var y = 0; y <= rows - widget.h; y++) {
       for (var x = 0; x <= cols - widget.w; x++) {
         final candidate = widget.copyWith(x: x, y: y);
-        if (getAllCollisions(layout, candidate).isEmpty) {
-          return candidate;
-        }
+        if (getAllCollisions(layout, candidate).isEmpty) return candidate;
       }
     }
-    // Fallback: place at (0, 0) — will be resolved by collision logic.
-    return widget.copyWith(x: 0, y: 0);
+    return null;
   }
+}
+
+int _byRowThenColumn(WidgetConfig a, WidgetConfig b) {
+  final dy = a.y.compareTo(b.y);
+  return dy != 0 ? dy : a.x.compareTo(b.x);
 }
