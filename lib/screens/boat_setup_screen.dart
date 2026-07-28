@@ -259,8 +259,6 @@ class _Chip extends StatelessWidget {
         minHeight: kMinTapTarget,
         minWidth: kMinTapTarget,
       ),
-      alignment: Alignment.center,
-      padding: EdgeInsets.symmetric(horizontal: pill ? 18 : 12, vertical: 6),
       decoration: BoxDecoration(
         color: _accent.withAlpha(selected ? 40 : 0),
         borderRadius: BorderRadius.circular(
@@ -271,12 +269,26 @@ class _Chip extends StatelessWidget {
           width: 1.5,
         ),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: selected ? _accent : AppPalette.mutedLabel,
-          fontSize: AppTypeScale.label,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+      // Centred by an [Align] that shrink-wraps, not by `Container.alignment`:
+      // that one has no size factors, so it swells to the widest size the
+      // parent allows. Inside a [Wrap] that is the full row, which puts every
+      // chip on a line of its own.
+      child: Align(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: pill ? 18 : 12,
+            vertical: 6,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? _accent : AppPalette.mutedLabel,
+              fontSize: AppTypeScale.label,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
         ),
       ),
     ),

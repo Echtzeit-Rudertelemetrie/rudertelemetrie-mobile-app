@@ -74,6 +74,34 @@ void main() {
     expect(find.textContaining('already holds this seat'), findsNWidgets(2));
   });
 
+  /// Chips have to shrink-wrap their label. A `Container.alignment` swells to
+  /// whatever width the parent allows, which inside a [Wrap] is the whole row —
+  /// and every chip lands on a line of its own, turning both rows into a
+  /// stack of full-width buttons.
+  testWidgets('lays chips out along a row rather than one per line', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    config.setBoatClass(BoatClass.double_);
+    await tester.pumpWidget(_screen(sources, config));
+    await tester.pump();
+
+    double rowOf(Finder chip) => tester.getCenter(chip).dy;
+
+    // Boat class pills.
+    expect(rowOf(find.text('1x')), rowOf(find.text('2x')));
+
+    // Seat chips, then side chips, of the first oarlock.
+    expect(rowOf(find.text('1').first), rowOf(find.text('2').first));
+    expect(rowOf(find.text('port').first), rowOf(find.text('both').first));
+
+    // And a chip is no wider than its label needs.
+    expect(tester.getSize(find.text('1x')).width, lessThan(100));
+  });
+
   testWidgets('unassigns an oarlock', (tester) async {
     tester.view.physicalSize = const Size(400, 2000);
     tester.view.devicePixelRatio = 1.0;
