@@ -11,6 +11,7 @@ import 'package:rudertelemetrie_mobile_app/screens/stroke_settings_screen.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_settings.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
+import 'package:rudertelemetrie_mobile_app/services/rig/oar_side_detection.dart';
 import 'package:rudertelemetrie_mobile_app/services/stroke/stroke_settings.dart';
 
 /// Wraps [home] with the app's theme at the largest system text scale, on the
@@ -80,6 +81,9 @@ void main() {
     await expectNoOverflow(tester, const BoatSetupScreen(), [
       ChangeNotifierProvider<DataSourceProviderModel>.value(value: sources),
       ChangeNotifierProvider<BoatConfig>.value(value: config),
+      ChangeNotifierProvider<OarSideDetection>(
+        create: (_) => OarSideDetection(config: config),
+      ),
     ]);
   });
 }

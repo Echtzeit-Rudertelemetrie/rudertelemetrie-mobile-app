@@ -9,9 +9,10 @@ void main() {
   tearDown(() => monitor.dispose());
 
   test('reports a sequence gap and recovers after the visibility window', () {
-    monitor.recordPacket('device', 10, now: start);
+    monitor.recordPacket('device', 1, 10, now: start);
     monitor.recordPacket(
       'device',
+      1,
       13,
       now: start.add(const Duration(milliseconds: 80)),
     );
@@ -27,7 +28,7 @@ void main() {
   });
 
   test('reports lag and an interrupted data stream', () {
-    monitor.recordPacket('device', 1, now: start);
+    monitor.recordPacket('device', 1, 1, now: start);
 
     expect(
       monitor.qualityAt(start.add(const Duration(milliseconds: 300))).level,
@@ -48,14 +49,69 @@ void main() {
   });
 
   test('handles the 28 bit sequence number wrap without a false loss', () {
-    monitor.recordPacket('device', (1 << 28) - 1, now: start);
+    monitor.recordPacket('device', 1, (1 << 28) - 1, now: start);
     monitor.recordPacket(
       'device',
+      1,
       0,
       now: start.add(const Duration(milliseconds: 80)),
     );
 
     expect(monitor.qualityAt(start).missingPackets, 0);
+  });
+
+  group('two oarlocks on one hub', () {
+    /// Ein Hub leitet alle Dollen weiter, aber jede Dolle zaehlt ihre
+    /// Sequenznummern selbst. Wurde der Zustand nur nach deviceId gefuehrt,
+    /// sah der Monitor die verschraenkten Zaehler als einen einzigen Strom und
+    /// meldete bei jedem zweiten Paket einen Verlust.
+    test('interleaved sequence counters produce no phantom losses', () {
+      var at = start;
+      for (var i = 0; i < 20; i++) {
+        // Beide Dollen zaehlen sauber hoch, nur eben unabhaengig voneinander
+        // und mit weit auseinanderliegenden Staenden.
+        monitor.recordPacket('hub', 1, 100 + i, now: at);
+        at = at.add(const Duration(milliseconds: 40));
+        monitor.recordPacket('hub', 2, 9000 + i, now: at);
+        at = at.add(const Duration(milliseconds: 40));
+      }
+
+      expect(monitor.qualityAt(at).missingPackets, 0);
+      expect(monitor.qualityAt(at).level, TelemetryQualityLevel.live);
+    });
+
+    test('a gap on one oarlock is still reported', () {
+      monitor.recordPacket('hub', 1, 100, now: start);
+      monitor.recordPacket('hub', 2, 9000, now: start);
+      // Nur Dolle 2 verliert drei Pakete; Dolle 1 laeuft daneben weiter.
+      monitor.recordPacket(
+        'hub',
+        1,
+        101,
+        now: start.add(const Duration(milliseconds: 40)),
+      );
+      monitor.recordPacket(
+        'hub',
+        2,
+        9004,
+        now: start.add(const Duration(milliseconds: 80)),
+      );
+
+      expect(
+        monitor.qualityAt(start.add(const Duration(milliseconds: 200)))
+            .missingPackets,
+        3,
+      );
+    });
+
+    test('removeDevice drops every oarlock of that hub', () {
+      monitor.recordPacket('hub', 1, 100, now: start);
+      monitor.recordPacket('hub', 2, 9000, now: start);
+
+      monitor.removeDevice('hub');
+
+      expect(monitor.qualityAt(start), TelemetryQuality.waiting);
+    });
   });
 
   group('loss spikes', () {
@@ -74,7 +130,7 @@ void main() {
       spiking = TelemetryQualityMonitor(onLossSpike: spikes.add);
       // A first packet per device, so the next one can show a gap at all.
       for (final device in sequence.keys) {
-        spiking.recordPacket(device, 0, now: start);
+        spiking.recordPacket(device, 1, 0, now: start);
       }
     });
     tearDown(() => spiking.dispose());
@@ -84,6 +140,7 @@ void main() {
       sequence[device] = sequence[device]! + packets + 1;
       spiking.recordPacket(
         device,
+        1,
         sequence[device]!,
         now: start.add(Duration(milliseconds: atMillis)),
       );

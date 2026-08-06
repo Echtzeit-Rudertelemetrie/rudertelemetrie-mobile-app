@@ -271,8 +271,8 @@ class BluetoothManager {
       speedSettings: speedSettings,
       deviceId: deviceId,
       calibrations: _forceCalibrations,
-      onOarlockPacket: (sequence) =>
-          telemetryQuality.recordPacket(deviceId, sequence),
+      onOarlockPacket: (sensorId, sequence) =>
+          telemetryQuality.recordPacket(deviceId, sensorId, sequence),
       onInvalidPacket: () => telemetryQuality.recordInvalidPacket(deviceId),
     );
     connection.handler = handler;

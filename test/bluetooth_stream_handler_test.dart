@@ -35,9 +35,16 @@ List<int> _oarlockFrame(
   return data.buffer.asUint8List();
 }
 
-List<int> _boatFrame(double pitchDeg, {int timestampMs = 1000}) {
+/// Boat telemetry frame. The IMU region starts at 20; roll/pitch/yaw are
+/// centidegrees at 26/28/30, the device clock a uint32 at 32.
+List<int> _boatFrame(
+  double yawDeg, {
+  double pitchDeg = 0,
+  int timestampMs = 1000,
+}) {
   final data = ByteData(BluetoothPacket.packetSize);
   data.setInt16(28, (pitchDeg * 100).round(), Endian.little);
+  data.setInt16(30, (yawDeg * 100).round(), Endian.little);
   data.setUint32(32, timestampMs, Endian.little);
   return data.buffer.asUint8List();
 }
@@ -50,15 +57,20 @@ void main() {
   late DataSourceRegistry registry;
   late BluetoothStreamHandler handler;
   late List<int> accepted;
+  late List<int> acceptedSensors;
 
   setUp(() {
     registry = DataSourceRegistry();
     accepted = [];
+    acceptedSensors = [];
     handler = BluetoothStreamHandler(
       dataSourceRegistry: registry,
       deviceId: 'AA:BB:CC:DD:EE:01',
       speedSettings: SpeedSettingsModel(),
-      onOarlockPacket: accepted.add,
+      onOarlockPacket: (sensorId, sequence) {
+        acceptedSensors.add(sensorId);
+        accepted.add(sequence);
+      },
     );
   });
 
@@ -168,6 +180,18 @@ void main() {
     expect(accepted, [BluetoothPacket.sequenceModulo - 1, 0]);
   });
 
+  /// Die Sequenznummer allein genuegt dem Qualitaetsmonitor nicht: jede Dolle
+  /// zaehlt eigenstaendig, also muss die sensorId mitgereicht werden, sonst
+  /// verschraenkt der Monitor fremde Zaehler und meldet Phantomverluste.
+  test('forwards the sensorId alongside the sequence number', () {
+    handler.onData(_oarlockFrame(1, 10));
+    handler.onData(_oarlockFrame(2, 9000));
+    handler.onData(_oarlockFrame(1, 11));
+
+    expect(acceptedSensors, [1, 2, 1]);
+    expect(accepted, [10, 9000, 11]);
+  });
+
   test('drops duplicates and late retries, and survives a sender restart', () {
     handler.onData(_oarlockFrame(1, 1000));
     handler.onData(_oarlockFrame(1, 1000)); // radio retry
@@ -178,8 +202,8 @@ void main() {
     expect(accepted, [1000, 1001, 1]);
   });
 
-  test('adds opposite-signed boat pitch to every oarlock angle', () async {
-    handler.onData(_boatFrame(-30));
+  test('subtracts boat yaw from every oarlock angle', () async {
+    handler.onData(_boatFrame(30));
     handler.onData(_oarlockFrame(1, 0, angleDeg: 50));
     final received = listen(sourceStartingWith('Angle 1'));
 
@@ -191,8 +215,28 @@ void main() {
     }
   });
 
-  test('wraps corrected angles into the -180 to 180 degree range', () async {
+  test('ignores boat pitch, which saturates at plus/minus 90 degrees', () async {
+    handler.onData(_boatFrame(0, pitchDeg: 40));
+    handler.onData(_oarlockFrame(1, 0, angleDeg: 50));
+    final received = listen(sourceStartingWith('Angle 1'));
+
+    await _drainPlayback(1);
+
+    expect(received.last.value, closeTo(50, 0.01));
+  });
+
+  test('leaves the raw angle uncompensated', () async {
     handler.onData(_boatFrame(30));
+    handler.onData(_oarlockFrame(1, 0, angleDeg: 50));
+    final received = listen(sourceStartingWith('Raw Angle 1'));
+
+    await _drainPlayback(1);
+
+    expect(received.last.value, closeTo(50, 0.01));
+  });
+
+  test('wraps corrected angles into the -180 to 180 degree range', () async {
+    handler.onData(_boatFrame(-30));
     handler.onData(_oarlockFrame(1, 0, angleDeg: 170));
     final received = listen(sourceStartingWith('Angle 1'));
 

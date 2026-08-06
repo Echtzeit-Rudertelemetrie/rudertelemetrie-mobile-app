@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:rudertelemetrie_mobile_app/providers/data_source_provider.dart';
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
+import 'package:rudertelemetrie_mobile_app/services/rig/oar_side_detection.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/oarlocks.dart';
 import 'package:rudertelemetrie_mobile_app/theme/app_palette.dart';
 
@@ -16,6 +17,7 @@ class BoatSetupScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final registry = context.watch<DataSourceProviderModel>().registry;
     final config = context.watch<BoatConfig>();
+    final detection = context.watch<OarSideDetection>();
     final keys = {
       ...connectedOarlockKeys(registry),
       ...config.slots.keys,
@@ -66,6 +68,7 @@ class BoatSetupScreen extends StatelessWidget {
               slot: config.slotFor(key),
               conflicting: config.conflictingSlotKeys.contains(key),
               connected: connectedOarlockKeys(registry).contains(key),
+              detected: detection.estimateFor(key),
             ),
         ],
       ),
@@ -80,19 +83,52 @@ class _OarlockAssignment extends StatelessWidget {
   final bool conflicting;
   final bool connected;
 
+  /// What `OarSideDetection` makes of this oarlock's swing direction, if it has
+  /// seen enough strokes to say. Shown even when it agrees with the assignment
+  /// so the provenance of a side is never a mystery.
+  final OarSideEstimate? detected;
+
   const _OarlockAssignment({
     required this.oarlockKey,
     required this.seats,
     required this.slot,
     required this.conflicting,
     required this.connected,
+    required this.detected,
   });
 
   void _update(BuildContext context, {int? seat, OarSide? side}) {
-    final current = slot ?? const SeatSlot(seat: 1, side: OarSide.both);
+    final current =
+        slot ??
+        const SeatSlot(
+          seat: 1,
+          side: OarSide.both,
+          sideOrigin: SideOrigin.unset,
+        );
     context.read<BoatConfig>().assignSlot(
       oarlockKey,
-      SeatSlot(seat: seat ?? current.seat, side: side ?? current.side),
+      SeatSlot(
+        seat: seat ?? current.seat,
+        side: side ?? current.side,
+        // Only a tap on a side chip is a manual choice. Creating the slot by
+        // picking a seat leaves the side open, so detection may still fill it.
+        sideOrigin: side != null ? SideOrigin.manual : current.sideOrigin,
+      ),
+    );
+  }
+
+  /// Adopts the detected side while keeping it marked as detected, so it goes
+  /// on tracking the sensor rather than freezing at today's reading.
+  void _adoptDetected(BuildContext context, OarSide side) {
+    final current = slot;
+    if (current == null) return;
+    context.read<BoatConfig>().assignSlot(
+      oarlockKey,
+      SeatSlot(
+        seat: current.seat,
+        side: side,
+        sideOrigin: SideOrigin.detected,
+      ),
     );
   }
 
@@ -145,6 +181,7 @@ class _OarlockAssignment extends StatelessWidget {
               ),
           ],
         ),
+        ..._detection(context),
         if (conflicting) ...[
           const SizedBox(height: 6),
           const Text(
@@ -156,6 +193,57 @@ class _OarlockAssignment extends StatelessWidget {
           ),
         ],
       ],
+    ),
+  );
+
+  /// Says where the current side came from, and what the sensor thinks.
+  ///
+  /// A detected side is auto-applied only where nothing was chosen by hand, so
+  /// this line is what makes that visible; when detection disagrees with a
+  /// manual choice it offers the swap instead of taking it.
+  List<Widget> _detection(BuildContext context) {
+    final estimate = detected;
+    final current = slot;
+
+    if (estimate == null) {
+      if (current?.sideOrigin != SideOrigin.detected) return const [];
+      return [
+        _note(
+          'Side was detected automatically.',
+          AppPalette.faintLabel,
+        ),
+      ];
+    }
+
+    final rate = estimate.medianRateDegPerSecond.round();
+    final summary =
+        'Detected ${estimate.side.name} '
+        '(${estimate.agreeingStrokes} of ${estimate.consideredStrokes} '
+        'strokes, $rate °/s)';
+
+    if (current == null) {
+      return [_note('$summary — pick a seat to apply it.', AppPalette.accent)];
+    }
+    if (current.sideOrigin != SideOrigin.manual) {
+      return [_note('$summary — applied automatically.', AppPalette.ok)];
+    }
+    if (current.side == estimate.side) {
+      return [_note('$summary — matches your setting.', AppPalette.ok)];
+    }
+    return [
+      _note('$summary — you set ${current.side.name}.', AppPalette.warning),
+      _TextAction(
+        label: 'Use detected side',
+        onTap: () => _adoptDetected(context, estimate.side),
+      ),
+    ];
+  }
+
+  Widget _note(String text, Color color) => Padding(
+    padding: const EdgeInsets.only(top: 6),
+    child: Text(
+      text,
+      style: TextStyle(color: color, fontSize: AppTypeScale.caption),
     ),
   );
 
@@ -184,6 +272,7 @@ class _OarlockAssignment extends StatelessWidget {
             oarlockKey,
             config: context.read<BoatConfig>(),
             calibrations: context.read<ForceCalibrations>(),
+            sideDetection: context.read<OarSideDetection>(),
           ),
         ),
       ],

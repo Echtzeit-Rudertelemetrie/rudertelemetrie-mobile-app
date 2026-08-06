@@ -1,6 +1,7 @@
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
+import 'package:rudertelemetrie_mobile_app/services/rig/oar_side_detection.dart';
 
 final _baseForce = RegExp(r'^Force \d');
 
@@ -12,8 +13,8 @@ Set<String> connectedOarlockKeys(DataSourceRegistry registry) => {
     if (_baseForce.hasMatch(source.name) && source.group != null) source.group!,
 };
 
-/// Forgets an oarlock everywhere it is remembered: rig, seat, and force
-/// calibration.
+/// Forgets an oarlock everywhere it is remembered: rig, seat, force
+/// calibration, and any accumulated side detection.
 ///
 /// Geometry and sensor calibration live in separate stores because they have
 /// independent lifetimes — a rig survives recalibrating a cell, and a
@@ -24,9 +25,11 @@ void forgetOarlock(
   String oarlockKey, {
   required BoatConfig config,
   required ForceCalibrations calibrations,
+  OarSideDetection? sideDetection,
 }) {
   config.removeOarlock(oarlockKey);
   calibrations.removeCalibration(oarlockKey);
+  sideDetection?.forget(oarlockKey);
 }
 
 /// Connected oarlocks whose rig is missing or unusable. Their force and power

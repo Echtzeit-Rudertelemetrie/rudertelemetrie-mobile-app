@@ -54,21 +54,62 @@ enum BoatClass {
 }
 
 /// Which side an oar sits on. `both` is a sculler (one oar each side).
+///
+/// Named from the boat, not from the rower: a rower sits backwards, so their
+/// left hand side is [starboard]. `OarSideDetection` depends on that.
 enum OarSide { port, starboard, both }
+
+/// Where a slot's side came from, so automatic detection can fill a gap without
+/// ever quietly contradicting the user.
+///
+/// Config written before detection existed has no such field and loads as
+/// [manual] — the conservative reading, since back then every side on file had
+/// been chosen in the setup screen.
+enum SideOrigin {
+  /// The slot exists because a seat was picked; the side is still open.
+  unset,
+
+  /// Filled in by `OarSideDetection` and still tracking it.
+  detected,
+
+  /// Chosen in the setup screen. Never overwritten automatically.
+  manual,
+}
 
 /// Where an oarlock sits in the crew: seat position (1 = bow, sternward) + side.
 class SeatSlot {
   final int seat;
   final OarSide side;
+  final SideOrigin sideOrigin;
 
-  const SeatSlot({required this.seat, required this.side});
+  const SeatSlot({
+    required this.seat,
+    required this.side,
+    this.sideOrigin = SideOrigin.manual,
+  });
 
-  Map<String, dynamic> toJson() => {'seat': seat, 'side': side.name};
+  Map<String, dynamic> toJson() => {
+    'seat': seat,
+    'side': side.name,
+    'sideOrigin': sideOrigin.name,
+  };
 
   static SeatSlot fromJson(Map<String, dynamic> json) => SeatSlot(
     seat: (json['seat'] as num).toInt(),
     side: OarSide.values.asNameMap()[json['side']] ?? OarSide.both,
+    sideOrigin:
+        SideOrigin.values.asNameMap()[json['sideOrigin']] ?? SideOrigin.manual,
   );
+
+  @override
+  bool operator ==(Object other) =>
+      other is SeatSlot &&
+      other.seat == seat &&
+      other.side == side &&
+      other.sideOrigin == sideOrigin;
+
+  @override
+  int get hashCode => Object.hash(seat, side, sideOrigin);
 }
 
 /// Per-oarlock rig (Part A) and crew layout (Part B), keyed by the stable
@@ -126,9 +167,35 @@ class BoatConfig extends ChangeNotifier {
   }
 
   void assignSlot(String oarlockKey, SeatSlot slot) {
+    if (_slots[oarlockKey] == slot) return;
     _slots[oarlockKey] = slot;
     _persist();
     notifyListeners();
+  }
+
+  /// Records an automatically detected side. Returns whether anything changed.
+  ///
+  /// Two things it deliberately will not do. It never overwrites a
+  /// [SideOrigin.manual] side — a detector that silently contradicts the setup
+  /// screen is worse than no detector, because the rower has no way to tell
+  /// which one the numbers came from. And it never invents a seat: detection
+  /// reads a swing direction, which says nothing about where in the crew an
+  /// oarlock sits, so an oarlock with no slot at all is left alone and its
+  /// estimate stays a suggestion in the setup screen.
+  bool applyDetectedSide(String oarlockKey, OarSide side) {
+    final slot = _slots[oarlockKey];
+    if (slot == null || slot.sideOrigin == SideOrigin.manual) return false;
+
+    final updated = SeatSlot(
+      seat: slot.seat,
+      side: side,
+      sideOrigin: SideOrigin.detected,
+    );
+    if (updated == slot) return false;
+    _slots[oarlockKey] = updated;
+    _persist();
+    notifyListeners();
+    return true;
   }
 
   void clearSlot(String oarlockKey) {

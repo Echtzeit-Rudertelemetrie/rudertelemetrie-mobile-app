@@ -6,6 +6,7 @@ import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source.
 import 'package:rudertelemetrie_mobile_app/services/data_processing/data_source_registry.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/recording/recording_session.dart';
+import 'package:rudertelemetrie_mobile_app/services/rig/oar_side_detection.dart';
 import 'package:rudertelemetrie_mobile_app/services/stroke/oarlock_stroke_detector.dart';
 import 'package:rudertelemetrie_mobile_app/services/stroke/stroke_event.dart';
 import 'package:rudertelemetrie_mobile_app/services/stroke/stroke_settings.dart';
@@ -27,6 +28,17 @@ class StrokeEngine {
   final StrokeSettings settings;
   final RecordingSession? session;
   final Duration quorumWindow;
+
+  /// Fed the same fused `(θ, F)` stream as the stroke detectors.
+  ///
+  /// It rides along here rather than binding the registry a second time: this
+  /// is already the one place that pairs an oarlock's `Force` and `Angle` by
+  /// timestamp and knows its key, and a second copy of that fusion would double
+  /// the subscriptions per oarlock and drift out of step with this one. Side
+  /// detection does its own smoothing and its own drive segmentation, though —
+  /// it is not derived from [OarlockCycle], because it has to work before the
+  /// force thresholds here have anything sensible to scale against.
+  final OarSideDetection? sideDetection;
 
   final StreamController<StrokeEvent> _events = StreamController.broadcast();
   final Map<String, _OarlockBinding> _bindings = {};
@@ -55,6 +67,7 @@ class StrokeEngine {
     required this.registry,
     required this.settings,
     this.session,
+    this.sideDetection,
     this.quorumWindow = defaultQuorumWindow,
   }) {
     _rate = _register('Stroke Rate', Unit.spm);
@@ -140,6 +153,8 @@ class StrokeEngine {
         force: pair.force,
         angle: pair.angle,
         isPaused: () => _paused,
+        onFused: (angle, force, time) =>
+            sideDetection?.add(key, angle, force, time),
         detector: OarlockStrokeDetector(
           oarlockKey: key,
           settings: settings,
@@ -339,6 +354,7 @@ class _OarlockBinding {
   final DataSource angle;
   final OarlockStrokeDetector detector;
   final bool Function() isPaused;
+  final void Function(double angleDeg, double force, DateTime time) onFused;
 
   late final StreamSubscription<Measurement> _forceSub;
   late final StreamSubscription<Measurement> _angleSub;
@@ -350,6 +366,7 @@ class _OarlockBinding {
     required this.angle,
     required this.detector,
     required this.isPaused,
+    required this.onFused,
   }) {
     _forceSub = force.data.listen((m) {
       _pendingForce = m;
@@ -370,8 +387,13 @@ class _OarlockBinding {
     if (f == null || a == null) return;
     if (f.timestamp == a.timestamp) {
       // Fusion keeps running while paused so alignment survives the gap; only
-      // the segmentation is suspended.
-      if (!isPaused()) detector.add(a.value, f.value, f.timestamp);
+      // the segmentation is suspended. Side detection is suspended with it: a
+      // weight hanging off the cell is a long stretch of high force with no
+      // swing at all, which is exactly what its drive segmentation looks for.
+      if (!isPaused()) {
+        detector.add(a.value, f.value, f.timestamp);
+        onFused(a.value, f.value, f.timestamp);
+      }
       _pendingForce = null;
       _pendingAngle = null;
     } else if (f.timestamp.isBefore(a.timestamp)) {

@@ -39,6 +39,7 @@ void main() {
         recordingProvider,
         forceSourcesProvider,
         strokeSettingsProvider,
+        oarSideDetectionProvider,
         strokeEngineProvider,
         forceCalibrationSessionProvider,
         powerSourcesProvider,

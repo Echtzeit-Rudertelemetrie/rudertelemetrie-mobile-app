@@ -39,7 +39,16 @@ class TelemetryQualityMonitor extends ChangeNotifier {
   /// Nothing here gets better by being told twice in a row.
   static const spikeCooldown = Duration(seconds: 30);
 
-  final Map<String, _DeviceQuality> _devices = {};
+  /// Keyed per SENDER, not per device. One hub relays every oarlock, and each
+  /// oarlock runs its own independent 28-bit sequence counter in firmware. With
+  /// a single counter per deviceId the monitor saw interleaved sequences from
+  /// different senders, computed nonsense advances and scored roughly every
+  /// other packet as a burst of losses -- enough to inflate the status card and
+  /// to trip [onLossSpike] continuously during normal rowing.
+  ///
+  /// `sensorId` is null for events that cannot be attributed to one oarlock,
+  /// notably an undecodable frame.
+  final Map<(String deviceId, int? sensorId), _DeviceQuality> _devices = {};
   final Queue<_LossBurst> _recentLosses = Queue();
   late final Timer _timer;
 
@@ -100,9 +109,19 @@ class TelemetryQualityMonitor extends ChangeNotifier {
     );
   }
 
-  void recordPacket(String deviceId, int sequenceNumber, {DateTime? now}) {
+  /// [sensorId] is the oarlock the packet came from (1..15). It must be passed
+  /// through: sequence continuity only means anything within one sender.
+  void recordPacket(
+    String deviceId,
+    int sensorId,
+    int sequenceNumber, {
+    DateTime? now,
+  }) {
     final receivedAt = now ?? DateTime.now();
-    final device = _devices.putIfAbsent(deviceId, _DeviceQuality.new);
+    final device = _devices.putIfAbsent(
+      (deviceId, sensorId),
+      _DeviceQuality.new,
+    );
     final previous = device.lastSequence;
 
     if (previous != null) {
@@ -121,9 +140,11 @@ class TelemetryQualityMonitor extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// An undecodable frame carries no usable sensorId, so it lands on the
+  /// device's sender-less slot. Its losses still feed the shared spike window.
   void recordInvalidPacket(String deviceId, {DateTime? now}) {
     final at = now ?? DateTime.now();
-    final device = _devices.putIfAbsent(deviceId, _DeviceQuality.new);
+    final device = _devices.putIfAbsent((deviceId, null), _DeviceQuality.new);
     device.lastInvalid++;
     device.lastMissing = 0;
     device.lastProblemAt = at;
@@ -158,8 +179,12 @@ class TelemetryQualityMonitor extends ChangeNotifier {
     }
   }
 
+  /// Drops every sender of this device, not just one: the key is composite, so
+  /// a plain remove(deviceId) would silently miss all its oarlocks.
   void removeDevice(String deviceId) {
-    if (_devices.remove(deviceId) != null) notifyListeners();
+    final before = _devices.length;
+    _devices.removeWhere((key, _) => key.$1 == deviceId);
+    if (_devices.length != before) notifyListeners();
   }
 
   TelemetryQualityLevel _levelFor(Duration silence, int recentProblems) {

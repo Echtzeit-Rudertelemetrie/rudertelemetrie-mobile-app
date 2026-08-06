@@ -9,17 +9,22 @@ import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibratio
 import 'package:rudertelemetrie_mobile_app/services/calibration/force_calibrations.dart';
 import 'package:rudertelemetrie_mobile_app/services/data_processing/push_data_source.dart';
 import 'package:rudertelemetrie_mobile_app/services/rig/boat_config.dart';
+import 'package:rudertelemetrie_mobile_app/services/rig/oar_side_detection.dart';
 
 Widget _screen(
   DataSourceProviderModel sources,
   BoatConfig config, {
   ForceCalibrations? calibrations,
+  OarSideDetection? sideDetection,
 }) => MultiProvider(
   providers: [
     ChangeNotifierProvider<DataSourceProviderModel>.value(value: sources),
     ChangeNotifierProvider<BoatConfig>.value(value: config),
     ChangeNotifierProvider<ForceCalibrations>.value(
       value: calibrations ?? ForceCalibrations(),
+    ),
+    ChangeNotifierProvider<OarSideDetection>.value(
+      value: sideDetection ?? OarSideDetection(config: config),
     ),
   ],
   child: MaterialApp(
@@ -28,6 +33,40 @@ Widget _screen(
     home: const BoatSetupScreen(),
   ),
 );
+
+/// Drives [detection] with enough clean strokes for it to settle on a side.
+/// A negative sweep rate is starboard, the rower's left; see
+/// [OarSideDetection] for where the sign comes from.
+OarSideDetection _settledDetection(
+  String oarlockKey,
+  double rateDegPerSecond, {
+  BoatConfig? config,
+}) {
+  const stepMs = 10;
+  const step = Duration(milliseconds: stepMs);
+  final detection = OarSideDetection(config: config);
+  var time = DateTime(2026, 8, 6, 10);
+
+  void feed(double angle, double force) {
+    detection.add(oarlockKey, angle, force, time);
+    time = time.add(step);
+  }
+
+  for (var i = 0; i < 500; i++) {
+    feed(0, 0); // 5 s of idle, past the threshold warm-up
+  }
+  for (var stroke = 0; stroke < 4; stroke++) {
+    var angle = 0.0;
+    for (var i = 0; i < 60; i++) {
+      angle += rateDegPerSecond * stepMs / 1000;
+      feed(angle, 400);
+    }
+    for (var i = 0; i < 140; i++) {
+      feed(angle, 0);
+    }
+  }
+  return detection;
+}
 
 void main() {
   late DataSourceProviderModel sources;
@@ -172,6 +211,66 @@ void main() {
     // oarlock next claimed that key.
     expect(calibrations.calibrationFor('Oarlock 9').isCalibrated, isFalse);
     expect(calibrations.knownKeys, isNot(contains('Oarlock 9')));
+  });
+
+  group('automatic side detection', () {
+    testWidgets('offers the detected side rather than taking it', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      config.assignSlot(
+        'Oarlock 1',
+        const SeatSlot(
+          seat: 1,
+          side: OarSide.port,
+          sideOrigin: SideOrigin.manual,
+        ),
+      );
+      final detection = _settledDetection('Oarlock 1', -30, config: config);
+
+      await tester.pumpWidget(
+        _screen(sources, config, sideDetection: detection),
+      );
+      await tester.pump();
+
+      // The manual choice stands until the user says otherwise.
+      expect(config.slotFor('Oarlock 1')!.side, OarSide.port);
+      expect(find.textContaining('Detected starboard'), findsOneWidget);
+
+      await tester.tap(find.text('Use detected side'));
+      await tester.pump();
+
+      final slot = config.slotFor('Oarlock 1')!;
+      expect(slot.side, OarSide.starboard);
+      expect(slot.sideOrigin, SideOrigin.detected);
+    });
+
+    testWidgets('says so when it filled a side by itself', (tester) async {
+      tester.view.physicalSize = const Size(400, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      config.assignSlot(
+        'Oarlock 1',
+        const SeatSlot(
+          seat: 1,
+          side: OarSide.both,
+          sideOrigin: SideOrigin.unset,
+        ),
+      );
+      final detection = _settledDetection('Oarlock 1', 42, config: config);
+
+      await tester.pumpWidget(
+        _screen(sources, config, sideDetection: detection),
+      );
+      await tester.pump();
+
+      expect(config.slotFor('Oarlock 1')!.side, OarSide.port);
+      expect(find.textContaining('applied automatically'), findsOneWidget);
+    });
   });
 
   group('conflict detection', () {

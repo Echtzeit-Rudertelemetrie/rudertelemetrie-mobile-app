@@ -19,7 +19,9 @@ class BluetoothStreamHandler {
   final DataSourceRegistry dataSourceRegistry;
   final String deviceId;
   final SpeedSettingsModel speedSettings;
-  final void Function(int sequenceNumber)? onOarlockPacket;
+  /// Reports an accepted oarlock packet. The sensorId travels with it because
+  /// each oarlock has its own sequence counter -- see TelemetryQualityMonitor.
+  final void Function(int sensorId, int sequenceNumber)? onOarlockPacket;
   final void Function()? onInvalidPacket;
 
   /// Optional so a headless or test handler can stream without config; without
@@ -70,7 +72,7 @@ class BluetoothStreamHandler {
     final advance = stream.acceptSequence(packet.sequenceNumber);
     if (advance == null) return; // duplicate or late retry
 
-    onOarlockPacket?.call(packet.sequenceNumber);
+    onOarlockPacket?.call(packet.sensorId, packet.sequenceNumber);
     stream.enqueue(packet, advance);
   }
 
@@ -93,9 +95,19 @@ class BluetoothStreamHandler {
     final group = 'Boat ($_deviceTag)';
     final speed = _speedSource(group);
     final timestamp = _boatTimestamp(speed, packet.imu.timestampMs);
-    // The installed boat IMU was physically verified on 2026-07-27: a flat
-    // 42-degree turn changed pitch by 42 degrees while yaw/roll stayed near 0.
-    _boatRotationDeg = packet.imu.pitchDeg;
+    // Yaw, not pitch. The earlier pitch choice came from a 2026-07-27 check made
+    // while `AngleReader::readSample()` still applied the cyclic `(y,z,x)` axis
+    // swap; that mapping is now the identity and the boat IMU sits flat with X
+    // forward (accel at rest: x −2, y −5, z +995 mg), so a flat turn is yaw.
+    //
+    // Re-measured 2026-08-06 by turning boat and oarlock together:
+    //   pitch moved 2.85°, yaw moved 102.3° over the same turn.
+    //   correlation with boat rotation — raw oarlock angle +0.665,
+    //   old formula (oarlock + pitch) +0.672 (i.e. no compensation at all),
+    //   new formula (oarlock − yaw) −0.182 (compensated).
+    // Pitch also comes from `asin()` and saturates at ±90°, while yaw comes from
+    // `atan2()` and covers ±180° — a boat turn past 90° would have been mangled.
+    _boatRotationDeg = packet.imu.yawDeg;
 
     if (packet.gps.valid) {
       speed.addMps(
@@ -336,9 +348,12 @@ class _OarlockStream {
         Measurement(
           value: boatRotation == null
               ? sample.angle.value
-              // The two installed IMUs use opposite signs for the same
-              // physical boat turn, so adding pitch cancels common rotation.
-              : _wrapDegrees(sample.angle.value + boatRotation),
+              // Subtract, don't add: both units turn the *same* way for the same
+              // physical boat rotation. Measured 2026-08-06 while turning boat
+              // and oarlock together, d(oarlock)/d(boat yaw) = +0.82 overall and
+              // 0.94 / 1.09 in the two ten-second windows. Adding would have
+              // doubled the rotation instead of cancelling it.
+              : _wrapDegrees(sample.angle.value - boatRotation),
           timestamp: sample.angle.timestamp,
         ),
       );
